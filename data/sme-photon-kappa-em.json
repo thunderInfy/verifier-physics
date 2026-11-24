@@ -1,0 +1,26 @@
+{
+ "id": "sme-photon-kappa-em",
+ "kind": "gaussian",
+ "family": "registry-2026",
+ "source": "Kostelecký & Russell, Data Tables for Lorentz and CPT Violation, arXiv:0801.0287 (Jan 2026 ed.), Table D20 (photon sector d = 4, part 1), sapphire cavity oscillators [168]; retrieved 2026-11-10",
+ "derivation": {
+  "all": "reported value ± 1σ, Sun-centred frame"
+ },
+ "quantities": {
+  "kappa_em_XY": {
+   "dim": "1",
+   "value": "-0.7e-18",
+   "sigma": "1.6e-18"
+  },
+  "kappa_em_XZ": {
+   "dim": "1",
+   "value": "-5.5e-18",
+   "sigma": "4.0e-18"
+  },
+  "kappa_em_YZ": {
+   "dim": "1",
+   "value": "-1.9e-18",
+   "sigma": "3.2e-18"
+  }
+ }
+}

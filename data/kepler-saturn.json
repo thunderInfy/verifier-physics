@@ -1,0 +1,40 @@
+{
+ "id": "kepler-saturn",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturnfact.html; https://ssd.jpl.nasa.gov/astro_par.html (DE440 heliocentric GM = 132712440041279419000.0000000); retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "1432.041",
+  "sidereal_period_days": "10755.699",
+  "perihelion_1e6km": "1357.554",
+  "aphelion_1e6km": "1506.527",
+  "mass_1e24kg": "568.32"
+ },
+ "derivation": {
+  "a": "published digits ± half ulp",
+  "T": "sidereal period ± 1%: mean elements include planetary perturbations, which shift the effective two-body period by up to ~0.6% (Saturn/Neptune great inequalities); the margin absorbs that so the two-body idealisation is testable",
+  "GM": "[GM_sun, GM_sun·(1 + m_planet/M_sun)] widened by 1e-9 (two-body reduced mass)"
+ },
+ "quantities": {
+  "a": {
+   "dim": "L",
+   "bounds": [
+    "1.4320405E+12",
+    "1.4320415E+12"
+   ]
+  },
+  "T": {
+   "dim": "T",
+   "bounds": [
+    "919999469.664",
+    "938585317.536"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132750371744098318030.0796301"
+   ]
+  }
+ }
+}

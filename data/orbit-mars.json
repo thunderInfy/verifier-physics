@@ -1,0 +1,42 @@
+{
+ "id": "orbit-mars",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "227.956",
+  "sidereal_period_days": "686.980",
+  "perihelion_1e6km": "206.650",
+  "aphelion_1e6km": "249.261",
+  "mass_1e24kg": "0.64169"
+ },
+ "derivation": {
+  "r_peri, r_aph": "published digits ± 0.5% (osculating elements drift; only the existence of a min and a max is used)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "2.0561675E+11",
+    "2.0768325E+11"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "2.48014695E+11",
+    "2.50507305E+11"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132712483002520190991.0058463"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}

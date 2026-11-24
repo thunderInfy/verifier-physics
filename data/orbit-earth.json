@@ -1,0 +1,42 @@
+{
+ "id": "orbit-earth",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "149.598",
+  "sidereal_period_days": "365.256",
+  "perihelion_1e6km": "147.095",
+  "aphelion_1e6km": "152.100",
+  "mass_1e24kg": "5.9722"
+ },
+ "derivation": {
+  "r_peri, r_aph": "published digits ± 0.5% (osculating elements drift; only the existence of a min and a max is used)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "1.46359525E+11",
+    "1.47830475E+11"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "1.513395E+11",
+    "1.528605E+11"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132712838778515700881.0403154"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}

@@ -1,0 +1,115 @@
+{
+ "id": "trajectory-mercury-10d",
+ "source": "JPL Horizons DE440 heliocentric ecliptic J2000 vectors 2024-01-01 and 2024-01-11: https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='199'&OBJ_DATA='NO'&EPHEM_TYPE='VECTORS'&CENTER='500@10'&START_TIME='2024-01-01'&STOP_TIME='2024-01-11'&STEP_SIZE='10d'&OUT_UNITS='KM-S'&REF_PLANE='ECLIPTIC'&VEC_TABLE='2'&CSV_FORMAT='YES'; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "state0_km_kms": [
+   "-41084118.77039495",
+   "29973759.54154480",
+   "6217890.408222714",
+   "-38.65743010383652",
+   "-37.33889075044869",
+   "0.4944436024774976"
+  ],
+  "state1_km_kms": [
+   "-58951205.26930500",
+   "-8258666.928429559",
+   "4732337.235377138",
+   "-3.370891453910464",
+   "-46.14979320290858",
+   "-3.462219756116461"
+  ]
+ },
+ "derivation": {
+  "initial state": "± 1 km, ± 1 mm/s (ephemeris accuracy for Mercury is far better)",
+  "final position": "± 500 km: perturbations ignored by a two-body model (Venus ≲ 1.3e-7 m/s² → ≲ 50 km in 10 days; Jupiter, Earth, GR smaller) times 10"
+ },
+ "quantities": {
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132712462205965557208.0027491"
+   ]
+  },
+  "x0": {
+   "dim": "L",
+   "bounds": [
+    "-41084119770.39495",
+    "-41084117770.39495"
+   ]
+  },
+  "vx0": {
+   "dim": "L T^-1",
+   "bounds": [
+    "-38657.43110383652",
+    "-38657.42910383652"
+   ]
+  },
+  "x1": {
+   "dim": "L",
+   "bounds": [
+    "-58951705269.305",
+    "-58950705269.305"
+   ]
+  },
+  "y0": {
+   "dim": "L",
+   "bounds": [
+    "29973758541.5448",
+    "29973760541.5448"
+   ]
+  },
+  "vy0": {
+   "dim": "L T^-1",
+   "bounds": [
+    "-37338.89175044869",
+    "-37338.88975044869"
+   ]
+  },
+  "y1": {
+   "dim": "L",
+   "bounds": [
+    "-8259166928.429559",
+    "-8258166928.429559"
+   ]
+  },
+  "z0": {
+   "dim": "L",
+   "bounds": [
+    "6217889408.222714",
+    "6217891408.222714"
+   ]
+  },
+  "vz0": {
+   "dim": "L T^-1",
+   "bounds": [
+    "494.4426024774976",
+    "494.4446024774976"
+   ]
+  },
+  "z1": {
+   "dim": "L",
+   "bounds": [
+    "4731837235.377138",
+    "4732837235.377138"
+   ]
+  }
+ },
+ "trajectory": {
+  "initial": {
+   "x": "x0",
+   "y": "y0",
+   "z": "z0",
+   "vx": "vx0",
+   "vy": "vy0",
+   "vz": "vz0"
+  },
+  "t_obs": "864000",
+  "observe": {
+   "x": "x1",
+   "y": "y1",
+   "z": "z1"
+  }
+ }
+}

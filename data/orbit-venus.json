@@ -1,0 +1,42 @@
+{
+ "id": "orbit-venus",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "108.210",
+  "sidereal_period_days": "224.701",
+  "perihelion_1e6km": "107.480",
+  "aphelion_1e6km": "108.941",
+  "mass_1e24kg": "4.8673"
+ },
+ "derivation": {
+  "r_peri, r_aph": "published digits ± 0.5% (osculating elements drift; only the existence of a min and a max is used)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "1.069426E+11",
+    "1.080174E+11"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "1.08396295E+11",
+    "1.09485705E+11"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132712765033808826890.0902778"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}

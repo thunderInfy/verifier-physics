@@ -1,0 +1,40 @@
+{
+ "id": "kepler-uranus",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/uranusfact.html; https://ssd.jpl.nasa.gov/astro_par.html (DE440 heliocentric GM = 132712440041279419000.0000000); retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "2867.043",
+  "sidereal_period_days": "30685.400",
+  "perihelion_1e6km": "2732.696",
+  "aphelion_1e6km": "3001.390",
+  "mass_1e24kg": "86.811"
+ },
+ "derivation": {
+  "a": "published digits ± half ulp",
+  "T": "sidereal period ± 1%: mean elements include planetary perturbations, which shift the effective two-body period by up to ~0.6% (Saturn/Neptune great inequalities); the margin absorbs that so the two-body idealisation is testable",
+  "GM": "[GM_sun, GM_sun·(1 + m_planet/M_sun)] widened by 1e-9 (two-body reduced mass)"
+ },
+ "quantities": {
+  "a": {
+   "dim": "L",
+   "bounds": [
+    "2.8670425E+12",
+    "2.8670435E+12"
+   ]
+  },
+  "T": {
+   "dim": "T",
+   "bounds": [
+    "2624706374.4",
+    "2677730745.6"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132718234229334820420.9189445"
+   ]
+  }
+ }
+}

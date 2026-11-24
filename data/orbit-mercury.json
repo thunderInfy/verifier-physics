@@ -1,0 +1,42 @@
+{
+ "id": "orbit-mercury",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "57.909",
+  "sidereal_period_days": "87.969",
+  "perihelion_1e6km": "46.000",
+  "aphelion_1e6km": "69.818",
+  "mass_1e24kg": "0.33010"
+ },
+ "derivation": {
+  "r_peri, r_aph": "published digits ± 0.5% (osculating elements drift; only the existence of a min and a max is used)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "4.577E+10",
+    "4.623E+10"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "6.946891E+10",
+    "7.016709E+10"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132712462205965557208.0027491"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}

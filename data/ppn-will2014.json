@@ -1,0 +1,37 @@
+{
+ "id": "ppn-will2014",
+ "kind": "gaussian",
+ "family": "registry-2026",
+ "source": "Will, Living Rev. Relativ. 17, 4 (2014), arXiv:1403.7377: γ from §3.4 (Cassini, Bertotti et al. 2003); others Table 4; retrieved 2026-11-10",
+ "derivation": {
+  "gamma": "γ − 1 = (2.1 ± 2.3)e-5: a reported 1σ Gaussian result",
+  "beta, xi, alpha1, alpha2": "Table 4 'Limit' column, no confidence level stated: INTERPRETED as a 1σ scale around 0 (an assumption)"
+ },
+ "quantities": {
+  "gamma": {
+   "dim": "1",
+   "value": "1.000021",
+   "sigma": "0.000023"
+  },
+  "beta": {
+   "dim": "1",
+   "value": "1",
+   "sigma": "0.00008"
+  },
+  "xi": {
+   "dim": "1",
+   "value": "0",
+   "sigma": "4e-9"
+  },
+  "alpha1": {
+   "dim": "1",
+   "value": "0",
+   "sigma": "1e-4"
+  },
+  "alpha2": {
+   "dim": "1",
+   "value": "0",
+   "sigma": "2e-9"
+  }
+ }
+}

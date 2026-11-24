@@ -1,0 +1,40 @@
+{
+ "id": "kepler-venus",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html; https://ssd.jpl.nasa.gov/astro_par.html (DE440 heliocentric GM = 132712440041279419000.0000000); retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "108.210",
+  "sidereal_period_days": "224.701",
+  "perihelion_1e6km": "107.480",
+  "aphelion_1e6km": "108.941",
+  "mass_1e24kg": "4.8673"
+ },
+ "derivation": {
+  "a": "published digits ± half ulp",
+  "T": "sidereal period ± 1%: mean elements include planetary perturbations, which shift the effective two-body period by up to ~0.6% (Saturn/Neptune great inequalities); the margin absorbs that so the two-body idealisation is testable",
+  "GM": "[GM_sun, GM_sun·(1 + m_planet/M_sun)] widened by 1e-9 (two-body reduced mass)"
+ },
+ "quantities": {
+  "a": {
+   "dim": "L",
+   "bounds": [
+    "1.082095E+11",
+    "1.082105E+11"
+   ]
+  },
+  "T": {
+   "dim": "T",
+   "bounds": [
+    "19220024.736",
+    "19608308.064"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132712765033808826890.0902778"
+   ]
+  }
+ }
+}

@@ -1,0 +1,10 @@
+{"id": "pendulum-90deg-SYNTHETIC",
+ "source": "SYNTHETIC demo data: generated from the exact nonlinear pendulum (g = 9.805, L = 1, theta0 = pi/2) with mpmath odefun; not a real measurement.",
+ "kind": "hard_bounds",
+ "quantities": {
+   "g":   {"dim": "L T^-2", "bounds": ["9.80", "9.81"]},
+   "L":   {"dim": "L",      "bounds": ["0.999", "1.001"]},
+   "th0": {"dim": "1",      "bounds": ["1.5698", "1.5718"]},
+   "w0":  {"dim": "T^-1",   "bounds": ["-0.001", "0.001"]},
+   "th1": {"dim": "1",      "bounds": ["-1.43", "-1.38"]}},
+ "trajectory": {"initial": {"th": "th0", "w": "w0"}, "t_obs": "1", "observe": {"th": "th1"}}}

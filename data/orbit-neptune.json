@@ -1,0 +1,42 @@
+{
+ "id": "orbit-neptune",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptunefact.html; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "4514.953",
+  "sidereal_period_days": "60189.018",
+  "perihelion_1e6km": "4471.050",
+  "aphelion_1e6km": "4558.857",
+  "mass_1e24kg": "102.409"
+ },
+ "derivation": {
+  "r_peri, r_aph": "published digits ± 0.5% (osculating elements drift; only the existence of a min and a max is used)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "4.44869475E+12",
+    "4.49340525E+12"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "4.536062715E+12",
+    "4.581651285E+12"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132719275291818140640.7023512"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}

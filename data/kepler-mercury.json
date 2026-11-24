@@ -1,0 +1,40 @@
+{
+ "id": "kepler-mercury",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html; https://ssd.jpl.nasa.gov/astro_par.html (DE440 heliocentric GM = 132712440041279419000.0000000); retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "57.909",
+  "sidereal_period_days": "87.969",
+  "perihelion_1e6km": "46.000",
+  "aphelion_1e6km": "69.818",
+  "mass_1e24kg": "0.33010"
+ },
+ "derivation": {
+  "a": "published digits ± half ulp",
+  "T": "sidereal period ± 1%: mean elements include planetary perturbations, which shift the effective two-body period by up to ~0.6% (Saturn/Neptune great inequalities); the margin absorbs that so the two-body idealisation is testable",
+  "GM": "[GM_sun, GM_sun·(1 + m_planet/M_sun)] widened by 1e-9 (two-body reduced mass)"
+ },
+ "quantities": {
+  "a": {
+   "dim": "L",
+   "bounds": [
+    "5.79085E+10",
+    "5.79095E+10"
+   ]
+  },
+  "T": {
+   "dim": "T",
+   "bounds": [
+    "7524516.384",
+    "7676526.816"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132712462205965557208.0027491"
+   ]
+  }
+ }
+}

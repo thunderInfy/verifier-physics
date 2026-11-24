@@ -1,0 +1,42 @@
+{
+ "id": "orbit-saturn",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturnfact.html; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "1432.041",
+  "sidereal_period_days": "10755.699",
+  "perihelion_1e6km": "1357.554",
+  "aphelion_1e6km": "1506.527",
+  "mass_1e24kg": "568.32"
+ },
+ "derivation": {
+  "r_peri, r_aph": "published digits ± 0.5% (osculating elements drift; only the existence of a min and a max is used)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "1.35076623E+12",
+    "1.36434177E+12"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "1.498994365E+12",
+    "1.514059635E+12"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132750371744098318030.0796301"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}

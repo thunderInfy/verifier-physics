@@ -1,0 +1,40 @@
+{
+ "id": "orbit-halley",
+ "source": "JPL SBDB https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=1P&full-prec=1 (epoch JD 2439875.5); retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "q_au": "0.5748638313743413",
+  "Q_au": "35.28240626576412",
+  "e": "0.9679359956953211"
+ },
+ "derivation": {
+  "r_peri, r_aph": "q and Q ± 2% (planetary perturbations change them by ~1% between apparitions)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "84278437013.7244068331685118",
+    "87718373218.3662193569713082"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "5172609393520.03764725009832",
+    "5383736307541.26367366846968"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132712440173991859041.279419"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}

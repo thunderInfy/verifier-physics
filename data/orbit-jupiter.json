@@ -1,0 +1,42 @@
+{
+ "id": "orbit-jupiter",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/jupiterfact.html; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "778.479",
+  "sidereal_period_days": "4332.589",
+  "perihelion_1e6km": "740.595",
+  "aphelion_1e6km": "816.363",
+  "mass_1e24kg": "1898.13"
+ },
+ "derivation": {
+  "r_peri, r_aph": "published digits ± 0.5% (osculating elements drift; only the existence of a min and a max is used)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "7.36892025E+11",
+    "7.44297975E+11"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "8.12281185E+11",
+    "8.20444815E+11"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132839127693639545204.7284351"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}

@@ -1,0 +1,42 @@
+{
+ "id": "orbit-uranus",
+ "source": "NASA NSSDCA fact sheet https://nssdc.gsfc.nasa.gov/planetary/factsheet/uranusfact.html; retrieved 2026-10-31",
+ "kind": "hard_bounds",
+ "raw": {
+  "semimajor_axis_1e6km": "2867.043",
+  "sidereal_period_days": "30685.400",
+  "perihelion_1e6km": "2732.696",
+  "aphelion_1e6km": "3001.390",
+  "mass_1e24kg": "86.811"
+ },
+ "derivation": {
+  "r_peri, r_aph": "published digits ± 0.5% (osculating elements drift; only the existence of a min and a max is used)"
+ },
+ "quantities": {
+  "r_peri": {
+   "dim": "L",
+   "bounds": [
+    "2.71903252E+12",
+    "2.74635948E+12"
+   ]
+  },
+  "r_aph": {
+   "dim": "L",
+   "bounds": [
+    "2.98638305E+12",
+    "3.01639695E+12"
+   ]
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "bounds": [
+    "132712439908566978958.720581",
+    "132718234229334820420.9189445"
+   ]
+  }
+ },
+ "orbit": {
+  "perihelion": "r_peri",
+  "aphelion": "r_aph"
+ }
+}
