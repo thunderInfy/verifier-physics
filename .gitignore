@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+lean/.lake/
+lean/build_certs/
+.pytest_cache/
+research/
+tools/vm.local.sh
+.env
+.env.*

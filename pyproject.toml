@@ -1,0 +1,21 @@
+[project]
+name = "physverify"
+version = "0.1.0"
+description = "A checker for physical theories that only rejects a theory with a verified certificate"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = ["mpmath>=1.3"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["physverify"]
+
+[tool.pytest.ini_options]
+markers = ["lean: end-to-end tests that call the Lean kernel on the VM (slow)"]
