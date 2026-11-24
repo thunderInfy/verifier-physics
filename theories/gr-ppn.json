@@ -1,0 +1,48 @@
+{
+ "name": "General relativity (PPN: γ = β = 1, others 0)",
+ "framework": "metric-gravity (PPN)",
+ "symbols": {
+  "gamma": {
+   "dim": "1"
+  },
+  "beta": {
+   "dim": "1"
+  },
+  "xi": {
+   "dim": "1"
+  },
+  "alpha1": {
+   "dim": "1"
+  },
+  "alpha2": {
+   "dim": "1"
+  }
+ },
+ "laws": [
+  {
+   "name": "ppn_gamma",
+   "lhs": "gamma",
+   "rhs": "1"
+  },
+  {
+   "name": "ppn_beta",
+   "lhs": "beta",
+   "rhs": "1"
+  },
+  {
+   "name": "ppn_xi",
+   "lhs": "xi",
+   "rhs": "0"
+  },
+  {
+   "name": "ppn_alpha1",
+   "lhs": "alpha1",
+   "rhs": "0"
+  },
+  {
+   "name": "ppn_alpha2",
+   "lhs": "alpha2",
+   "rhs": "0"
+  }
+ ]
+}

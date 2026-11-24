@@ -1,0 +1,28 @@
+{
+ "name": "Nordström 1913 scalar gravity (no light deflection: γ = −1)",
+ "framework": "metric-gravity (PPN)",
+ "symbols": {
+  "gamma": {
+   "dim": "1"
+  },
+  "beta": {
+   "dim": "1"
+  },
+  "xi": {
+   "dim": "1"
+  },
+  "alpha1": {
+   "dim": "1"
+  },
+  "alpha2": {
+   "dim": "1"
+  }
+ },
+ "laws": [
+  {
+   "name": "ppn_gamma",
+   "lhs": "gamma",
+   "rhs": "-1"
+  }
+ ]
+}

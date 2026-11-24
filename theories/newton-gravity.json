@@ -1,0 +1,62 @@
+{
+ "name": "Newtonian gravity",
+ "framework": "newtonian-mechanics",
+ "symbols": {
+  "T": {
+   "dim": "T"
+  },
+  "a": {
+   "dim": "L"
+  },
+  "r": {
+   "dim": "L"
+  },
+  "t": {
+   "dim": "T"
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "positive": true
+  },
+  "x": {
+   "dim": "L"
+  },
+  "vx": {
+   "dim": "L T^-1"
+  },
+  "y": {
+   "dim": "L"
+  },
+  "vy": {
+   "dim": "L T^-1"
+  },
+  "z": {
+   "dim": "L"
+  },
+  "vz": {
+   "dim": "L T^-1"
+  }
+ },
+ "laws": [
+  {
+   "name": "kepler3",
+   "lhs": "T^2",
+   "rhs": "4*pi^2*a^3/GM"
+  }
+ ],
+ "central_force": {
+  "r": "r",
+  "f": "GM/r^2"
+ },
+ "dynamics": {
+  "time": "t",
+  "state": {
+   "x": "vx",
+   "y": "vy",
+   "z": "vz",
+   "vx": "-GM*x/sqrt(x^2 + y^2 + z^2)^3",
+   "vy": "-GM*y/sqrt(x^2 + y^2 + z^2)^3",
+   "vz": "-GM*z/sqrt(x^2 + y^2 + z^2)^3"
+  }
+ }
+}

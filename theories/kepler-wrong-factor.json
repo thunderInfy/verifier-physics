@@ -1,0 +1,3 @@
+{"name": "Kepler's third law with a wrong constant (2π² instead of 4π²)", "framework": "newtonian-mechanics",
+ "symbols": {"T": {"dim": "T"}, "a": {"dim": "L"}, "GM": {"dim": "L^3 T^-2", "positive": true}},
+ "laws": [{"name": "kepler3", "lhs": "T^2", "rhs": "2*pi^2*a^3/GM"}]}

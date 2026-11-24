@@ -1,0 +1,32 @@
+{
+ "name": "Anisotropic vacuum, (κ̃e−)XY = 1e-16",
+ "framework": "SME photon sector",
+ "symbols": {
+  "kappa_em_XY": {
+   "dim": "1"
+  },
+  "kappa_em_XZ": {
+   "dim": "1"
+  },
+  "kappa_em_YZ": {
+   "dim": "1"
+  }
+ },
+ "laws": [
+  {
+   "name": "kappa_em_XY",
+   "lhs": "kappa_em_XY",
+   "rhs": "1/10000000000000000"
+  },
+  {
+   "name": "kappa_em_XZ",
+   "lhs": "kappa_em_XZ",
+   "rhs": "0"
+  },
+  {
+   "name": "kappa_em_YZ",
+   "lhs": "kappa_em_YZ",
+   "rhs": "0"
+  }
+ ]
+}

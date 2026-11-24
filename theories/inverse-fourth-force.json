@@ -1,0 +1,3 @@
+{"name": "Central force f = K/r^4 (any K > 0)", "framework": "newtonian-mechanics",
+ "symbols": {"r": {"dim": "L"}, "K": {"dim": "L^5 T^-2", "positive": true}},
+ "central_force": {"r": "r", "f": "K/r^4"}}

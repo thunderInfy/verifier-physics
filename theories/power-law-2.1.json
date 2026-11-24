@@ -1,0 +1,53 @@
+{
+ "name": "Power-law gravity f = GM/r^2 · (r/1 au)^(-1/10)  (i.e. r^-2.1)",
+ "framework": "newtonian-mechanics",
+ "symbols": {
+  "r": {
+   "dim": "L"
+  },
+  "t": {
+   "dim": "T"
+  },
+  "GM": {
+   "dim": "L^3 T^-2",
+   "positive": true
+  },
+  "x": {
+   "dim": "L"
+  },
+  "vx": {
+   "dim": "L T^-1"
+  },
+  "y": {
+   "dim": "L"
+  },
+  "vy": {
+   "dim": "L T^-1"
+  },
+  "z": {
+   "dim": "L"
+  },
+  "vz": {
+   "dim": "L T^-1"
+  },
+  "r0": {
+   "dim": "L",
+   "value": "149597870700"
+  }
+ },
+ "central_force": {
+  "r": "r",
+  "f": "GM/r^2*(r/r0)^(-1/10)"
+ },
+ "dynamics": {
+  "time": "t",
+  "state": {
+   "x": "vx",
+   "y": "vy",
+   "z": "vz",
+   "vx": "-GM*x/sqrt(x^2 + y^2 + z^2)^3*(sqrt(x^2 + y^2 + z^2)/r0)^(-1/10)",
+   "vy": "-GM*y/sqrt(x^2 + y^2 + z^2)^3*(sqrt(x^2 + y^2 + z^2)/r0)^(-1/10)",
+   "vz": "-GM*z/sqrt(x^2 + y^2 + z^2)^3*(sqrt(x^2 + y^2 + z^2)/r0)^(-1/10)"
+  }
+ }
+}

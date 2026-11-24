@@ -1,0 +1,4 @@
+{"name": "Pendulum, full nonlinear equation", "framework": "newtonian-mechanics",
+ "symbols": {"t": {"dim": "T"}, "th": {"dim": "1"}, "w": {"dim": "T^-1"},
+             "g": {"dim": "L T^-2", "positive": true}, "L": {"dim": "L", "positive": true}},
+ "dynamics": {"time": "t", "state": {"th": "w", "w": "-(g/L)*sin(th)"}}}
