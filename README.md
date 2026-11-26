@@ -512,12 +512,12 @@ TVD", "our upwind scheme is unconditionally stable", "the minmod MUSCL scheme is
 Each reading of each sentence is formalized into the named claims above, with an expected truth
 and a citation. `uv run python -m physverify.schemes.bench benchmark/scheme-claims/` prints
 expected against actual. It fails on a decisive verdict that contradicts the expectation and lists
-non-decisive results as gaps. Now: 18 of 33 readings decided correctly, 15 gaps, none wrong
+non-decisive results as gaps. Now: 22 of 34 readings decided correctly, 12 gaps, none wrong
 (the monotonicity check settles the Rusanov and Engquist–Osher monotonicity claims, and the exact
-order checks settle Lax–Wendroff's order 2; the steady-step check makes the Roe and Lax–Wendroff
-entropy refutations exact, without changing the counts). `GAPS.md` there ranks the gaps. The largest are order
-of accuracy (still empirical outside linear schemes), stencils wider than
-three points, and TVD of nonlinear schemes.
+order and von Neumann checks settle the truncation and global orders of Lax–Wendroff and upwind and
+refute "upwind is unconditionally L2-stable"; the steady-step check makes the Roe and Lax–Wendroff
+entropy refutations exact). `GAPS.md` there ranks the gaps. The largest are stencils wider than
+three points, order of accuracy outside linear schemes, and TVD and stability of nonlinear schemes.
 
 ## Setup
 
