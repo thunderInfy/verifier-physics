@@ -28,7 +28,7 @@ from math import comb, factorial
 from . import checks, poly as P
 from .checks import NOT_APPLICABLE, REFUTED, UNKNOWN, VERIFIED, result
 
-OFFSET = {"um1": -1, "u0": 0, "up1": 1}
+OFFSET = dict(checks.OFFSET5)          # um2 .. up2 -> -2 .. 2
 NU, Z = P.var("nu"), P.var("z")
 MAX_EXTRA = 8          # how far past p+1 we look for the leading term
 MAX_BOXES = 256        # bisection budget for the von Neumann certificate
@@ -52,7 +52,8 @@ def coefficients(spec: dict, check: str, claim: str) -> tuple[tuple | None, dict
 
 
 def _show_coefficients(c: dict) -> dict:
-    return {name: P.show(c.get(k, {})) for name, k in OFFSET.items()}
+    names = checks.stencil_of({x for x, k in OFFSET.items() if k in c})
+    return {name: P.show(c.get(OFFSET[name], {})) for name in names}
 
 
 # ---------------------------------------------------------------- truncation error

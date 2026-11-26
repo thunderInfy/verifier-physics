@@ -26,7 +26,7 @@ import numpy as np
 
 from ..expr import parse
 from . import checks, poly as P
-from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, UNKNOWN, _steps, ev
+from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, UNKNOWN, _steps, ev, transmissive
 
 ORDER = 0.3
 GRIDS = (200, 400, 800, 1600)
@@ -47,8 +47,8 @@ def run(H, uL: float, uR: float, x0: float, T: float, lam: float, n: int) -> dic
     steps, dt = _steps(T, lam * dx)
     with np.errstate(all="ignore"):
         for _ in range(steps):
-            u = ev(H, {"um1": np.concatenate(([u[0]], u[:-1])), "u0": u,
-                       "up1": np.concatenate((u[1:], [u[-1]])), "lam": dt / dx})
+            u = ev(H, {**transmissive(u), "u0": u,
+                       "lam": dt / dx})
     d = np.abs(u - fan(x, T, uL, uR, x0))
     return {"N": n, "L1": float(np.sum(d) * dx), "Linf": float(np.max(d)),
             "max_jump": float(np.max(np.abs(np.diff(u)))), "ends": (float(u[0]), float(u[-1])),

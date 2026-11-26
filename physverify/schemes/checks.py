@@ -26,6 +26,20 @@ from . import poly as P
 VERIFIED, REFUTED, UNKNOWN, NOT_APPLICABLE = "VERIFIED", "REFUTED", "UNKNOWN", "NOT_APPLICABLE"
 EXACT = "exact (Python Fraction arithmetic; Lean certificate pending)"
 STENCIL = ("um1", "u0", "up1")
+STENCIL5 = ("um2", "um1", "u0", "up1", "up2")                  # u_{i-2}, ..., u_{i+2}
+OFFSET5 = {name: k - 2 for k, name in enumerate(STENCIL5)}
+FLUX_ARGS = {"uLL": -1, "uL": 0, "uR": 1, "uRR": 2}            # F_{i+1/2}(u_{i-1}, u_i, u_{i+1}, u_{i+2})
+
+
+def stencil_of(names) -> tuple:
+    """The three-point stencil if `names` uses no u_{i-2}, u_{i+2}, else the five-point one, so every
+    three-point spec is handled (and reported) exactly as before."""
+    return STENCIL if not set(names) & {"um2", "up2"} else STENCIL5
+
+
+def _at_interface(shift: int) -> dict:
+    """Flux arguments at the interface i + shift + 1/2, as stencil variables."""
+    return {x: var(STENCIL5[k + shift + 2]) for x, k in FLUX_ARGS.items()}
 
 
 def result(check, status, claim, detail="", witness=None, assumptions=()):
@@ -47,12 +61,14 @@ def numerical_flux(spec: dict) -> E | None:
 
 
 def update(spec: dict) -> E:
-    """u_i^{n+1} as an expression in um1, u0, up1, lam."""
+    """u_i^{n+1} as an expression in um1, u0, up1, lam (and um2, up2 for a wider stencil). A numerical
+    flux is two-point, F(uL, uR), or up to four-point, F(uLL, uL, uR, uRR) = F_{i+1/2}(u_{i-1}, u_i,
+    u_{i+1}, u_{i+2})."""
     F = numerical_flux(spec)
     if F is None:
         return _expr(spec, spec["scheme"]["update"])
-    at = lambda l, r: substitute(F, {"uL": var(l), "uR": var(r)})
-    return E("sub", (var("u0"), E("mul", (var("lam"), E("sub", (at("u0", "up1"), at("um1", "u0")))))))
+    at = lambda shift: substitute(F, _at_interface(shift))
+    return E("sub", (var("u0"), E("mul", (var("lam"), E("sub", (at(0), at(-1)))))))
 
 
 def _points(names, n=200, seed=0):
@@ -92,11 +108,33 @@ def telescoping(H: P.Poly) -> tuple[P.Poly, P.Poly]:
     return phi, P.add(D, P.add(at("u0", "up1"), at("um1", "u0"), -1), -1)
 
 
+def telescoping_wide(H: P.Poly) -> tuple[P.Poly, P.Poly, list]:
+    """`telescoping` for a stencil u_{i+kmin}, ..., u_{i+kmax} (kmin >= -2, kmax <= 2): the candidate
+    Phi(y_1, ..., y_m), m = kmax - kmin, on the window u_{i+kmin+1}, ..., u_{i+kmax}, with
+    D = H - u0 = Phi(window at i + 1/2) - Phi(window at i - 1/2). If such Phi exists, then
+    sum_{s=0}^{m-1} D(s + 1 zeros, y_1, ..., y_{m-s}) telescopes to Phi(y) - Phi(0), so this candidate
+    is the only one up to a constant (for m = 2 it is `telescoping`'s). Returns (Phi in the flux
+    argument names of `FLUX_ARGS`, residual, those names in window order)."""
+    D = P.add(H, P.var("u0"), -1)
+    ks = [OFFSET5[x] for x in STENCIL5 if x in P.variables(D)]
+    kmin, kmax = min(ks + [-1]), max(ks + [1])
+    slots = [STENCIL5[k + 2] for k in range(kmin, kmax + 1)]
+    m = kmax - kmin
+    names = [x for x, k in FLUX_ARGS.items() if kmin + 1 <= k <= kmax]
+    y = [P.var(x) for x in names]
+    phi: P.Poly = {}
+    for s in range(m):
+        vals = [P.const(0)] * (s + 1) + y[:m - s]
+        phi = P.add(phi, P.subst(D, dict(zip(slots, vals))))
+    at = lambda shift: P.subst(phi, {x: P.var(STENCIL5[FLUX_ARGS[x] + shift + 2]) for x in names})
+    return phi, P.add(D, P.add(at(0), at(-1), -1), -1), names
+
+
 def periodic_change(H: P.Poly, state: list, lam) -> Fraction | None:
     """sum_i (u_i^{n+1} - u_i^n) on a periodic grid, exactly (None if a sqrt is irrational)."""
     n, total = len(state), Fraction(0)
     for i in range(n):
-        v = P.evaluate(H, {"um1": state[i - 1], "u0": state[i], "up1": state[(i + 1) % n], "lam": lam})
+        v = P.evaluate(H, {**{x: state[(i + k) % n] for x, k in OFFSET5.items()}, "lam": lam})
         if v is None:
             return None
         total += v - state[i]
@@ -107,9 +145,21 @@ def conservation(spec: dict) -> dict:
     claim = "discrete conservation on a periodic grid: sum_i (u_i^{n+1} - u_i^n) = 0"
     try:
         H = P.from_expr(update(spec))
-        phi, residual = telescoping(H)
+        wide = stencil_of(P.variables(H)) == STENCIL5
+        phi, residual = telescoping(H) if not wide else telescoping_wide(H)[:2]
     except P.Undecided as ex:
         return result("conservation", UNKNOWN, claim, str(ex))
+    if not residual and wide:
+        F = P.scale(P.mul(phi, P.inverse(P.var("lam"))), -1)
+        rng = random.Random(1)
+        state = [Fraction(rng.randint(-20, 20), rng.randint(1, 7)) for _ in range(9)]
+        return result("conservation", VERIFIED, claim,
+                      "update telescopes: u_i^{n+1} - u_i^n = -lam*(F_{i+1/2} - F_{i-1/2}) with "
+                      "F_{i+1/2} = F(uLL, uL, uR, uRR) at (u_{i-1}, u_i, u_{i+1}, u_{i+2})",
+                      {"recovered_flux": P.show(F), "residual_normal_form": "0",
+                       "spot_check": {"state": [str(s) for s in state], "lam": "1/3",
+                                      "sum_change": str(periodic_change(H, state, Fraction(1, 3)))}},
+                      ["lam = dt/dx != 0"])
     if not residual:
         F = P.scale(P.mul(P.subst(phi, {"_x": P.var("uL"), "_y": P.var("uR")}), P.inverse(P.var("lam"))), -1)
         rng = random.Random(1)
@@ -147,13 +197,18 @@ def consistency(spec: dict) -> dict:
         if F is not None:
             F, how = P.from_expr(F), "declared numerical flux"
         else:
-            phi, residual = telescoping(P.from_expr(update(spec)))
+            H = P.from_expr(update(spec))
+            wide = stencil_of(P.variables(H)) == STENCIL5
+            phi, residual = telescoping(H) if not wide else telescoping_wide(H)[:2]
             if residual:
                 return result("consistency", NOT_APPLICABLE, claim, "update is not in flux form, so it has no numerical flux")
-            F = P.scale(P.mul(P.subst(phi, {"_x": P.var("uL"), "_y": P.var("uR")}), P.inverse(P.var("lam"))), -1)
-            F = P.add(F, P.const(P.evaluate(f, {"u": 0}) - (P.evaluate(F, {"uL": 0, "uR": 0, "lam": 1}) or 0)))
+            if not wide:
+                phi = P.subst(phi, {"_x": P.var("uL"), "_y": P.var("uR")})
+            F = P.scale(P.mul(phi, P.inverse(P.var("lam"))), -1)
+            zero = {x: 0 for x in FLUX_ARGS}
+            F = P.add(F, P.const(P.evaluate(f, {"u": 0}) - (P.evaluate(F, {**zero, "lam": 1}) or 0)))
             how = "flux recovered from the update (fixed up to a constant by F(0,0) = f(0))"
-        Fuu = P.subst(F, {"uL": P.var("u"), "uR": P.var("u")})
+        Fuu = P.subst(F, {x: P.var("u") for x in FLUX_ARGS})
         r = P.add(Fuu, f, -1)
     except P.Undecided as ex:
         return result("consistency", UNKNOWN, claim, str(ex))
@@ -432,9 +487,10 @@ def linear_coefficients(spec: dict) -> tuple[Fraction, dict]:
     a = f[((("v", "u"), 1),)]
     coeffs: dict = {}
     for m, c in H.items():
-        us = [(x, k) for x, k in m if x[0] == "v" and x[1] in STENCIL]
+        us = [(x, k) for x, k in m if x[0] == "v" and x[1] in STENCIL5]
         if len(us) != 1 or us[0][1] != 1 or any(x[0] == "s" for x, _ in m):
-            raise NotLinear("update is not linear in (um1, u0, up1)")
+            raise NotLinear("update is not linear in (um1, u0, up1)" if stencil_of(P.variables(H)) == STENCIL
+                            else "update is not linear in (um2, um1, u0, up1, up2)")
         rest = P.subst({P._mono({x: k for x, k in m if x != us[0][0]}): c}, {"lam": P.scale(P.var("nu"), 1 / a)})
         coeffs[us[0][0][1]] = P.add(coeffs.get(us[0][0][1], {}), rest)
     return a, coeffs
@@ -456,7 +512,7 @@ def positivity(spec: dict) -> dict:
     except NotLinear as ex:
         return result("positivity", NOT_APPLICABLE, claim, str(ex))
     wit: dict = {"nu": f"{a}*lam (a = {a})", "coefficients": {}, "bernstein": {}}
-    for name in STENCIL:
+    for name in stencil_of(coeffs):
         p = coeffs.get(name, {})
         if P.variables(p) - {"nu"} or any(k < 0 for m in p for _, k in m):
             return result("positivity", UNKNOWN, claim, f"coefficient of {name} is not a polynomial in nu")
@@ -723,6 +779,8 @@ def monotonicity(spec: dict) -> dict:
     try:
         e = update(spec)
         H = P.from_expr(e)
+        if stencil_of(P.variables(H)) != STENCIL:
+            raise P.Undecided("the monotonicity check covers three-point stencils only")
         cfl = _monotone_cfl_atoms(spec, Fraction(c))
         region = [_scaled(a)[0] for a in cfl] + [P.var("lam")]
         cells = sign_cells(e)
@@ -840,6 +898,10 @@ def steady_nonentropy_step(spec: dict, mode: str = "discrete") -> dict:
             G, args = P.from_expr(F_e), {"uL", "uR"}
     except P.Undecided as ex:
         return result(check, UNKNOWN, claim, str(ex))
+    if discrete and stencil_of(P.variables(G)) != STENCIL:
+        return result(check, UNKNOWN, claim, "the steady-step check covers three-point stencils only")
+    if not discrete and P.variables(G) & {"uLL", "uRR"}:
+        return result(check, UNKNOWN, claim, "the steady-step check covers two-point fluxes only")
     if P.variables(f) - {"u"} or P.variables(G) - args - {"lam"}:
         return result(check, UNKNOWN, claim, "the flux or the " + ("update" if discrete else "numerical flux")
                       + " has free parameters")

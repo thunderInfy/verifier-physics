@@ -66,8 +66,19 @@ def exact(problem: dict, x: np.ndarray, t: float) -> np.ndarray:
     raise ValueError(problem["kind"])
 
 
+def periodic(u) -> dict:
+    """The neighbours u_{i+k}, k = -2..2, on a periodic grid."""
+    return {x: np.roll(u, -k) for x, k in checks.OFFSET5.items()}
+
+
+def transmissive(u) -> dict:
+    """The neighbours u_{i+k}, k = -2..2, with constant extrapolation past both ends."""
+    pad = np.concatenate(([u[0]] * 2, u, [u[-1]] * 2))
+    return {x: pad[2 + k: len(pad) - 2 + k] for x, k in checks.OFFSET5.items()}
+
+
 def _stencil(H: E, u, lam):
-    return ev(H, {"um1": np.roll(u, 1), "u0": u, "up1": np.roll(u, -1), "lam": lam})
+    return ev(H, {**periodic(u), "lam": lam})
 
 
 def _grid(n):

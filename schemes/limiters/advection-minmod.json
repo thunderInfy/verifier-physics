@@ -1,0 +1,17 @@
+{
+ "name": "Minmod flux limiter (Sweby form), linear advection a = 1",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL + a/2*(1 - a*lam)*minmod(uR - uL, uL - uLL)"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative"
+ ],
+ "claims": {}
+}

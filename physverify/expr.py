@@ -121,12 +121,40 @@ class _Parser:
             return lit(Fraction(tok))
         if tok == "pi":
             return PI
+        if tok in PIECEWISE and self.peek() == "(":
+            self.take("(")
+            args = [self.expr()]
+            while self.peek() == ",":
+                self.take(",")
+                args.append(self.expr())
+            self.take(")")
+            if len(args) != PIECEWISE[tok]:
+                raise ValueError(f"{tok} takes {PIECEWISE[tok]} argument(s), got {len(args)}")
+            return piecewise(tok, *args)
         if tok in FUNCS or tok == "sqrt":
             self.take("(")
             arg = self.expr()
             self.take(")")
             return E("sqrt", (arg,)) if tok == "sqrt" else E("app", (arg,), name=tok)
         return var(tok)
+
+
+PIECEWISE = {"abs": 1, "min": 2, "max": 2, "minmod": 2}
+
+
+def piecewise(name: str, *a: E) -> E:
+    """abs, min, max and minmod, written with |x| = sqrt(x^2) so the AST (and its Lean mirror) needs
+    no new node: |x| = sqrt(x^2), max(a, b) = (a + b + |a - b|)/2, min(a, b) = (a + b - |a - b|)/2,
+    minmod(a, b) = max(0, min(a, b)) + min(0, max(a, b)) (the argument of smaller magnitude if a and
+    b have the same sign, else 0). Each |x| is later split into the closed cells x >= 0 and x <= 0
+    (`schemes.checks.sign_cells`), where the expression is a polynomial."""
+    if name == "abs":
+        return E("sqrt", (E("powi", (a[0],), q=2),))
+    if name == "minmod":
+        zero = lit(0)
+        return E("add", (piecewise("max", zero, piecewise("min", *a)), piecewise("min", zero, piecewise("max", *a))))
+    s = E("add" if name == "max" else "sub", (E("add", a), piecewise("abs", E("sub", a))))
+    return E("div", (s, lit(2)))
 
 
 def parse(s: str) -> E:
