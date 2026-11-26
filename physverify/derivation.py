@@ -180,9 +180,10 @@ def lean_point(c: Claim, env: dict[str, Fraction]) -> str:
 
 
 def witness_proof(c: Claim, env: dict[str, Fraction]) -> str:
-    """Judge-written start of every `verified` proof: the domain is not empty. The planner's
-    tactic then proves the `∀ env, D env → …` part."""
-    return (f"refine ⟨by decide, by decide, ⟨{lean_point(c, env)}, ?_⟩, ?_⟩\n"
+    """Judge-written start of every `verified` proof: D has the parser's form (so it is open),
+    and the domain is not empty. The planner's tactic then proves the `∀ env, D env → …` part."""
+    return (f"refine ⟨by decide, by decide, ⟨fun _ => Iff.rfl, by decide⟩, "
+            f"⟨{lean_point(c, env)}, ?_⟩, ?_⟩\n"
             "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
 
 
@@ -197,13 +198,17 @@ def lean_ctx(c: Claim) -> str:
 def lean_terms(c: Claim) -> dict[str, str]:
     idx = c.index()
     L = to_lean(c.lagrangian, idx)
-    atoms = []
+    atoms, syn = [], []
     for op, a, b in c.domain:
-        la, lb = f"Expr.eval env {to_lean(a, idx)}", f"Expr.eval env {to_lean(b, idx)}"
+        ta, tb = to_lean(a, idx), to_lean(b, idx)
+        la, lb = f"Expr.eval env {ta}", f"Expr.eval env {tb}"
         atoms.append({">": f"{lb} < {la}", "<": f"{la} < {lb}", "!=": f"{la} ≠ {lb}"}[op])
+        syn.append({">": f".lt {tb} {ta}", "<": f".lt {ta} {tb}", "!=": f".ne {ta} {tb}"}[op])
     D = "fun env : ℕ → ℝ => " + (" ∧ ".join(atoms) if atoms else "True")
     cs = "[" + ", ".join(f"(⟨{to_lean(l, idx)}, {to_lean(r, idx)}⟩ : Law)" for l, r in c.eom) + "]"
-    return {"n": str(c.n), "L": L, "D": f"({D})", "cs": cs, "ctx": lean_ctx(c)}
+    # the same atoms as `Atom`s, for `DomainForm` (D is open; `verified_meaning_at`)
+    As = "([" + ", ".join(f"({s} : Atom)" for s in syn) + "] : List Atom)"
+    return {"n": str(c.n), "L": L, "D": f"({D})", "cs": cs, "ctx": lean_ctx(c), "atoms": As}
 
 
 def dims_ok(c: Claim) -> tuple[bool, str]:
@@ -224,6 +229,7 @@ def statement(kind: str, c: Claim) -> str:
     t = lean_terms(c)
     if kind == "verified":
         return (f"dimsOK {t['ctx']} {t['L']} {t['cs']} = true ∧ NoAccel {t['n']} {t['L']} ∧ "
+                f"DomainForm {t['n']} {t['D']} {t['atoms']} ∧ "
                 f"Verified {t['n']} {t['L']} {t['D']} {t['cs']}")
     if kind == "refuted":
         return f"NoAccel {t['n']} {t['L']} ∧ Refuted {t['n']} {t['L']} {t['D']} {t['cs']}"
@@ -231,8 +237,8 @@ def statement(kind: str, c: Claim) -> str:
 
 
 MEANING = {
-    VERIFIED: ("PhysVerify.verified_meaning: for every trajectory twice differentiable at t "
-               "whose jet stays in the domain near t, the real Euler–Lagrange equations hold "
+    VERIFIED: ("PhysVerify.verified_meaning_at: for every trajectory twice differentiable at t "
+               "whose jet is in the (open) domain at t, the real Euler–Lagrange equations hold "
                "at t iff the claimed equations hold at t; the domain is non-empty and has no "
                "junk division/power/sqrt/log values (verified_nonempty)"),
     REFUTED: ("PhysVerify.refuted_meaning: on the quadratic trajectory through the "

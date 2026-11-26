@@ -127,7 +127,7 @@ def test_empty_domain_never_verified():
                 module="PhysVerify.EulerLagrange")
     assert old.ok, old.log[-2000:]
     neg = check(f"¬ ({statement('verified', c)})",
-                "rintro ⟨-, -, ⟨env, h⟩, -⟩\n" + vacuous.split("\n", 1)[1],
+                "rintro ⟨-, -, -, ⟨env, h⟩, -⟩\n" + vacuous.split("\n", 1)[1],
                 module="PhysVerify.EulerLagrange")
     assert neg.ok, neg.log[-2000:]
     # a planner proposing the vacuous proof, with or without the judge's prefix, gets UNKNOWN
@@ -155,7 +155,7 @@ def test_junk_sqrt_claim_no_longer_verifies():
     # layout: x = 0, x_dot = 1, x_ddot = 2, k = 3, m = 4
     point = "(fun j : ℕ => [(-1 : ℝ), 0, 0, 1, 1].getD j 0)"
     neg = check(f"¬ ({statement('verified', c)})",
-                f"rintro ⟨-, -, -, h⟩\nhave := (h {point} (by norm_num [Expr.eval])).2.1.1\n"
+                f"rintro ⟨-, -, -, -, h⟩\nhave := (h {point} (by norm_num [Expr.eval])).2.1.1\n"
                 "norm_num [Expr.physOK, Expr.eval] at this",
                 module="PhysVerify.EulerLagrange")
     assert neg.ok, neg.log[-2000:]
@@ -190,6 +190,29 @@ def test_junk_sqrt_counterexample_rejected():
     assert r.verdict == UNKNOWN, r.detail
 
 
+def test_verified_statement_gives_meaning_at_t():
+    """Every VERIFIED statement contains `DomainForm`, so `verified_meaning_at` applies: the
+    jet need only be in D at t. Atoms outside the continuous fragment fail `Atom.ok`."""
+    from physverify.derivation import lean_terms, load_claim, statement
+    from physverify.lean_backend import check
+    c = load_claim(ROOT / "claims/kepler-polar.json")
+    t = lean_terms(c)
+    r = check(f"({statement('verified', c)}) → ∀ (q : ℕ → ℝ → ℝ) (p : ℕ → ℝ) (t : ℝ), "
+              "(∀ j < 2, DifferentiableAt ℝ (q j) t) → "
+              "(∀ j < 2, DifferentiableAt ℝ (_root_.deriv (q j)) t) → "
+              f"{t['D']} (trajEnv 2 q p t) → "
+              f"((∀ k < 2, realEL 2 k {t['L']} q p t = 0) ↔ Claims {t['cs']} (trajEnv 2 q p t))",
+              "rintro ⟨-, hacc, hform, hcert⟩ q p t h1 h2 hD\n"
+              "exact verified_meaning_at hcert hacc hform q p t h1 h2 hD",
+              module="PhysVerify.EulerLagrange")
+    assert r.ok, r.log[-2000:]
+    bad = check("(Atom.lt (.div (.lit 1) (.var 0)) (.lit 1)).ok 1 = false ∧ "
+                "(Atom.ne (.var 2) (.lit 0)).ok 1 = false ∧ (Atom.lt (.powi (.var 0) (-1)) (.lit 1)).ok 1 = false ∧ "
+                "(Atom.lt (.div (.var 0) (.lit 2)) (.app .cos (.var 1))).ok 1 = true",
+                "decide", module="PhysVerify.EulerLagrange")
+    assert bad.ok, bad.log[-2000:]
+
+
 def test_junk_division_counterexample_rejected():
     """The pendulum with l > 0 left out of the domain: at l = 0 the EL equation is 0 = 0, and
     Lean's g/0 = 0 makes the claim th'' = 0, so th'' = 1 was a counterexample to the old
@@ -215,7 +238,7 @@ def test_junk_division_counterexample_rejected():
     assert old.ok, old.log[-2000:]
     # new Verified is false: the same point is in D, and g/l is junk there
     neg_v = check(f"¬ ({statement('verified', c)})",
-                  f"rintro ⟨-, -, -, h⟩\n"
+                  f"rintro ⟨-, -, -, -, h⟩\n"
                   f"have := ((h {point} (by norm_num [Expr.eval])).2.1.2 _ (List.mem_singleton_self _)).2\n"
                   "norm_num [Expr.physOK, Expr.eval] at this",
                   module="PhysVerify.EulerLagrange")

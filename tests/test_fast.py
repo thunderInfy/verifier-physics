@@ -261,3 +261,5 @@ def test_judge_statement_is_independent_of_planner():
     s = statement("verified", c)
     assert s.startswith("dimsOK ") and "NoAccel 1 " in s and "Verified 1 " in s
     assert "Expr.eval env (.lit (0 : ℚ)) < Expr.eval env (.var 5)" in s   # domain m > 0
+    # the same atoms in syntactic form, for `DomainForm` (D is open)
+    assert "DomainForm 1 " in s and "(.lt (.lit (0 : ℚ)) (.var 5) : Atom)" in s

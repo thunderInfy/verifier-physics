@@ -130,11 +130,17 @@ Lean statements:
 * `Verified n L D cs`: `D` has a point, and on `D` the Euler–Lagrange system holds at a jet
   `(q, q̇, q̈)` iff the claimed equations do. The statement also asserts `dimsOK` (both sides
   of each equation have one dimension; `0` has every dimension), the side conditions of
-  differentiation on `D`, and `PhysOK` on `D`: every `sqrt` and `log` argument, and the base
-  of every non-integer power, in `L` and in the claimed equations is positive. Lean's
-  functions are total (`Real.sqrt x = 0` and `Real.log x = log |x|` for `x < 0`, and a real
-  power of a negative base is not the real power), so without `PhysOK` an identity could
-  hold in Lean only through these junk values.
+  differentiation on `D`, and `PhysOK` on `D`. `PhysOK` says that in `L` and in both sides
+  of every claimed equation, every denominator is non-zero, every power with a negative
+  exponent (integer or rational) has a non-zero base, every `sqrt` and `log` argument is
+  positive, and so is the base of every non-integer power. Lean's functions are total
+  (`x / 0 = 0`, `0 ^ (-1) = 0`, `Real.sqrt x = 0` and `Real.log x = log |x|` for `x < 0`,
+  and a real power of a negative base is not the real power), so without `PhysOK` an
+  identity could hold in Lean only through these junk values. The differentiation side
+  conditions already exclude them in `L` and its derivatives; `PhysOK` is what excludes
+  them in the claimed equations. Finally the statement contains `DomainForm`: `D` is the
+  conjunction of the listed atoms, each in the continuous fragment `Expr.contOK` and free of
+  accelerations. The judge proves it with `Iff.rfl` and `decide`.
 * `Refuted n L D cs`: a jet in `D`, with `PhysOK`, where the two disagree.
 
 The point of `D` in `Verified` comes from the judge, not the planner: it searches for a
@@ -158,14 +164,22 @@ What is proven in Lean (`lean/PhysVerify/Deriv.lean`, `EulerLagrange.lean`):
   `d/dt (∂L/∂q̇_k) − ∂L/∂q_k`, computed with Mathlib derivatives.
 * `verified_meaning`: from a `Verified` certificate, every such trajectory whose jet stays
   in `D` near `t` satisfies the real Euler–Lagrange equations at `t` iff it satisfies the
-  claimed equations at `t`. "Stays in `D` near `t`" costs nothing in practice: `D` does not
-  mention `q̈`, and `q` and `q̇` are continuous at `t` for a trajectory twice differentiable
-  at `t`, so since `D` is open, a jet in `D` at `t` stays in `D` near `t`. (We argue this
-  from the parser's restrictions; it is not a Lean theorem, since Lean sees `D` only as a
-  predicate.) This is also why the domain may not mention accelerations: `q̈` need not be
-  continuous, and a condition on it could fail at every `s ≠ t`, which would make the
-  theorem's hypothesis false for real trajectories.
+  claimed equations at `t`.
+* `verified_meaning_at`: the same with the jet in `D` at `t` only, given `DomainForm`
+  (which every `VERIFIED` statement contains). This is now a Lean theorem, not an argument
+  from the parser: `Expr.continuous_eval_of_contOK` shows that expressions in the fragment
+  (no division except by a non-zero constant, no negative powers, no `sqrt`, `log` or real
+  powers) are continuous on `ℕ → ℝ` with the product topology, so `DomainForm.isOpen` shows
+  `D` is open. Along a trajectory twice differentiable at `t`, positions and velocities are
+  continuous at `t`, so a jet in `D` at `t` stays in `D` near `t` (`Domain.eventually`).
+  Accelerations need not be continuous, which is why `Atom.ok` (and the parser) forbids them
+  in the domain: a condition on `q̈` could fail at every `s ≠ t`.
+  The parser's continuity check (`_discontinuous` in `physverify/derivation.py`) is now only
+  a convenience: if it let through an atom outside the fragment, `decide` would fail on
+  `DomainForm` and the verdict would be `UNKNOWN`.
 * `verified_nonempty`: a `Verified` certificate gives a point of `D` where `PhysOK` holds.
+  `Refuted` also requires `PhysOK` at its counterexample jet, so a counterexample cannot
+  come from a junk value either.
 * `refuted_meaning`: from a `Refuted` certificate, on the quadratic trajectory through the
   counterexample jet, at `t = 0`, the real Euler–Lagrange equations and the claimed
   equations disagree.
@@ -190,12 +204,15 @@ double pendulum. The false ones are a centrifugal sign error, a missing factor 2
 dimensionally consistent), the small-angle law claimed for all angles, and a
 dimensionally wrong pendulum. The textbook double-pendulum form with double angles is true
 but comes out `UNKNOWN`, because our tactics don't try double-angle identities. A
-particle in the potential `k x^(1/2)` on `x > 0` is true. Three claims are ill-posed and
+particle in the potential `k x^(1/2)` on `x > 0` is true. Four claims are ill-posed and
 must come out `UNKNOWN`: the small-angle law on an empty domain (`θ > 1/2` and
 `θ < −1/2`), the same `k x^(1/2)` potential on `x ≠ 0`, where Lean's `x^(1/2) = 0` for
-`x < 0` let the planner's certificate prove the old statement, and an oscillator written
+`x < 0` let the planner's certificate prove the old statement, an oscillator written
 with `ω = sqrt(k/m)` without `k > 0`, where Lean's `sqrt(k/m) = 0` for `k < 0` gave a
-counterexample to the old `Refuted`. A verdict is wrong if a true claim is `REFUTED`, a
+counterexample to the old `Refuted`, and the pendulum `θ̈ = −(g/l) sin θ` with `l > 0` left
+out of the domain. At `l = 0` the Euler–Lagrange equation is `0 = 0` and Lean's `g/0 = 0`
+turns the claim into `θ̈ = 0`, so `θ̈ = 1` was a counterexample to the old `Refuted`; with
+`g/l` covered by `PhysOK`, both statements are provably false (`tests/test_lean.py`). A verdict is wrong if a true claim is `REFUTED`, a
 false one `VERIFIED`, or an ill-posed one anything but `UNKNOWN`. The runner exits non-zero
 if that happens.
 

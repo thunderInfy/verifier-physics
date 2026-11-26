@@ -206,6 +206,136 @@ theorem verified_meaning {n : ℕ} {L : Expr} {D : (ℕ → ℝ) → Prop} {cs :
   refine forall_congr' fun k => forall_congr' fun hk => ?_
   rw [EL_bridge hk L hacc q p t hq1 hq2 hL (hP k hk)]
 
+/-! ### Open domains
+
+The parser admits only domains that are conjunctions of atoms `a < b` and `a ≠ b`, with
+`a`, `b` in the fragment `Expr.contOK` and no accelerations. The judge writes `D` as that
+conjunction and proves `DomainForm n D as` for the atoms `as` (by `Iff.rfl` and `decide`).
+Such a `D` is open, and along a trajectory twice differentiable at `t`, a jet in `D` at
+`t` stays in `D` near `t`. So `verified_meaning_at` needs `D` only at `t`. -/
+
+/-- A domain atom: `a < b` or `a ≠ b`. -/
+inductive Atom
+  | lt (a b : Expr)
+  | ne (a b : Expr)
+
+def Atom.Holds (env : ℕ → ℝ) : Atom → Prop
+  | .lt a b => a.eval env < b.eval env
+  | .ne a b => a.eval env ≠ b.eval env
+
+/-- Both sides in the continuous fragment, and no accelerations. -/
+def Atom.ok (n : ℕ) : Atom → Bool
+  | .lt a b | .ne a b => a.contOK && b.contOK &&
+      (a.vars ++ b.vars).all fun j => decide (j < 2 * n) || decide (3 * n ≤ j)
+
+/-- The conjunction of the atoms, nested as the judge writes it (`True` if there are none). -/
+def Domain (env : ℕ → ℝ) : List Atom → Prop
+  | [] => True
+  | [x] => x.Holds env
+  | x :: y :: xs => x.Holds env ∧ Domain env (y :: xs)
+
+/-- `D` is the conjunction of the atoms `as`, all in the fragment. -/
+def DomainForm (n : ℕ) (D : (ℕ → ℝ) → Prop) (as : List Atom) : Prop :=
+  (∀ env, D env ↔ Domain env as) ∧ as.all (Atom.ok n) = true
+
+lemma Atom.isOpen (n : ℕ) (x : Atom) (h : x.ok n = true) : IsOpen {env | x.Holds env} := by
+  cases x with
+  | lt a b =>
+      simp only [ok, Bool.and_eq_true] at h
+      exact isOpen_lt (Expr.continuous_eval_of_contOK a h.1.1)
+        (Expr.continuous_eval_of_contOK b h.1.2)
+  | ne a b =>
+      simp only [ok, Bool.and_eq_true] at h
+      exact isOpen_ne_fun (Expr.continuous_eval_of_contOK a h.1.1)
+        (Expr.continuous_eval_of_contOK b h.1.2)
+
+lemma Domain.isOpen (n : ℕ) : ∀ as : List Atom, as.all (Atom.ok n) = true →
+    IsOpen {env | Domain env as}
+  | [], _ => by simp [Domain]
+  | [x], h => by simpa [Domain] using x.isOpen n (by simpa using h)
+  | x :: y :: xs, h => by
+      simp only [List.all_cons, Bool.and_eq_true] at h
+      exact (x.isOpen n h.1).inter (Domain.isOpen n (y :: xs) (by simpa using h.2))
+
+/-- **Openness.** A domain the parser admits is an open set of environments (product
+topology: each atom depends on finitely many coordinates). -/
+theorem DomainForm.isOpen {n : ℕ} {D : (ℕ → ℝ) → Prop} {as : List Atom}
+    (h : DomainForm n D as) : IsOpen {env | D env} := by
+  have : {env | D env} = {env | Domain env as} := Set.ext fun env => h.1 env
+  rw [this]; exact Domain.isOpen n as h.2
+
+/-- Along a trajectory twice differentiable at `t`, the jet's positions, velocities and
+parameters are continuous at `t` (the accelerations need not be). -/
+lemma trajEnv_continuousAt {n : ℕ} {q : ℕ → ℝ → ℝ} {p : ℕ → ℝ} {t : ℝ}
+    (hq1 : ∀ j < n, DifferentiableAt ℝ (q j) t)
+    (hq2 : ∀ j < n, DifferentiableAt ℝ (_root_.deriv (q j)) t)
+    (j : ℕ) (hj : j < 2 * n ∨ 3 * n ≤ j) :
+    ContinuousAt (fun s => trajEnv n q p s j) t := by
+  rcases hj with h | h
+  · by_cases hjn : j < n
+    · have : (fun s => trajEnv n q p s j) = q j := by funext s; simp [trajEnv, hjn]
+      rw [this]; exact (hq1 j hjn).continuousAt
+    · have : (fun s => trajEnv n q p s j) = _root_.deriv (q (j - n)) := by
+        funext s; simp [trajEnv, hjn, h]
+      rw [this]; exact (hq2 (j - n) (by omega)).continuousAt
+  · have : (fun s => trajEnv n q p s j) = fun _ => p j := by
+      funext s; simp only [trajEnv]; rw [if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+    rw [this]; exact continuousAt_const
+
+lemma Expr.continuousAt_trajEnv {n : ℕ} {q : ℕ → ℝ → ℝ} {p : ℕ → ℝ} {t : ℝ}
+    (hq1 : ∀ j < n, DifferentiableAt ℝ (q j) t)
+    (hq2 : ∀ j < n, DifferentiableAt ℝ (_root_.deriv (q j)) t)
+    (e : Expr) (he : e.contOK = true) (hv : ∀ j ∈ e.vars, j < 2 * n ∨ 3 * n ≤ j) :
+    ContinuousAt (fun s => e.eval (trajEnv n q p s)) t :=
+  (Expr.continuousAt_eval (fun j s => trajEnv n q p s j) t e
+    (fun j hj => trajEnv_continuousAt hq1 hq2 j (hv j hj))
+    (Expr.diffOK_of_contOK _ e he)).1
+
+lemma Atom.eventually {n : ℕ} {q : ℕ → ℝ → ℝ} {p : ℕ → ℝ} {t : ℝ}
+    (hq1 : ∀ j < n, DifferentiableAt ℝ (q j) t)
+    (hq2 : ∀ j < n, DifferentiableAt ℝ (_root_.deriv (q j)) t)
+    (x : Atom) (hx : x.ok n = true) (h : x.Holds (trajEnv n q p t)) :
+    ∀ᶠ s in 𝓝 t, x.Holds (trajEnv n q p s) := by
+  cases x with
+  | lt a b =>
+      simp only [ok, Bool.and_eq_true, List.all_eq_true, List.mem_append, Bool.or_eq_true,
+        decide_eq_true_eq] at hx
+      exact (Expr.continuousAt_trajEnv hq1 hq2 a hx.1.1 fun j hj => hx.2 j (.inl hj)).eventually_lt
+        (Expr.continuousAt_trajEnv hq1 hq2 b hx.1.2 fun j hj => hx.2 j (.inr hj)) h
+  | ne a b =>
+      simp only [ok, Bool.and_eq_true, List.all_eq_true, List.mem_append, Bool.or_eq_true,
+        decide_eq_true_eq] at hx
+      have hc := (Expr.continuousAt_trajEnv (p := p) hq1 hq2 a hx.1.1
+          fun j hj => hx.2 j (.inl hj)).sub
+        (Expr.continuousAt_trajEnv (p := p) hq1 hq2 b hx.1.2 fun j hj => hx.2 j (.inr hj))
+      exact (hc.eventually_ne (sub_ne_zero.2 h)).mono fun _ hs => sub_ne_zero.1 hs
+
+lemma Domain.eventually {n : ℕ} {q : ℕ → ℝ → ℝ} {p : ℕ → ℝ} {t : ℝ}
+    (hq1 : ∀ j < n, DifferentiableAt ℝ (q j) t)
+    (hq2 : ∀ j < n, DifferentiableAt ℝ (_root_.deriv (q j)) t) :
+    ∀ as : List Atom, as.all (Atom.ok n) = true → Domain (trajEnv n q p t) as →
+      ∀ᶠ s in 𝓝 t, Domain (trajEnv n q p s) as
+  | [], _, _ => by simp [Domain]
+  | [x], hx, h => x.eventually hq1 hq2 (by simpa using hx) h
+  | x :: y :: xs, hx, h => by
+      simp only [List.all_cons, Bool.and_eq_true] at hx
+      exact (x.eventually hq1 hq2 hx.1 h.1).and
+        (Domain.eventually hq1 hq2 (y :: xs) (by simpa using hx.2) h.2)
+
+/-- **`verified_meaning` with the domain at `t` only.** For a domain of the form the parser
+admits (`DomainForm`, proven in every `VERIFIED` certificate), every trajectory twice
+differentiable at `t` whose jet is in `D` at `t` satisfies the real Euler–Lagrange
+equations at `t` iff it satisfies the claimed equations at `t`. -/
+theorem verified_meaning_at {n : ℕ} {L : Expr} {D : (ℕ → ℝ) → Prop} {cs : List Law}
+    {as : List Atom} (hcert : Verified n L D cs) (hacc : NoAccel n L) (hform : DomainForm n D as)
+    (q : ℕ → ℝ → ℝ) (p : ℕ → ℝ) (t : ℝ)
+    (hq1 : ∀ j < n, DifferentiableAt ℝ (q j) t)
+    (hq2 : ∀ j < n, DifferentiableAt ℝ (_root_.deriv (q j)) t)
+    (hD : D (trajEnv n q p t)) :
+    (∀ k < n, realEL n k L q p t = 0) ↔ Claims cs (trajEnv n q p t) :=
+  verified_meaning hcert hacc q p t hq1 hq2
+    ((Domain.eventually hq1 hq2 as hform.2 ((hform.1 _).1 hD)).mono fun _ hs => (hform.1 _).2 hs)
+
 /-- The quadratic trajectory through a jet. -/
 noncomputable def jetTraj (n : ℕ) (env : ℕ → ℝ) : ℕ → ℝ → ℝ :=
   fun j s => env j + env (n + j) * s + env (2 * n + j) * s ^ 2 / 2

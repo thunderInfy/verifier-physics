@@ -255,5 +255,77 @@ theorem continuousAt_eval (γ : ℕ → ℝ → ℝ) (t : ℝ) :
       exact ⟨by simpa [eval, Fn.eval] using ca.log h.2,
         (ea.and (ca.eventually_ne h.2)).mono fun _ h => h⟩
 
+/-! ### Expressions continuous everywhere (the domain-atom fragment) -/
+
+/-- A non-zero literal. -/
+def isNonzeroLit : Expr → Bool
+  | .lit q => q != 0
+  | _ => false
+
+/-- The fragment the parser admits in domain atoms: no division except by a non-zero
+constant, no negative powers, no `sqrt`, `log` or real powers. Such expressions are
+continuous everywhere (`continuous_eval_of_contOK`). -/
+def contOK : Expr → Bool
+  | .var _ | .lit _ | .pi => true
+  | .neg a => a.contOK
+  | .add a b | .sub a b | .mul a b => a.contOK && b.contOK
+  | .div a b => a.contOK && b.isNonzeroLit
+  | .powi a n => a.contOK && decide (0 ≤ n)
+  | .sqrt _ | .rpow _ _ | .app .log _ => false
+  | .app _ a => a.contOK
+
+/-- In the fragment the differentiation side conditions hold everywhere. -/
+theorem diffOK_of_contOK (env : ℕ → ℝ) : ∀ e : Expr, e.contOK = true → e.diffOK env
+  | .var _, _ | .lit _, _ | .pi, _ => trivial
+  | .neg a, h => diffOK_of_contOK env a h
+  | .add a b, h | .sub a b, h | .mul a b, h => by
+      simp only [contOK, Bool.and_eq_true] at h
+      exact ⟨diffOK_of_contOK env a h.1, diffOK_of_contOK env b h.2⟩
+  | .div a b, h => by
+      simp only [contOK, Bool.and_eq_true] at h
+      refine ⟨diffOK_of_contOK env a h.1, diffOK_of_contOK env b ?_, ?_⟩ <;>
+        cases b <;> simp_all [isNonzeroLit, contOK, eval]
+  | .powi a n, h => by
+      simp only [contOK, Bool.and_eq_true, decide_eq_true_eq] at h
+      exact ⟨diffOK_of_contOK env a h.1, .inl h.2⟩
+  | .sqrt _, h | .rpow _ _, h => by simp [contOK] at h
+  | .app f a, h => by
+      cases f
+      · exact diffOK_of_contOK env a h
+      · exact diffOK_of_contOK env a h
+      · exact diffOK_of_contOK env a h
+      · simp [contOK] at h
+
+/-- **Continuity.** An expression in the fragment is a continuous function of the
+environment (product topology on `ℕ → ℝ`: it depends on finitely many coordinates). -/
+theorem continuous_eval_of_contOK :
+    ∀ e : Expr, e.contOK = true → Continuous (fun env : ℕ → ℝ => e.eval env)
+  | .var i, _ => by simpa [eval] using continuous_apply i
+  | .lit _, _ | .pi, _ => continuous_const
+  | .neg a, h => by simpa [eval] using (continuous_eval_of_contOK a h).neg
+  | .add a b, h | .sub a b, h | .mul a b, h => by
+      simp only [contOK, Bool.and_eq_true] at h
+      have ha := continuous_eval_of_contOK a h.1
+      have hb := continuous_eval_of_contOK b h.2
+      first
+        | exact ha.add hb
+        | exact ha.sub hb
+        | exact ha.mul hb
+  | .div a b, h => by
+      simp only [contOK, Bool.and_eq_true] at h
+      have ha := continuous_eval_of_contOK a h.1
+      cases b <;> simp [isNonzeroLit] at h
+      simpa [eval] using ha.div_const _
+  | .powi a n, h => by
+      simp only [contOK, Bool.and_eq_true, decide_eq_true_eq] at h
+      exact (continuous_eval_of_contOK a h.1).zpow₀ n fun _ => .inr h.2
+  | .sqrt _, h | .rpow _ _, h => by simp [contOK] at h
+  | .app f a, h => by
+      cases f
+      · exact Real.continuous_sin.comp (continuous_eval_of_contOK a h)
+      · exact Real.continuous_cos.comp (continuous_eval_of_contOK a h)
+      · exact Real.continuous_exp.comp (continuous_eval_of_contOK a h)
+      · simp [contOK] at h
+
 end Expr
 end PhysVerify
