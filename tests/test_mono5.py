@@ -132,7 +132,8 @@ def test_entropy_claim_stays_unknown_when_monotonicity_fails():
     s = v["selects_entropy_solution"]
     assert s["verdict"] == C.UNKNOWN
     assert {e["check"]: e["gives"] for e in s["evidence"]} == {"steady_nonentropy_step": C.UNKNOWN,
-                                                                "monotonicity": C.UNKNOWN}
+                                                                "monotonicity": C.UNKNOWN,
+                                                                "stationary_rh_violation": C.UNKNOWN}
 
 
 def test_past_the_cell_cap_the_check_is_unknown(monkeypatch):
