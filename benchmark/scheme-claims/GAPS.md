@@ -8,17 +8,18 @@ claims of `physverify/schemes/claims.py` or marked unformalized. Run:
 uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 15 s
 ```
 
-Result now: **17 match, 16 gaps, 0 wrong decisive verdicts** (was 14 match, 19 gaps before the
-monotonicity check and the Crandall–Majda row; see gap 3).
+Result now: **18 match, 15 gaps, 0 wrong decisive verdicts** (was 17 match, 16 gaps before the
+exact order checks for linear schemes, and 14 match, 19 gaps before the monotonicity check and the
+Crandall–Majda row; see gaps 1 and 3).
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 9 (all VERIFIED) | 8 (5 REFUTED, 3 REFUTED_EMPIRICALLY) | 17 |
-| gap | 10 | 6 | 16 |
+| decisive and correct (match) | 10 (all VERIFIED) | 8 (5 REFUTED, 3 REFUTED_EMPIRICALLY) | 18 |
+| gap | 9 | 6 | 15 |
 | wrong | 0 | 0 | 0 |
 
-The 16 gaps by verdict: 8 UNFORMALIZED (no named claim expresses the reading), 4 UNKNOWN (a named
-claim exists but its checks cannot decide), 4 NOT_REFUTED (only empirical evidence exists).
+The 15 gaps by verdict: 8 UNFORMALIZED (no named claim expresses the reading), 4 UNKNOWN (a named
+claim exists but its checks cannot decide), 3 NOT_REFUTED (only empirical evidence exists).
 
 What works: exact structural facts about three-point schemes. That covers flux form,
 consistency, positivity of linear schemes on a stated CFL interval, monotonicity of the fully
@@ -39,7 +40,15 @@ What does not work is mostly the claims papers make most often: order of accurac
 The ranking is our judgement from reading the numerical-methods literature, not a measurement.
 Cost estimates are rough, for one person who knows this code base.
 
-### 1. Order of accuracy can never be verified (C01 both readings, C12, C19 readings 1 and 3)
+### 1. Order of accuracy (global order for linear schemes: CLOSED for C01 reading 1; open: C01 reading 2, C12, C19 readings 1 and 3)
+
+**Status.** The exact truncation-order and von Neumann checks for linear schemes are now on main
+(`physverify/schemes/linear.py`), with a Lax–Richtmyer row for `converges_order_p`. C01 reading 1
+(Lax–Wendroff conservative and order 2) is now VERIFIED. The other readings stay gaps: C01
+reading 2 and C19 reading 3 are still recorded as unformalized in `claims.json`, and C12 and C19
+reading 1 are still decided only by refinement studies.
+
+The original text follows.
 
 Almost every scheme paper says "second-order accurate". There are two readings, and the
 verifier can verify neither.

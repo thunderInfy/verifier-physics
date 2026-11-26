@@ -25,16 +25,12 @@
        "expected": true
       }
      ],
-     "gap": {
-      "kind": "empirical-only check",
-      "note": "order of accuracy is only ever tested by a refinement study, so the conjunction is at best NOT_REFUTED even though conservation is VERIFIED"
-     },
      "actual": {
-      "verdict": "NOT_REFUTED",
-      "result": "gap",
+      "verdict": "VERIFIED",
+      "result": "match",
       "components": [
        "VERIFIED",
-       "NOT_REFUTED"
+       "VERIFIED"
       ]
      }
     },
