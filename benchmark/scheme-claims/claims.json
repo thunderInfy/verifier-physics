@@ -1,0 +1,990 @@
+{
+ "about": "Scheme claims phrased as papers and models phrase them, each formalized into the named claims of physverify/schemes/claims.py. Spec paths are relative to this directory. Run: uv run python -m physverify.schemes.bench benchmark/scheme-claims/ [--write]. Field meanings are in the docstring of physverify/schemes/bench.py.",
+ "claims": [
+  {
+   "id": "C01",
+   "sentence": "The Lax–Wendroff scheme is second-order accurate and conservative.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "conservative (flux form) and converging at order 2 to smooth solutions",
+     "expected": true,
+     "why": "LW is u_i - (nu/2)(u_{i+1} - u_{i-1}) + (nu^2/2)(u_{i+1} - 2u_i + u_{i-1}), the flux form of F = a(uL + uR)/2 - a^2 lam (uR - uL)/2; its truncation error is O(dx^2 + dt^2).",
+     "cite": "LeVeque (2002) ch. 6 (the Lax–Wendroff method) and ch. 8 (accuracy)",
+     "formalization": [
+      {
+       "spec": "../../schemes/advection-lax-wendroff.json",
+       "claim": "conservative",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "../../schemes/advection-lax-wendroff.json",
+       "claim": "converges_order_p",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "gap": {
+      "kind": "empirical-only check",
+      "note": "order of accuracy is only ever tested by a refinement study, so the conjunction is at best NOT_REFUTED even though conservation is VERIFIED"
+     },
+     "actual": {
+      "verdict": "NOT_REFUTED",
+      "result": "gap",
+      "components": [
+       "VERIFIED",
+       "NOT_REFUTED"
+      ]
+     }
+    },
+    {
+     "reading": "local truncation error O(dx^2) at fixed dt/dx (the usual meaning of 'second-order accurate')",
+     "expected": true,
+     "why": "Taylor expansion of the update about (x_i, t_n): the O(dt) and O(dt^2) terms reproduce u_t dt + u_tt dt^2/2 exactly for u_t = -a u_x.",
+     "cite": "LeVeque (2002) ch. 8 (local truncation error)",
+     "formalization": [
+      {
+       "unformalized": "no check computes the truncation error; the order studies measure global error on one problem"
+      }
+     ],
+     "gap": {
+      "kind": "missing check",
+      "note": "exact truncation-order check: Taylor-expand the update symbolically and compare with the PDE"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C02",
+   "sentence": "The Lax–Wendroff scheme is TVD for Courant numbers between 0 and 1.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "total variation non-increasing for every nu in [0, 1]",
+     "expected": false,
+     "why": "the coefficient of u_{i+1} is -nu(1 - nu)/2 < 0 for 0 < nu < 1; a negative coefficient makes a step's variation grow (and Godunov: a linear monotone scheme is at most first order, Harten: so is a linear TVD one).",
+     "cite": "Harten (1983) JCP 49; Godunov (1959); LeVeque (2002) ch. 6 (TVD methods)",
+     "formalization": [
+      {
+       "spec": "../../schemes/advection-lax-wendroff.json",
+       "override": {
+        "claims": {
+         "positive_cfl": [
+          "0",
+          "1"
+         ]
+        }
+       },
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "expected": false,
+       "bridge": "for a linear scheme u_i^{n+1} = sum_k c_k u_{i+k} with sum_k c_k = 1, TVD iff every c_k >= 0: the differences evolve with the same c_k, and the l1 norm of that convolution is sum_k |c_k|"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "result": "match",
+      "components": [
+       "REFUTED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C03",
+   "sentence": "Lax–Wendroff applied to Burgers' equation is entropy stable.",
+   "pde": "Burgers, f = u^2/2",
+   "readings": [
+    {
+     "reading": "semi-discrete entropy stability for eta = u^2/2 (Tadmor), with the LW flux at fixed dt/dx",
+     "expected": false,
+     "why": "with v = u, Q = (uR - uL)^2 (lam (uL + uR)^2/8 - (uR - uL)/12), negative at (uL, uR) = (-1, 1) for every lam, and at (0, 1) for lam = 1/2 (Q = -1/48).",
+     "cite": "Tadmor (1987) Math. Comp. 49; Tadmor (2003) Acta Numerica 12",
+     "formalization": [
+      {
+       "spec": "specs/burgers-lax-wendroff.json",
+       "claim": "entropy_stable_tadmor",
+       "relation": "same",
+       "expected": false
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "result": "match",
+      "components": [
+       "REFUTED"
+      ]
+     }
+    },
+    {
+     "reading": "the fully discrete scheme converges to the entropy solution",
+     "expected": false,
+     "why": "on the data (uL, uR) = (-1, 1) every interface flux is 1/2 = f(+-1), so the expansion shock is an exact fixed point of the update at every dt/dx.",
+     "cite": "LeVeque (2002) ch. 12 (entropy-violating numerical solutions); direct computation",
+     "formalization": [
+      {
+       "spec": "specs/burgers-lax-wendroff.json",
+       "claim": "selects_entropy_solution",
+       "relation": "same",
+       "expected": false
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED_EMPIRICALLY",
+      "result": "match",
+      "components": [
+       "REFUTED_EMPIRICALLY"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C04",
+   "sentence": "Our first-order upwind scheme is unconditionally stable.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "max-norm stable (||u^{n+1}||_inf <= ||u^n||_inf) for every Courant number nu >= 0",
+     "expected": false,
+     "why": "u_i^{n+1} = (1 - nu) u_i + nu u_{i-1}; for nu > 1 the coefficient 1 - nu is negative and the max norm grows (CFL).",
+     "cite": "Courant, Friedrichs and Lewy (1928); LeVeque (2002) ch. 4 and ch. 8",
+     "formalization": [
+      {
+       "spec": "../../schemes/advection-upwind.json",
+       "override": {
+        "claims": {
+         "positive_cfl": [
+          "0",
+          "2"
+         ]
+        }
+       },
+       "claim": "positive_under_cfl",
+       "relation": "necessary",
+       "expected": false,
+       "bridge": "for a linear scheme with sum_k c_k = 1, max-norm stability iff every c_k >= 0 (the l-inf operator norm is sum_k |c_k|); 'every nu >= 0' implies the instance nu in [0, 2]"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "result": "match",
+      "components": [
+       "REFUTED"
+      ]
+     }
+    },
+    {
+     "reading": "von Neumann (L2) stable for every nu >= 0",
+     "expected": false,
+     "why": "the amplification factor g = 1 - nu(1 - e^{-i theta}) has |g|^2 = 1 - 2 nu (1 - nu)(1 - cos theta) > 1 for nu > 1.",
+     "cite": "LeVeque (2002) ch. 8 (von Neumann analysis)",
+     "formalization": [
+      {
+       "spec": "../../schemes/advection-upwind.json",
+       "override": {
+        "claims": {
+         "positive_cfl": [
+          "0",
+          "2"
+         ]
+        }
+       },
+       "claim": "positive_under_cfl",
+       "relation": "sufficient",
+       "expected": false,
+       "bridge": "non-negative coefficients summing to 1 give |g(theta)| <= sum_k c_k = 1, so positivity is sufficient for von Neumann stability, not necessary"
+      }
+     ],
+     "gap": {
+      "kind": "missing check",
+      "note": "von Neumann check: |g(theta)|^2 is a polynomial in cos theta and nu, decidable exactly with the Bernstein machinery already used for positivity; positivity alone only gives the sufficient direction"
+     },
+     "actual": {
+      "verdict": "UNKNOWN",
+      "result": "gap",
+      "components": [
+       "REFUTED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C05",
+   "sentence": "The Lax–Friedrichs scheme is stable provided |a|Δt/Δx ≤ 1.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "max-norm stable for every nu in [-1, 1]",
+     "expected": true,
+     "why": "u_i^{n+1} = (1 + nu)/2 u_{i-1} + (1 - nu)/2 u_{i+1}, both coefficients non-negative for |nu| <= 1.",
+     "cite": "LeVeque (2002) ch. 4 (the Lax–Friedrichs method)",
+     "formalization": [
+      {
+       "spec": "../../schemes/advection-lax-friedrichs.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "expected": true,
+       "bridge": "for a linear scheme with sum_k c_k = 1, max-norm stability iff every c_k >= 0"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED"
+      ]
+     }
+    },
+    {
+     "reading": "von Neumann (L2) stable for every nu in [-1, 1]",
+     "expected": true,
+     "why": "g = cos theta - i nu sin theta, |g|^2 = cos^2 theta + nu^2 sin^2 theta <= 1 iff |nu| <= 1.",
+     "cite": "LeVeque (2002) ch. 8",
+     "formalization": [
+      {
+       "spec": "../../schemes/advection-lax-friedrichs.json",
+       "claim": "positive_under_cfl",
+       "relation": "sufficient",
+       "expected": true,
+       "bridge": "non-negative coefficients summing to 1 give |g(theta)| <= 1"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C06",
+   "sentence": "Our scheme, forward Euler with the central flux F = (f(u_L) + f(u_R))/2, is consistent and conservative, and stable for sufficiently small time steps.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "consistent, conservative, and stable (max norm or L2) for all nu in (0, nu0] for some nu0 > 0",
+     "expected": false,
+     "why": "consistency and conservation hold, but FTCS is unstable for every nu > 0: g = 1 - i nu sin theta, |g|^2 = 1 + nu^2 sin^2 theta > 1, and the coefficient -nu/2 of u_{i+1} is negative.",
+     "cite": "LeVeque (2002) ch. 4 and ch. 8",
+     "formalization": [
+      {
+       "spec": "specs/advection-ftcs.json",
+       "claim": "consistent",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "specs/advection-ftcs.json",
+       "claim": "conservative",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "unformalized": "'for some nu0 > 0' is an existential over the CFL range; positive_cfl takes one fixed interval, and refuting [0, nu0] for one nu0 does not refute the existential"
+      }
+     ],
+     "gap": {
+      "kind": "inexpressible regime",
+      "note": "the spec can claim a CFL interval but not 'some interval (0, nu0]'; a check that a coefficient is negative on (0, eps) for all small eps (sign of the lowest-order term in nu) would decide it exactly"
+     },
+     "actual": {
+      "verdict": "UNKNOWN",
+      "result": "gap",
+      "components": [
+       "VERIFIED",
+       "VERIFIED",
+       "UNFORMALIZED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C07",
+   "sentence": "The Rusanov (local Lax–Friedrichs) scheme for Burgers' equation is monotone under the CFL condition max|u| Δt/Δx ≤ 1.",
+   "pde": "Burgers, f = u^2/2",
+   "readings": [
+    {
+     "reading": "the three-point update with alpha = max(|uL|, |uR|) is monotone (non-decreasing in each argument) whenever lam max|u| <= 1",
+     "expected": false,
+     "why": "our exact counterexample: at lam = 9/10, H(1, u, -9/10) is 751/4000 at u = 1 and 18011/100000 at u = 101/100 (lam max|u| = 0.909): it decreases in u_i. The switch in alpha adds sign(uL)(uL - uR)/2 to dF/duL. We know no textbook statement of the sharp step bound and do not claim one.",
+     "cite": "Rusanov (1961); LeVeque (2002) ch. 12 (local Lax–Friedrichs); direct computation in Fraction arithmetic",
+     "formalization": [
+      {
+       "unformalized": "positivity/monotonicity is implemented for linear schemes only (positive_under_cfl); there is no named claim for monotonicity of a nonlinear update"
+      }
+     ],
+     "gap": {
+      "kind": "missing check",
+      "note": "monotonicity of a nonlinear 3-point update: dH/du_k >= 0 on each sign cell, using the sign-cell splitter and certifier already built for Tadmor's check, with an exact rational counterexample otherwise"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    },
+    {
+     "reading": "the Rusanov numerical flux is monotone: non-decreasing in uL, non-increasing in uR",
+     "expected": true,
+     "why": "on each of the regions |uL| >= |uR| and |uR| >= |uL| the partial derivatives have the right sign (e.g. dF/duR = (uR - |uL|)/2 <= 0 when |uL| >= |uR|); it is an E-flux.",
+     "cite": "Osher (1984) SINUM 21 (E-schemes); Tadmor (2003) Acta Numerica 12",
+     "formalization": [
+      {
+       "unformalized": "no named claim for monotonicity of a numerical flux"
+      }
+     ],
+     "gap": {
+      "kind": "missing claim type",
+      "note": "monotone flux / E-flux; the E-flux condition sign(uR - uL)(F - f(u)) <= 0 for u between uL and uR is a polynomial inequality on cells, close to the Tadmor certifier"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    },
+    {
+     "reading": "the scheme with a single global alpha >= max|u| over the data (often also called Rusanov) is monotone under lam alpha <= 1",
+     "expected": true,
+     "why": "then dH/du_{i-1} = lam(u_{i-1} + alpha)/2 >= 0, dH/du_{i+1} = lam(alpha - u_{i+1})/2 >= 0, dH/du_i = 1 - lam alpha >= 0.",
+     "cite": "LeVeque (2002) ch. 12; Crandall and Majda (1980) Math. Comp. 34",
+     "formalization": [
+      {
+       "unformalized": "same missing nonlinear monotonicity check; also needs a parameter alpha with a side condition alpha >= max|u|"
+      }
+     ],
+     "gap": {
+      "kind": "missing check",
+      "note": "as above, plus side conditions on spec parameters"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C08",
+   "sentence": "The Engquist–Osher scheme for Burgers' equation is monotone for max|u| Δt/Δx ≤ 1 and therefore converges to the entropy solution.",
+   "pde": "Burgers, f = u^2/2",
+   "readings": [
+    {
+     "reading": "the fully discrete scheme is monotone under lam max|u| <= 1, and its limit is the entropy solution",
+     "expected": true,
+     "why": "F = f(max(uL, 0)) + f(min(uR, 0)) gives dH/du_{i-1} = lam max(u_{i-1}, 0), dH/du_{i+1} = -lam min(u_{i+1}, 0), dH/du_i = 1 - lam|u_i|, all >= 0; a conservative consistent monotone scheme converges to the entropy solution.",
+     "cite": "Engquist and Osher (1981) Math. Comp. 36; Crandall and Majda (1980) Math. Comp. 34; Harten, Hyman and Lax (1976) CPAM 29",
+     "formalization": [
+      {
+       "unformalized": "no monotonicity check for nonlinear updates"
+      },
+      {
+       "spec": "../../schemes/burgers-engquist-osher.json",
+       "claim": "selects_entropy_solution",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "gap": {
+      "kind": "missing check",
+      "note": "nonlinear monotonicity; with it, a trusted SUFFICIENT row 'monotone + conservative + consistent -> selects_entropy_solution' (Crandall–Majda) would make the second conjunct exact too"
+     },
+     "actual": {
+      "verdict": "UNKNOWN",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED",
+       "NOT_REFUTED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C09",
+   "sentence": "The Engquist–Osher flux, F = ½(f(u_L) + f(u_R)) − ½∫_{u_L}^{u_R} |f′(u)| du, is entropy stable.",
+   "pde": "Burgers, f = u^2/2 (the integral is (uR|uR| - uL|uL|)/2)",
+   "readings": [
+    {
+     "reading": "semi-discrete entropy stability for eta = u^2/2 (Tadmor), with the flux in the integral form as written",
+     "expected": true,
+     "why": "this is the Engquist–Osher flux in another form; E-fluxes are entropy stable for every convex entropy.",
+     "cite": "Osher (1984) SINUM 21; Tadmor (1987) Math. Comp. 49",
+     "formalization": [
+      {
+       "spec": "specs/burgers-engquist-osher-integral.json",
+       "claim": "entropy_stable_tadmor",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED"
+      ]
+     }
+    },
+    {
+     "reading": "semi-discrete entropy stability for every convex entropy pair",
+     "expected": true,
+     "why": "as above (E-scheme).",
+     "cite": "Osher (1984) SINUM 21; Tadmor (2003) Acta Numerica 12",
+     "formalization": [
+      {
+       "unformalized": "the Tadmor check needs a declared quadratic entropy (F* by exact polynomial division); 'every convex entropy' is a quantifier over functions"
+      }
+     ],
+     "gap": {
+      "kind": "missing claim type",
+      "note": "'entropy stable for all convex entropies' is equivalent, for scalar laws, to the E-flux condition, which is a finite polynomial check"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C10",
+   "sentence": "Roe's scheme converges to the entropy solution.",
+   "pde": "Burgers, f = u^2/2 (Roe speed (uL + uR)/2, no entropy fix)",
+   "readings": [
+    {
+     "reading": "the fully discrete scheme's limit is the entropy solution",
+     "expected": false,
+     "why": "on (-1, 1) the Roe speed is 0 and the flux is 1/2 at every interface: the expansion shock is an exact fixed point.",
+     "cite": "LeVeque (2002) ch. 12 (entropy fix); Harten (1983) JCP 49; Toro (2009) ch. 11",
+     "formalization": [
+      {
+       "spec": "../../schemes/broken-burgers-roe-no-entropy-fix.json",
+       "claim": "selects_entropy_solution",
+       "relation": "same",
+       "expected": false
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED_EMPIRICALLY",
+      "result": "match",
+      "components": [
+       "REFUTED_EMPIRICALLY"
+      ]
+     }
+    },
+    {
+     "reading": "the method-of-lines scheme's limit is the entropy solution",
+     "expected": false,
+     "why": "the same step is a steady state of du_i/dt = -(F_{i+1/2} - F_{i-1/2})/dx.",
+     "cite": "as above",
+     "formalization": [
+      {
+       "spec": "../../schemes/broken-burgers-roe-no-entropy-fix.json",
+       "claim": "selects_entropy_solution_semidiscrete",
+       "relation": "same",
+       "expected": false
+      }
+     ],
+     "gap": {
+      "kind": "missing check",
+      "note": "the table has only a SUFFICIENT row (Tadmor) for this claim, so a refutation is impossible; an exact NECESSARY check 'F(uL, uR) = f(uL) = f(uR) for some uL < uR' (a stationary expansion shock is a steady state) would refute it in exact arithmetic"
+     },
+     "actual": {
+      "verdict": "UNKNOWN",
+      "result": "gap",
+      "components": [
+       "UNKNOWN"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C11",
+   "sentence": "With Harten's entropy fix, Roe's scheme no longer produces the expansion shock at transonic rarefactions and converges to the rarefaction fan.",
+   "pde": "Burgers, f = u^2/2, delta = 1/2",
+   "readings": [
+    {
+     "reading": "on transonic rarefaction data the limit is the fan",
+     "expected": true,
+     "why": "the fix gives the sonic interface numerical viscosity at least delta/2 > 0, so the step is no longer a fixed point and the fan forms. The named claim is the general statement; its only check is this rarefaction study, so we use 'same'.",
+     "cite": "Harten (1983) JCP 49; Harten and Hyman (1983) JCP 50; LeVeque (2002) ch. 12",
+     "formalization": [
+      {
+       "spec": "../../schemes/burgers-roe-harten-fix.json",
+       "claim": "selects_entropy_solution",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "gap": {
+      "kind": "empirical-only check",
+      "note": "convergence to the fan is a refinement study; Tadmor's sufficient check fails for delta = 1/2, so nothing exact can verify it"
+     },
+     "actual": {
+      "verdict": "NOT_REFUTED",
+      "result": "gap",
+      "components": [
+       "NOT_REFUTED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C12",
+   "sentence": "The Lax–Friedrichs scheme for Burgers' equation is first-order accurate, conservative, and captures shocks at the correct speed.",
+   "pde": "Burgers, f = u^2/2",
+   "readings": [
+    {
+     "reading": "order 1 on smooth solutions, flux form, and shocks at the Rankine–Hugoniot speed",
+     "expected": true,
+     "why": "Lax–Friedrichs is first order and in flux form; by the Lax–Wendroff theorem a convergent conservative consistent scheme converges to a weak solution, whose shocks satisfy Rankine–Hugoniot.",
+     "cite": "Lax and Wendroff (1960) CPAM 13; LeVeque (2002) ch. 12",
+     "formalization": [
+      {
+       "spec": "../../schemes/burgers-lax-friedrichs.json",
+       "claim": "converges_order_p",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "../../schemes/burgers-lax-friedrichs.json",
+       "claim": "conservative",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "../../schemes/burgers-lax-friedrichs.json",
+       "claim": "correct_shock_speed",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "gap": {
+      "kind": "missing table row",
+      "note": "order is empirical-only (see C01); and correct_shock_speed has only the empirical shock study, although the exact conservation check plus the Lax–Wendroff theorem is sufficient for it (premise: the scheme converges)"
+     },
+     "actual": {
+      "verdict": "NOT_REFUTED",
+      "result": "gap",
+      "components": [
+       "NOT_REFUTED",
+       "VERIFIED",
+       "NOT_REFUTED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C13",
+   "sentence": "Discretizing Burgers' equation in its quasilinear form u_t + u u_x = 0 with upwinding gives a scheme that captures shocks at the correct speed.",
+   "pde": "Burgers, f = u^2/2",
+   "readings": [
+    {
+     "reading": "the non-conservative upwind scheme's shocks move at the Rankine–Hugoniot speed",
+     "expected": false,
+     "why": "non-conservative schemes converge to the wrong shock speed in general; here the step (1, 0) does not move at all (s = 1/2).",
+     "cite": "Hou and LeFloch (1994) Math. Comp. 62; LeVeque (2002) ch. 12",
+     "formalization": [
+      {
+       "spec": "../../schemes/broken-burgers-nonconservative.json",
+       "claim": "correct_shock_speed",
+       "relation": "same",
+       "expected": false
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED_EMPIRICALLY",
+      "result": "match",
+      "components": [
+       "REFUTED_EMPIRICALLY"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C14",
+   "sentence": "The upwind scheme u_j^{n+1} = u_j^n − ν(u_j^n − u_{j−1}^n), ν = aΔt/Δx, is consistent, conservative, and positive for 0 ≤ ν ≤ 1.",
+   "pde": "linear advection, a = 3/2 (notation test: written as an update, not a flux, and nu instead of dt/dx)",
+   "readings": [
+    {
+     "reading": "consistent, in flux form, and with non-negative coefficients for nu in [0, 1]",
+     "expected": true,
+     "why": "the update telescopes with F = a uL; coefficients 1 - nu and nu.",
+     "cite": "LeVeque (2002) ch. 4",
+     "formalization": [
+      {
+       "spec": "specs/advection-upwind-update-form.json",
+       "claim": "consistent",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "specs/advection-upwind-update-form.json",
+       "claim": "conservative",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "specs/advection-upwind-update-form.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED",
+       "VERIFIED",
+       "VERIFIED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C15",
+   "sentence": "The Lax–Friedrichs scheme, u_j^{n+1} = ½(u_{j+1}^n + u_{j−1}^n) − (ν/2)(u_{j+1}^n − u_{j−1}^n), is monotone for |ν| ≤ 1.",
+   "pde": "linear advection, a = -1/2 (notation test: update form, negative speed)",
+   "readings": [
+    {
+     "reading": "the linear update has non-negative coefficients for nu in [-1, 1]",
+     "expected": true,
+     "why": "coefficients (1 + nu)/2 and (1 - nu)/2; for a linear scheme monotone means exactly non-negative coefficients.",
+     "cite": "LeVeque (2002) ch. 4; Godunov (1959)",
+     "formalization": [
+      {
+       "spec": "specs/advection-lax-friedrichs-update-form.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "expected": true,
+       "bridge": "a linear scheme is monotone iff its coefficients are non-negative"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C16",
+   "sentence": "The Lax–Friedrichs scheme for Burgers' equation is entropy stable for any time step.",
+   "pde": "Burgers, f = u^2/2",
+   "readings": [
+    {
+     "reading": "semi-discrete entropy stability for eta = u^2/2 (Tadmor) for every dt/dx > 0, with no bound on the states",
+     "expected": false,
+     "why": "the LF viscosity is dx/(2 dt); D = 1/(2 lam) - (uR - uL)/12 < 0 at lam = 2, (uL, uR) = (-2, 2). It holds under lam|u| <= 3.",
+     "cite": "Tadmor (1987) Math. Comp. 49; the README's Lax–Friedrichs entry",
+     "formalization": [
+      {
+       "spec": "../../schemes/burgers-lax-friedrichs.json",
+       "override": {
+        "claims": {
+         "entropy_stability": {}
+        }
+       },
+       "claim": "entropy_stable_tadmor",
+       "relation": "same",
+       "expected": false
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "result": "match",
+      "components": [
+       "REFUTED"
+      ]
+     }
+    },
+    {
+     "reading": "the fully discrete scheme satisfies a discrete entropy inequality for every dt/dx",
+     "expected": false,
+     "why": "for lam max|u| > 1 the scheme is not monotone and not even stable; under lam max|u| <= 1 it is monotone and so satisfies discrete entropy inequalities (Crandall–Majda).",
+     "cite": "Crandall and Majda (1980) Math. Comp. 34; LeVeque (2002) ch. 12",
+     "formalization": [
+      {
+       "unformalized": "no check of a fully discrete entropy inequality, and no stability check for nonlinear schemes"
+      }
+     ],
+     "gap": {
+      "kind": "missing check",
+      "note": "fully discrete cell entropy inequality eta(H) <= eta(u_i) - lam (G_{i+1/2} - G_{i-1/2}); for monotone schemes it follows from monotonicity (Crandall–Majda), so the nonlinear monotonicity check would cover the common case"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C17",
+   "sentence": "Godunov's scheme for Burgers' equation, with F = max(f(max(u_L, 0)), f(min(u_R, 0))), is consistent and entropy stable.",
+   "pde": "Burgers, f = u^2/2",
+   "readings": [
+    {
+     "reading": "consistent and semi-discretely entropy stable for eta = u^2/2, transcribing max(a, b) = (a + b + |a - b|)/2 literally",
+     "expected": true,
+     "why": "Godunov's flux is an E-flux, entropy stable for every convex entropy.",
+     "cite": "Godunov (1959); Osher (1984) SINUM 21; Tadmor (2003) Acta Numerica 12; LeVeque (2002) ch. 12",
+     "formalization": [
+      {
+       "spec": "specs/burgers-godunov.json",
+       "claim": "consistent",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "specs/burgers-godunov.json",
+       "claim": "entropy_stable_tadmor",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "gap": {
+      "kind": "certifier incompleteness",
+      "note": "the literal formula gives UNKNOWN on both: F(u, u) leaves sqrt(u^4/4), which the normalizer does not reduce to u^2/2, and the sign-cell split yields empty cells (-uL^2/2 >= 0 with uL >= 0) and a quadratic atom (uL^2 - uR^2 >= 0) the linear certifier cannot use. The same flux rewritten (next reading) is VERIFIED"
+     },
+     "actual": {
+      "verdict": "UNKNOWN",
+      "result": "gap",
+      "components": [
+       "UNKNOWN",
+       "UNKNOWN"
+      ]
+     }
+    },
+    {
+     "reading": "the same, with the flux rewritten by hand as max(a, -b)^2/2, a = max(uL, 0), b = min(uR, 0)",
+     "expected": true,
+     "why": "as above; a >= 0 >= b, so max(a^2, b^2) = max(a, -b)^2.",
+     "cite": "as above",
+     "formalization": [
+      {
+       "spec": "specs/burgers-godunov-squared-form.json",
+       "claim": "consistent",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "specs/burgers-godunov-squared-form.json",
+       "claim": "entropy_stable_tadmor",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED",
+       "VERIFIED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C18",
+   "sentence": "The minmod-limited MUSCL scheme is second-order accurate.",
+   "pde": "linear advection",
+   "readings": [
+    {
+     "reading": "order 2 in L1 on smooth data without extrema (the limiter does not clip)",
+     "expected": true,
+     "why": "where consecutive slopes have the same sign and ratio near 1, the minmod slope is a second-order slope and the method is second order.",
+     "cite": "van Leer (1979) JCP 32; LeVeque (2002) ch. 6",
+     "formalization": [
+      {
+       "unformalized": "MUSCL has a five-point stencil; specs are three-point (um1, u0, up1)"
+      }
+     ],
+     "gap": {
+      "kind": "inexpressible scheme",
+      "note": "wider stencils (um2..up2) in the spec language and in the conservation/consistency checks; and a test problem without extrema"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    },
+    {
+     "reading": "order 2 including at smooth extrema (pointwise, L-inf)",
+     "expected": false,
+     "why": "TVD schemes clip smooth extrema and drop to first order there.",
+     "cite": "Osher and Chakravarthy (1984) SINUM 21 (as we recall the statement); LeVeque (2002) ch. 6",
+     "formalization": [
+      {
+       "unformalized": "five-point stencil; also the order study tests L1 and L-inf together and cannot claim one norm"
+      }
+     ],
+     "gap": {
+      "kind": "inexpressible scheme",
+      "note": "as above, plus a per-norm order claim"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C19",
+   "sentence": "Our upwind scheme is first-order accurate.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "converges at order 1 to smooth solutions (global error)",
+     "expected": true,
+     "why": "standard; truncation error O(dx) and stable under CFL, so by Lax equivalence the global error is O(dx).",
+     "cite": "LeVeque (2002) ch. 8",
+     "formalization": [
+      {
+       "spec": "../../schemes/advection-upwind.json",
+       "claim": "converges_order_p",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "gap": {
+      "kind": "empirical-only check",
+      "note": "as C01; an exact truncation-order check plus the exact positivity (stability) check would make this VERIFIED via Lax equivalence"
+     },
+     "actual": {
+      "verdict": "NOT_REFUTED",
+      "result": "gap",
+      "components": [
+       "NOT_REFUTED"
+      ]
+     }
+    },
+    {
+     "reading": "converges at order 1 in L1 also for discontinuous solutions",
+     "expected": false,
+     "why": "for discontinuous data monotone schemes converge at rate O(dx^(1/2)) in L1, and the rate is sharp.",
+     "cite": "Kuznetsov (1976); Tang and Teng (1995) Math. Comp. 64; LeVeque (2002) ch. 8",
+     "formalization": [
+      {
+       "unformalized": "the order study only has smooth test problems (advected sine, Burgers before the shock)"
+      }
+     ],
+     "gap": {
+      "kind": "inexpressible regime",
+      "note": "a discontinuous test problem (advected square wave) for the order study; even then only REFUTED_EMPIRICALLY would be reachable"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    },
+    {
+     "reading": "local truncation error O(dx)",
+     "expected": true,
+     "why": "Taylor expansion gives the modified equation u_t + a u_x = (a dx/2)(1 - nu) u_xx + ...",
+     "cite": "LeVeque (2002) ch. 8",
+     "formalization": [
+      {
+       "unformalized": "no truncation-error check"
+      }
+     ],
+     "gap": {
+      "kind": "missing check",
+      "note": "exact truncation-order check (see C01)"
+     },
+     "actual": {
+      "verdict": "UNFORMALIZED",
+      "result": "gap",
+      "components": [
+       "UNFORMALIZED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C20",
+   "sentence": "For u_t + (u²)_x = 0, the Rusanov flux F = (u_L² + u_R²)/2 − max(|u_L|, |u_R|)(u_R − u_L) is consistent and entropy stable with respect to η = u².",
+   "pde": "f = u^2 (Burgers with a factor 2; notation test: different flux scaling and entropy)",
+   "readings": [
+    {
+     "reading": "consistent, and semi-discretely entropy stable for (eta, q) = (u^2, 4u^3/3)",
+     "expected": true,
+     "why": "Rusanov's flux with alpha = max|f'| = 2 max(|uL|, |uR|) is an E-flux, entropy stable for every convex entropy; q' = eta' f' = 4u^2.",
+     "cite": "Rusanov (1961); Tadmor (2003) Acta Numerica 12; Toro (2009) ch. 10",
+     "formalization": [
+      {
+       "spec": "specs/burgers-rusanov-u-squared.json",
+       "claim": "consistent",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "specs/burgers-rusanov-u-squared.json",
+       "claim": "entropy_stable_tadmor",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED",
+       "VERIFIED"
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

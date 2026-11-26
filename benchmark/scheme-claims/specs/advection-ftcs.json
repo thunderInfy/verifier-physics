@@ -1,0 +1,16 @@
+{
+ "name": "Forward-time centred-space (central flux), linear advection a = 1",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "(a*uL + a*uR)/2"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative"
+ ]
+}

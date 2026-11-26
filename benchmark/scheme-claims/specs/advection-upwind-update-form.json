@@ -1,0 +1,23 @@
+{
+ "name": "Upwind written as an update, u_j - nu*(u_j - u_{j-1}), linear advection a = 3/2",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "3/2"
+ },
+ "scheme": {
+  "update": "u0 - a*lam*(u0 - um1)"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "positive_under_cfl"
+ ],
+ "claims": {
+  "positive_cfl": [
+   "0",
+   "1"
+  ]
+ }
+}

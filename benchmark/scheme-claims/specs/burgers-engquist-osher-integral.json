@@ -1,0 +1,17 @@
+{
+ "name": "Engquist-Osher for Burgers in integral form, (f(uL) + f(uR))/2 - (1/2) int_uL^uR |u| du",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uR^2)/4 - (uR*sqrt(uR^2) - uL*sqrt(uL^2))/4"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "entropy_stable_tadmor"
+ ],
+ "claims": {
+  "entropy_stability": {}
+ }
+}

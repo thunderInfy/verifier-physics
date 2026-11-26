@@ -434,7 +434,7 @@ Python 3.11+ and [uv](https://docs.astral.sh/uv/):
 
 ```
 uv sync
-uv run pytest tests/test_fast.py tests/test_schemes.py
+uv run pytest tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py
 ```
 
 The Lean checks need [elan](https://github.com/leanprover/elan) and a built Mathlib (Lean

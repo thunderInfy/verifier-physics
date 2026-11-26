@@ -1,0 +1,17 @@
+{
+ "name": "Godunov for Burgers, the same flux as burgers-godunov written as max(a, -b)^2/2 with a = max(uL, 0), b = min(uR, 0)",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(((uL + sqrt(uL^2))/2 - (uR - sqrt(uR^2))/2 + sqrt(((uL + sqrt(uL^2))/2 + (uR - sqrt(uR^2))/2)^2))/2)^2/2"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "entropy_stable_tadmor"
+ ],
+ "claims": {
+  "entropy_stability": {}
+ }
+}

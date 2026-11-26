@@ -1,0 +1,37 @@
+{
+ "name": "Lax-Wendroff in flux form for Burgers, A = f'((uL + uR)/2)",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uR^2)/4 - lam*(uL + uR)*(uR^2 - uL^2)/8"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "entropy_stable_tadmor",
+  "selects_entropy_solution"
+ ],
+ "claims": {
+  "entropy_stability": {},
+  "entropy_rarefaction": {
+   "x0": "1/2",
+   "lams": [
+    "2/5",
+    "37/100"
+   ],
+   "cases": [
+    {
+     "uL": "-1",
+     "uR": "1",
+     "T": "1/4"
+    },
+    {
+     "uL": "-1/2",
+     "uR": "1",
+     "T": "1/4"
+    }
+   ]
+  }
+ }
+}
