@@ -13,7 +13,8 @@
   "correct_shock_speed",
   "entropy_stable_tadmor",
   "selects_entropy_solution",
-  "selects_entropy_solution_semidiscrete"
+  "selects_entropy_solution_semidiscrete",
+  "monotone_under_cfl"
  ],
  "claims": {
   "order": {
@@ -69,7 +70,8 @@
      "T": "1/4"
     }
    ]
-  }
+  },
+  "monotone_cfl": "1"
  },
  "test": {
   "problem": {

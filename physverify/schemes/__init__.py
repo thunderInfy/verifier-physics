@@ -23,7 +23,7 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
     names = spec.get("named_claims", [])
     claims.validate(names)
     params = spec.get("claims", {})
-    wanted = {c for n in names for c, _, _ in claims.CLAIMS[n][1]}
+    wanted = {c for n in names for c, *_ in claims.CLAIMS[n][1]}
     out = [checks.consistency(spec), checks.conservation(spec), checks.positivity(spec)]
     if "test" in spec:
         out += convergence.studies(spec)
@@ -32,6 +32,8 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
     if "entropy_stability" in params or "entropy_stability" in wanted:
         # a named claim can need Tadmor's check without the spec claiming it: run it with the defaults
         out.append(checks.entropy_stability({**spec, "claims": {"entropy_stability": {}, **params}}))
+    if "monotone_cfl" in params or "monotone_under_cfl" in names:
+        out.append(checks.monotonicity(spec))
     if "entropy_rarefaction" in params:
         out.append(entropy.study(spec, rarefaction_grids))
     return {"checks": out, "claims": claims.judge(names, out)}
@@ -56,7 +58,8 @@ def render(spec: dict, report: dict) -> str:
         g = f", {v['guarantee']}" if v["guarantee"] else ""
         loud = "!!! " if v["verdict"] == claims.INCONSISTENT else ""
         lines.append(f"- {loud}[{v['verdict']}] ({v['claim']}{g}) {v['statement']}")
-        ev = "; ".join(f"{e['check']} {e['relation']} {e['status']} -> {e['gives']}" for e in v["evidence"])
+        ev = "; ".join(f"{e['check']} {e['relation']} {e['status']} -> {e['gives']}"
+                       + (f" (requires {', '.join(e['unmet'])})" if e.get("unmet") else "") for e in v["evidence"])
         lines.append(f"    evidence: {ev or 'none'}")
         if v["detail"]:
             lines.append(f"    {v['detail']}")

@@ -1,5 +1,5 @@
 {
- "name": "BROKEN: Lax-Friedrichs claimed positive up to nu = 1.1",
+ "name": "BROKEN: Lax-Friedrichs claimed positive and monotone up to nu = 1.1",
  "pde": {
   "flux": "a*u"
  },
@@ -12,12 +12,14 @@
  "named_claims": [
   "consistent",
   "conservative",
-  "positive_under_cfl"
+  "positive_under_cfl",
+  "monotone_under_cfl"
  ],
  "claims": {
   "positive_cfl": [
    "0",
    "11/10"
-  ]
+  ],
+  "monotone_cfl": "11/10"
  }
 }

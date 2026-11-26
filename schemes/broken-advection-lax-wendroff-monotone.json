@@ -1,0 +1,20 @@
+{
+ "name": "BROKEN: Lax-Wendroff claimed monotone for nu = a*dt/dx <= 1",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + uR)/2 - a^2*lam*(uR - uL)/2"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "monotone_under_cfl"
+ ],
+ "claims": {
+  "monotone_cfl": "1"
+ }
+}

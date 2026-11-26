@@ -15,7 +15,9 @@ Per (relation, outcome of one check):
     SUFFICIENT  pass -> verified      fail -> unknown
     NECESSARY   pass -> not refuted   fail -> refuted
     EQUIVALENT  pass -> verified      fail -> refuted
-and an UNKNOWN (or NOT_APPLICABLE) outcome gives unknown. Over several checks for one claim, any
+and an UNKNOWN (or NOT_APPLICABLE) outcome gives unknown. A row may also require other exact checks
+to be VERIFIED on the same spec (monotonicity proves the entropy limit only for a conservative,
+consistent scheme); if one is not, the row gives unknown whatever its own check says. Over several checks for one claim, any
 refutation refutes and any verification verifies; both at once is INCONSISTENT, which is a bug in
 a checker, a spec or this table, never a physics result.
 """
@@ -31,15 +33,21 @@ FAILURES = (REFUTED, REFUTED_EMPIRICALLY, SUSPICIOUS, INCONSISTENT)
 # The strength of each check, fixed here rather than read from the check's own result.
 GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "entropy_stability": EXACT,
              "order/combined": EMPIRICAL, "order/space": EMPIRICAL, "order/time": EMPIRICAL,
-             "shock_speed": EMPIRICAL, "entropy_rarefaction": EMPIRICAL}
+             "monotonicity": EXACT, "shock_speed": EMPIRICAL, "entropy_rarefaction": EMPIRICAL}
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
 _TADMOR = ("sufficiency needs the scheme to converge, and uses that for a convex scalar flux one strictly "
            "convex entropy inequality singles out the entropy solution")
 
-# claim -> (statement, ((check, relation, premise), ...)). The premise is what the relation rests on;
-# it is carried into the verdict as an assumption.
+_CRANDALL_MAJDA = ("Crandall-Majda (1980): a conservative, consistent, monotone scheme converges to the entropy "
+                   "solution as dx -> 0 at fixed dt/dx (initial data in L1 and BV, with values in the CFL range; "
+                   "a monotone consistent scheme keeps them there by the maximum principle); also needs the "
+                   "conservation and consistency checks to pass")
+
+# claim -> (statement, ((check, relation, premise[, requires]), ...)). The premise is what the relation
+# rests on; it is carried into the verdict as an assumption. `requires` lists exact checks that must be
+# VERIFIED on the same spec for the row to count at all; otherwise the row gives UNKNOWN.
 CLAIMS = {
     "consistent": ("the numerical flux is consistent: F(u, u) = f(u)",
                    (("consistency", EQUIVALENT, ""),)),
@@ -53,9 +61,12 @@ CLAIMS = {
                               (("entropy_stability", EQUIVALENT, ""),)),
     "selects_entropy_solution_semidiscrete": ("the method-of-lines scheme's limit is the entropy solution",
                                               (("entropy_stability", SUFFICIENT, _TADMOR),)),
-    # the fully discrete scheme: Tadmor's inequality says nothing about time stepping, so only the study bears
+    "monotone_under_cfl": ("H is non-decreasing in each argument for states with lam*|f'(u)| <= c",
+                           (("monotonicity", EQUIVALENT, ""),)),
+    # the fully discrete scheme: Tadmor's inequality says nothing about time stepping; monotonicity does
     "selects_entropy_solution": ("the limit of the scheme is the entropy solution, not another weak solution",
-                                 (("entropy_rarefaction", NECESSARY, "on the spec's rarefaction data only"),)),
+                                 (("entropy_rarefaction", NECESSARY, "on the spec's rarefaction data only"),
+                                  ("monotonicity", SUFFICIENT, _CRANDALL_MAJDA, ("conservation", "consistency")))),
     "converges_order_p": ("converges to smooth solutions of the PDE at the order p claimed for each study",
                           tuple((f"order/{k}", NECESSARY, _ORDER) for k in ("combined", "space", "time"))),
     "correct_shock_speed": ("shocks move at the Rankine-Hugoniot speed in the limit dx -> 0",
@@ -95,6 +106,12 @@ def label(polarity: str, guarantee: str) -> str:
     return _LABEL.get((polarity, guarantee)) or {"not_refuted": NOT_REFUTED, "suspicious": SUSPICIOUS}.get(polarity, UNKNOWN)
 
 
+def unmet_requirements(requires, by_check: dict) -> list[str]:
+    """The required checks that are not exactly VERIFIED on this spec, as 'check: status'."""
+    status = lambda c: by_check[c]["status"] if c in by_check else "not run"
+    return [f"{c}: {status(c)}" for c in requires if not (status(c) == VERIFIED and strength(c, VERIFIED) == EXACT)]
+
+
 def validate(names, table=CLAIMS) -> None:
     bad = [n for n in names if n not in table]
     if bad:
@@ -105,14 +122,19 @@ def judge_one(name: str, results: list[dict], table=CLAIMS) -> dict:
     statement, links = table[name]
     by_check = {r["check"]: r for r in results}
     evidence = []
-    for check, relation, premise in links:
+    for check, relation, premise, *requires in links:
         r = by_check.get(check)
         if r is None:
             continue
         polarity, g = bear(relation, check, r["status"])
+        unmet = unmet_requirements(requires[0] if requires else (), by_check)
+        if unmet:                                        # the relation's premises fail, so the row says nothing
+            polarity, g = "unknown", ""
         evidence.append({"check": check, "relation": relation, "status": r["status"], "polarity": polarity,
                          "guarantee": g, "gives": label(polarity, g),
                          "assumes": ([premise] if premise else []) + r.get("assumptions", [])})
+        if unmet:
+            evidence[-1]["unmet"] = unmet
     pick = lambda p: [e for e in evidence if e["polarity"] == p]
     ver, ref = pick("verified"), pick("refuted")
     if ver and ref:

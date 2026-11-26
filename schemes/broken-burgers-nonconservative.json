@@ -9,7 +9,9 @@
  "named_claims": [
   "conservative",
   "converges_order_p",
-  "correct_shock_speed"
+  "correct_shock_speed",
+  "monotone_under_cfl",
+  "selects_entropy_solution"
  ],
  "claims": {
   "order": {
@@ -43,7 +45,8 @@
      "lam": "4/5"
     }
    ]
-  }
+  },
+  "monotone_cfl": "1/3"
  },
  "test": {
   "problem": {

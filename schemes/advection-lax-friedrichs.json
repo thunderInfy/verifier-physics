@@ -13,7 +13,8 @@
   "consistent",
   "conservative",
   "positive_under_cfl",
-  "converges_order_p"
+  "converges_order_p",
+  "monotone_under_cfl"
  ],
  "claims": {
   "positive_cfl": [
@@ -22,7 +23,8 @@
   ],
   "order": {
    "combined": 1
-  }
+  },
+  "monotone_cfl": "1"
  },
  "test": {
   "problem": {
