@@ -18,8 +18,9 @@ denominator, `log` argument and `sqrt` argument is non-zero, and every negative 
 (`powi` with `n < 0`, `rpow` with `q < 1`) has a non-zero base. It is a `Prop` built
 structurally from `e`, so it always appears as an explicit hypothesis.
 
-`Expr.physOK env e` is the stronger condition that `e` takes no junk value: `sqrt` and
-`log` arguments, and bases of non-integer powers, are positive.
+`Expr.physOK env e` is the condition that `e` takes no junk value: denominators and bases
+of negative powers are non-zero, and `sqrt` and `log` arguments, and bases of non-integer
+powers, are positive. It is checked on the claimed equations as well as on `L`.
 
 Main results:
 
@@ -72,18 +73,21 @@ def diffOK (env : ℕ → ℝ) : Expr → Prop
   | .app .log a => a.diffOK env ∧ a.eval env ≠ 0
   | .app _ a => a.diffOK env
 
-/-- No junk values: every `sqrt` and `log` argument is positive, and so is the base of
-every power with a non-integer exponent. Lean totalises these functions
-(`Real.sqrt x = 0` and `Real.log x = Real.log |x|` for `x < 0`, and `x ^ q` for `x < 0` is
-`|x| ^ q · cos (q π)`), so without this condition an identity can hold in Lean only
-because of values that are not the real ones. Integer exponents are `powi`, or `rpow`
-with `q.den = 1`, where `Real.rpow` agrees with `zpow` for every base. -/
+/-- No junk values: every denominator is non-zero; every `sqrt` and `log` argument is
+positive, and so is the base of every power with a non-integer exponent; and every power
+with a negative exponent has a non-zero base. Lean totalises these functions (`x / 0 = 0`,
+`0 ^ n = 0` for `n < 0`, `Real.sqrt x = 0` and `Real.log x = Real.log |x|` for `x < 0`,
+and `x ^ q` for `x < 0` is `|x| ^ q · cos (q π)`), so without this condition an identity
+can hold in Lean only because of values that are not the real ones. Integer exponents are
+`powi`, or `rpow` with `q.den = 1`, where `Real.rpow` agrees with `zpow` for every base. -/
 def physOK (env : ℕ → ℝ) : Expr → Prop
   | .var _ | .lit _ | .pi => True
-  | .neg a | .powi a _ => a.physOK env
-  | .add a b | .sub a b | .mul a b | .div a b => a.physOK env ∧ b.physOK env
+  | .neg a => a.physOK env
+  | .powi a n => a.physOK env ∧ (0 ≤ n ∨ a.eval env ≠ 0)
+  | .add a b | .sub a b | .mul a b => a.physOK env ∧ b.physOK env
+  | .div a b => a.physOK env ∧ b.physOK env ∧ b.eval env ≠ 0
   | .sqrt a => a.physOK env ∧ 0 < a.eval env
-  | .rpow a q => a.physOK env ∧ (q.den = 1 ∨ 0 < a.eval env)
+  | .rpow a q => a.physOK env ∧ (q.den = 1 ∨ 0 < a.eval env) ∧ (0 ≤ q ∨ a.eval env ≠ 0)
   | .app .log a => a.physOK env ∧ 0 < a.eval env
   | .app _ a => a.physOK env
 

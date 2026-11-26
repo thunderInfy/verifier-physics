@@ -1,0 +1,34 @@
+{
+  "name": "simple pendulum, l > 0 left out of the domain",
+  "true": null,
+  "expect": "UNKNOWN",
+  "why": "th'' = -(g/l) sin th is right for l != 0; at l = 0 Lean's g/0 = 0 would give a junk counterexample (EL is 0 = 0 there)",
+  "coordinates": [
+    "th"
+  ],
+  "symbols": {
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "l": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "m*l^2*th_dot^2/2 + m*g*l*cos(th)",
+  "domain": [
+    "m > 0",
+    "g > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "th_ddot",
+      "rhs": "-(g/l)*sin(th)"
+    }
+  ]
+}

@@ -234,7 +234,7 @@ MEANING = {
     VERIFIED: ("PhysVerify.verified_meaning: for every trajectory twice differentiable at t "
                "whose jet stays in the domain near t, the real Euler–Lagrange equations hold "
                "at t iff the claimed equations hold at t; the domain is non-empty and has no "
-               "junk sqrt/log/rpow values (verified_nonempty)"),
+               "junk division/power/sqrt/log values (verified_nonempty)"),
     REFUTED: ("PhysVerify.refuted_meaning: on the quadratic trajectory through the "
               "counterexample jet, at t = 0, the real Euler–Lagrange equations and the claimed "
               "equations disagree"),

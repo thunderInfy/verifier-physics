@@ -138,6 +138,11 @@ ILL_POSED = {
                                   "x'' = -sqrt(k/m)^2 x is right for k > 0; for k < 0 Lean's "
                                   "sqrt(k/m) = 0 would give a junk counterexample",
                                   [eq("x_ddot", "-sqrt(k/m)^2*x")]),
+    "pendulum-length-unconstrained": ({**PEND, "domain": ["m > 0", "g > 0"]},
+                                      "simple pendulum, l > 0 left out of the domain", "UNKNOWN",
+                                      "th'' = -(g/l) sin th is right for l != 0; at l = 0 Lean's "
+                                      "g/0 = 0 would give a junk counterexample (EL is 0 = 0 there)",
+                                      [eq("th_ddot", "-(g/l)*sin(th)")]),
 }
 
 for fn, (base, name, expect, why, eom) in CLAIMS.items():

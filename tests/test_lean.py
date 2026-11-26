@@ -190,6 +190,56 @@ def test_junk_sqrt_counterexample_rejected():
     assert r.verdict == UNKNOWN, r.detail
 
 
+def test_junk_division_counterexample_rejected():
+    """The pendulum with l > 0 left out of the domain: at l = 0 the EL equation is 0 = 0, and
+    Lean's g/0 = 0 makes the claim th'' = 0, so th'' = 1 was a counterexample to the old
+    `Refuted`. PhysOK now needs l != 0 for g/l, and both new statements are provably false."""
+    from physverify.derivation import UNKNOWN, lean_terms, load_claim, statement
+    from physverify.derivation import judge as judge_claim
+    from physverify.lean_backend import check
+    from physverify.tools import eulerlagrange
+    c = load_claim(ROOT / "claims/pendulum-length-unconstrained.json")
+    t = lean_terms(c)
+    # layout: th = 0, th_dot = 1, th_ddot = 2, g = 3, l = 4, m = 5; the jet th'' = 1 at l = 0
+    point = "(fun j : ℕ => [(0 : ℝ), 0, 1, 1, 0, 1].getD j 0)"
+    unfold = "EL, dt, timeDir, Expr.deriv, Expr.dir, Expr.basis, Expr.eval, Fn.eval"
+    old = check(f"OldRefuted {t['n']} {t['L']} {t['D']} {t['cs']}",
+                f"refine ⟨{point}, by norm_num [Expr.eval], ?_, ?_⟩\n"
+                "· refine ⟨?_, ?_⟩\n"
+                "  · simp [Expr.diffOK, Expr.eval]\n"
+                "  · intro k hk; interval_cases k; norm_num [Expr.diffOK, Expr.deriv, Expr.dir, Expr.basis, Expr.eval]\n"
+                "· intro h\n"
+                f"  have := h.1 (by intro k hk; interval_cases k; norm_num [{unfold}])\n"
+                "  norm_num [Claims, Law.Holds, Expr.eval, Fn.eval] at this",
+                preamble=OLD_DEFS, module="PhysVerify.EulerLagrange")
+    assert old.ok, old.log[-2000:]
+    # new Verified is false: the same point is in D, and g/l is junk there
+    neg_v = check(f"¬ ({statement('verified', c)})",
+                  f"rintro ⟨-, -, -, h⟩\n"
+                  f"have := ((h {point} (by norm_num [Expr.eval])).2.1.2 _ (List.mem_singleton_self _)).2\n"
+                  "norm_num [Expr.physOK, Expr.eval] at this",
+                  module="PhysVerify.EulerLagrange")
+    assert neg_v.ok, neg_v.log[-2000:]
+    # new Refuted is false: wherever PhysOK holds, l != 0 and the claim is the EL equation
+    neg_r = check(f"¬ ({statement('refuted', c)})",
+                  "rintro ⟨-, env, hD, -, hP, hne⟩\n"
+                  "have hl : env 4 ≠ 0 := by\n"
+                  "  simpa [Expr.physOK, Expr.eval, Fn.eval] using (hP.2 _ (List.mem_singleton_self _)).2\n"
+                  "simp only [Expr.eval, Rat.cast_zero] at hD\n"
+                  "obtain ⟨hm, -⟩ := hD\n"
+                  "apply hne\n"
+                  "refine ELSystem_iff_of_cert rfl !![Expr.eval env (.var 5) * Expr.eval env (.var 4) ^ 2] "
+                  "(by simp [Matrix.det_unique, Expr.eval, hl, hm.ne']) ?_\n"
+                  "intro k\n"
+                  "fin_cases k\n"
+                  f"simp [{unfold}, Matrix.of_apply]\n"
+                  "field_simp",
+                  module="PhysVerify.EulerLagrange")
+    assert neg_r.ok, neg_r.log[-2000:]
+    r = judge_claim(c, eulerlagrange.propose(c))
+    assert r.verdict == UNKNOWN, r.detail
+
+
 def test_derivation_judge_rejects_planner_tricks():
     """A lying planner gets UNKNOWN: wrong-direction certificates, sorry, trivial tactics."""
     from physverify.derivation import UNKNOWN, load_claim

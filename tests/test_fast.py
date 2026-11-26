@@ -226,6 +226,26 @@ def test_planner_mirror_of_phys_ok():
     assert eulerlagrange.in_domain(c, {**env, "x": Fraction(1, 4)})
 
 
+def test_planner_mirror_of_phys_ok_division_and_negative_powers():
+    """x/0, 0^(-1) and 0^(-1/2) are junk (Lean gives 0); 0^2, 0^3 and 0/2 are not."""
+    from physverify.derivation import load_claim
+    from physverify.expr import parse
+    from physverify.tools import eulerlagrange
+    at0 = {"q": Fraction(0)}
+    for s in ["-q*(q/q)", "q^(-1)", "q^(-1/2)", "1/(q^2)"]:
+        assert not eulerlagrange.phys_ok(parse(s), at0), s
+        assert eulerlagrange.phys_ok(parse(s), {"q": Fraction(1, 2)}), s
+    for s in ["q^2", "q^3", "q/2"]:
+        assert eulerlagrange.phys_ok(parse(s), at0), s
+    # the trap claim: l > 0 left out, so D contains l = 0, where g/l is junk
+    c = load_claim(ROOT / "claims/pendulum-length-unconstrained.json")
+    assert c.source["true"] is None and c.expect == "UNKNOWN"
+    env = {"th": Fraction(0), "th_dot": Fraction(0), "th_ddot": Fraction(1), "g": Fraction(1),
+           "l": Fraction(0), "m": Fraction(1)}
+    assert not eulerlagrange.in_domain(c, env)
+    assert eulerlagrange.in_domain(c, {**env, "l": Fraction(-1)})
+
+
 def test_failed_certificates_give_unknown():
     from physverify.derivation import UNKNOWN, judge
     from physverify.lean_backend import LeanResult

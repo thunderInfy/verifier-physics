@@ -121,8 +121,12 @@ def qeval(e: E, env: dict[str, Fraction]) -> Fraction | None:
 
 
 def phys_ok(e: E, env: dict) -> bool:
-    """Mirror of Lean's `Expr.physOK`: no junk sqrt/log/rpow values."""
+    """Mirror of Lean's `Expr.physOK`: no junk division, negative power, sqrt, log or rpow."""
     if not all(phys_ok(a, env) for a in e.args):
+        return False
+    if e.kind == "div":
+        return neval(e.args[1], env) != 0
+    if e.kind in ("powi", "rpow") and e.q < 0 and neval(e.args[0], env) == 0:
         return False
     if e.kind == "sqrt" or e.kind == "app" and e.name == "log" or \
             e.kind == "rpow" and Fraction(e.q).denominator != 1:
@@ -163,7 +167,7 @@ def _points(c: Claim, rng: random.Random, count: int):
 
 UNFOLD = ("EL, dt, timeDir, Expr.deriv, Expr.dir, Expr.basis, Expr.eval, Fn.eval, "
           "Expr.diffOK, Claims, Law.Holds")
-# PhysOK (no junk sqrt/log/rpow values): unfold, leaving `0 < arg` goals
+# PhysOK (no junk values): unfold, leaving `0 < arg` and `den ≠ 0` goals
 PHYS = ("simp [PhysOK, Expr.physOK, Expr.eval, Fn.eval, List.mem_cons, List.not_mem_nil, "
         "forall_eq_or_imp]")
 NONZERO = "mul_eq_zero, div_eq_zero_iff, pow_eq_zero_iff, zpow_eq_zero_iff, not_or, ne_eq"
@@ -344,15 +348,17 @@ def verified_tactic(c: Claim, C: list[list[E]]) -> str:
                        f"exact mul_ne_zero (by simp [{NONZERO}{facts}]) hFn{i})")
             break
     have_block = ("\n" + "\n".join(hyps)) if hyps else ""
-    # the domain facts themselves (`0 < env i`), so `0 < x` and `q.den = 1 ∨ 0 < x` close
-    hyps_simp = "".join(f", hd{i}" for i in range(len(c.domain)))
+    # the domain facts themselves (`0 < env i`), so `0 < x` and `q.den = 1 ∨ 0 < x` close;
+    # `x ≠ 0` facts and the denominator factors for the `b ≠ 0` goals of divisions
+    hyps_simp = "".join(f", hd{i}" for i in range(len(c.domain))) + facts + \
+        "".join(f", hFn{i}" for i in range(len(Fs)))
     # the judge has already proved `dimsOK`, `NoAccel` and `∃ env, D env`
     return f"""{intro}{have_block}
 refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
 · simp [{UNFOLD}{facts}] <;> norm_num [{NONZERO}{facts}]
 · intro k hk
   interval_cases k <;> simp [{UNFOLD}{facts}] <;> norm_num [{NONZERO}{facts}]
-· {PHYS[:-1]}{hyps_simp}] <;> first | assumption | positivity | linarith | (apply div_pos <;> assumption)
+· {PHYS[:-1]}, {NONZERO}{hyps_simp}] <;> (repeat' apply And.intro) <;> first | assumption | positivity | linarith | (apply div_pos <;> assumption) | (intro h; linarith)
 · refine ELSystem_iff_of_cert rfl !![{rows}] ?_ ?_
   · first
      | (simp [{det}, Expr.eval, Fn.eval, {NONZERO}{facts}] <;> ({DET_CLOSE}) <;> done){det_alt}

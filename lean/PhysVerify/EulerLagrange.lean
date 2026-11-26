@@ -37,7 +37,8 @@ Main results:
   the claimed equations on a domain `D`) implies that every such trajectory staying in `D`
   satisfies the real EL equations at `t` iff it satisfies the claimed equations at `t`.
 * `verified_nonempty`: the certificate also proves that `D` has a point, and that on `D`
-  no `sqrt`, `log` or non-integer power takes a junk value (`PhysOK`).
+  no division, negative power, `sqrt`, `log` or non-integer power takes a junk value
+  (`PhysOK`), in `L` or in the claimed equations.
 * `refuted_meaning`: a `REFUTED` certificate (a domain point where the two disagree) yields
   an explicit smooth (quadratic) trajectory on which, at `t = 0`, the real EL equations and
   the claimed equations disagree.
