@@ -1,0 +1,37 @@
+{
+ "name": "BROKEN: forward time, centred space (FTCS), claimed stable and convergent for 0 <= nu <= 1",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + uR)/2"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "consistent_order_p",
+  "von_neumann_stable_under_cfl",
+  "converges_order_p"
+ ],
+ "claims": {
+  "consistent_order": 1,
+  "von_neumann_cfl": [
+   "0",
+   "1"
+  ],
+  "order": {
+   "combined": 1
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "advection-sine",
+   "speed": 1
+  },
+  "T": 0.5,
+  "lam": 0.8
+ }
+}

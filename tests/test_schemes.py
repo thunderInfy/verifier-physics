@@ -1,13 +1,15 @@
 """Tests for the discrete-scheme checker (physverify/schemes)."""
 import random
 from fractions import Fraction
+from math import factorial
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from physverify.expr import parse
-from physverify.schemes import FAILURES, check, checks, claims as C, convergence, entropy, load, poly as P, render, shock
+from physverify.schemes import (FAILURES, check, checks, claims as C, convergence, entropy, linear, load, poly as P,
+                                render, shock)
 
 S = Path(__file__).resolve().parent.parent / "schemes"
 BURGERS = ["burgers-lax-friedrichs", "burgers-engquist-osher", "burgers-rusanov"]
@@ -20,11 +22,13 @@ BROKEN = {"broken-advection-inconsistent-flux": {"consistency", "order/combined"
           "broken-burgers-scaled-flux": {"consistency", "order/combined"},
           "broken-burgers-nonconservative": {"conservation", "shock_speed"},
           "broken-burgers-roe-no-entropy-fix": {"entropy_stability", "entropy_rarefaction", "monotonicity"},
-          "broken-advection-lax-friedrichs-wide-cfl": {"positivity", "monotonicity"},
+          "broken-advection-lax-friedrichs-wide-cfl": {"positivity", "monotonicity", "von_neumann"},
           "broken-advection-lax-wendroff-monotone": {"monotonicity"},
           "broken-burgers-rusanov-wide-cfl": {"monotonicity"},
           "broken-advection-downwind": {"positivity"},
-          "broken-advection-fake-second-order": {"order/combined"}}
+          # halving Lax-Wendroff's diffusion leaves it first order and unstable for every nu != 0
+          "broken-advection-fake-second-order": {"order/combined", "truncation_order", "von_neumann"},
+          "broken-advection-ftcs": {"von_neumann", "order/combined"}}
 
 
 def _p(s):
@@ -349,11 +353,16 @@ FAILING_CLAIMS = {"broken-advection-inconsistent-flux": {"consistent": C.REFUTED
                                                         "selects_entropy_solution": C.REFUTED_EMPIRICALLY,
                                                         "monotone_under_cfl": C.REFUTED},
                   "broken-advection-lax-friedrichs-wide-cfl": {"positive_under_cfl": C.REFUTED,
-                                                               "monotone_under_cfl": C.REFUTED},
+                                                               "monotone_under_cfl": C.REFUTED,
+                                                               "von_neumann_stable_under_cfl": C.REFUTED},
                   "broken-advection-lax-wendroff-monotone": {"monotone_under_cfl": C.REFUTED},
                   "broken-burgers-rusanov-wide-cfl": {"monotone_under_cfl": C.REFUTED},
                   "broken-advection-downwind": {"positive_under_cfl": C.REFUTED},
-                  "broken-advection-fake-second-order": {"converges_order_p": C.REFUTED_EMPIRICALLY}}
+                  "broken-advection-fake-second-order": {"converges_order_p": C.REFUTED_EMPIRICALLY,
+                                                         "consistent_order_p": C.REFUTED,
+                                                         "von_neumann_stable_under_cfl": C.REFUTED},
+                  "broken-advection-ftcs": {"von_neumann_stable_under_cfl": C.REFUTED,
+                                            "converges_order_p": C.REFUTED_EMPIRICALLY}}
 
 # (relation, raw status) -> verdict, for an exact check (conservation) and an empirical one (shock_speed)
 EXACT_CASES = {(C.SUFFICIENT, "VERIFIED"): C.VERIFIED, (C.SUFFICIENT, "REFUTED"): C.UNKNOWN,
@@ -648,3 +657,174 @@ def test_crandall_majda_needs_conservation_and_consistency(verdicts):
     loud = C.judge(["c"], [{"check": k, "status": x, "assumptions": []} for k, x in
                            {**ok, "entropy_rarefaction": "REFUTED_EMPIRICALLY"}.items()], {"c": ("t", links)})[0]
     assert loud["verdict"] == C.INCONSISTENT
+
+
+# ---------------------------------------------------------------- exact order (linear schemes)
+
+LINEAR = ["advection-upwind", "advection-lax-friedrichs", "advection-lax-wendroff",
+          "broken-advection-fake-second-order", "broken-advection-ftcs"]
+
+
+def _unit_coefficients(spec, nu):
+    """c_{-1}, c_0, c_1 at nu, read off the spec's update expression at unit stencil vectors (independent
+    of the coefficient extraction the checks use)."""
+    H, a = P.from_expr(checks.update(spec)), Fraction(spec["params"]["a"])
+    unit = lambda name: {**{s: Fraction(0) for s in checks.STENCIL}, name: Fraction(1), "lam": nu / a}
+    return [P.evaluate(H, unit(s)) for s in checks.STENCIL]
+
+
+def _g2(spec, nu, z):
+    """|g|^2 = (c_0 + (c_1 + c_-1) z)^2 + (c_1 - c_-1)^2 (1 - z^2), from Re g and Im g with cos(theta) = z."""
+    cm, c0, cp = _unit_coefficients(spec, nu)
+    return (c0 + (cp + cm) * z) ** 2 + (cp - cm) ** 2 * (1 - z * z)
+
+
+@pytest.mark.parametrize("name", LINEAR)
+def test_truncation_terms_replay_on_monomials(name):
+    """e_q is the truncation error on u = (x - a t)^q at x = 0, dx = 1, divided by q!: recompute it from the
+    spec's update evaluated at the stencil values of x^q."""
+    spec = load(S / f"{name}.json")
+    a, c = linear.coefficients(spec, "t", "t")[0]
+    e = linear.truncation_terms(a, c, 5)
+    H = P.from_expr(checks.update(spec))
+    for nu in (Fraction(1, 2), Fraction(-2, 3), Fraction(7, 5)):
+        lam = nu / a
+        for q in range(6):
+            stencil = {s: Fraction(k) ** q for s, k in zip(checks.STENCIL, (-1, 0, 1))}
+            tau = ((-a * lam) ** q - P.evaluate(H, {**stencil, "lam": lam})) / lam
+            assert tau / factorial(q) == P.evaluate(e[q], {"nu": nu}), (name, nu, q)
+
+
+def test_truncation_orders_and_leading_terms(results):
+    want = {"advection-upwind": (checks.VERIFIED, 1, "diffusive"), "advection-lax-friedrichs": (checks.VERIFIED, 1, "diffusive"),
+            "advection-lax-wendroff": (checks.VERIFIED, 2, "dispersive"),
+            "broken-advection-fake-second-order": (checks.REFUTED, 1, "anti-diffusive"),
+            "broken-advection-ftcs": (checks.VERIFIED, 1, "anti-diffusive")}
+    for name, (status, order, kind) in want.items():
+        r = results[name]["truncation_order"]
+        assert (r["status"], r["witness"]["order"]) == (status, order), name
+        assert r["witness"]["leading_term"]["kind"].startswith(kind), name
+    lw = results["advection-lax-wendroff"]["truncation_order"]["witness"]
+    assert P.add(_p(lw["leading_term"]["e_j"]), _p("(1 - nu^2)/6"), -1) == {}       # u_t + a u_x = -a dx^2 (1 - nu^2)/6 u_xxx
+    up = results["advection-upwind"]["truncation_order"]["witness"]
+    assert P.add(_p(up["leading_term"]["e_j"]), _p("(nu - 1)/2"), -1) == {}         # diffusion a dx (1 - nu)/2
+    fake = results["broken-advection-fake-second-order"]["truncation_order"]["witness"]
+    assert fake["offending_j"] == 2 and Fraction(fake["e_j_value"]) == Fraction(fake["nu_value"]) / 4 != 0
+    # Lax-Wendroff claimed only first order: VERIFIED, and the extra order is reported, not a failure
+    spec = load(S / "advection-lax-wendroff.json")
+    spec["claims"]["consistent_order"] = 1
+    r = linear.truncation_order(spec)
+    assert r["status"] == checks.VERIFIED and "higher than claimed" in r["detail"]
+    spec["claims"]["consistent_order"] = 3
+    r = linear.truncation_order(spec)
+    assert r["status"] == checks.REFUTED and r["witness"]["offending_j"] == 3
+
+
+def test_tensor_bernstein():
+    unit = (Fraction(0), Fraction(1))
+    assert linear.tensor_bernstein([[0, 0], [0, 1]], unit, unit) == [[0, 0], [0, 1]]       # nu*z
+    b = linear.tensor_bernstein([[Fraction(1), Fraction(-1)]], (Fraction(0), Fraction(2)), (Fraction(-1), Fraction(1)))
+    assert b == [[1, -1]]                                   # 1 - nu on [0, 2]: endpoint values
+
+
+def _von_neumann(name, lo, hi):
+    spec = load(S / f"{name}.json")
+    spec["claims"]["von_neumann_cfl"] = [lo, hi]
+    return spec, linear.von_neumann(spec)
+
+
+VN_STABLE = [("advection-upwind", "0", "1"), ("advection-lax-friedrichs", "-1", "1"), ("advection-lax-wendroff", "-1", "1")]
+VN_UNSTABLE = [("advection-upwind", "0", "101/100"), ("advection-upwind", "-1/100", "1"),
+               ("advection-lax-friedrichs", "0", "11/10"), ("advection-lax-friedrichs", "-101/100", "0"),
+               ("advection-lax-wendroff", "0", "101/100"), ("broken-advection-ftcs", "1/1000", "1/1000"),
+               ("broken-advection-ftcs", "-1/2", "-1/4"), ("broken-advection-fake-second-order", "1/1000", "1/1000")]
+
+
+def test_von_neumann_certificates_hold():
+    """Each VERIFIED range: the certificate's boxes cover it, and |g|^2 <= 1 at random exact (nu, z)."""
+    rng = random.Random(4)
+    for name, lo, hi in VN_STABLE:
+        spec, r = _von_neumann(name, lo, hi)
+        assert r["status"] == checks.VERIFIED, name
+        boxes = r["witness"]["certificate"]["boxes"]
+        area = sum((Fraction(b["nu"][1]) - Fraction(b["nu"][0])) * (Fraction(b["z"][1]) - Fraction(b["z"][0])) for b in boxes)
+        assert area == (Fraction(hi) - Fraction(lo)) * 2
+        assert all(Fraction(x) >= 0 for b in boxes for row in b["bernstein"] for x in row)
+        for _ in range(200):
+            nu = Fraction(lo) + (Fraction(hi) - Fraction(lo)) * Fraction(rng.randint(0, 997), 997)
+            z = Fraction(rng.randint(-991, 991), 991)
+            assert _g2(spec, nu, z) <= 1, (name, nu, z)
+
+
+@pytest.mark.parametrize("name,lo,hi", VN_UNSTABLE)
+def test_von_neumann_refutations_replay(name, lo, hi):
+    """Just outside each stable range, and anywhere for FTCS and the halved Lax-Wendroff: an exact (nu, z)
+    in the range with |g|^2 > 1, recomputed from Re g and Im g."""
+    spec, r = _von_neumann(name, lo, hi)
+    assert r["status"] == checks.REFUTED
+    w = r["witness"]["counterexample"]
+    nu, z = Fraction(w["nu"]), Fraction(w["z = cos(theta)"])
+    assert Fraction(lo) <= nu <= Fraction(hi) and -1 <= z <= 1
+    assert _g2(spec, nu, z) == Fraction(w["|g|^2"]) > 1
+
+
+def test_lax_wide_cfl_and_ftcs_witnesses(results):
+    w = results["broken-advection-lax-friedrichs-wide-cfl"]["von_neumann"]["witness"]["counterexample"]
+    assert (w["nu"], w["z = cos(theta)"], w["|g|^2"]) == ("11/10", "0", "121/100")    # |g|^2 = z^2 + nu^2 (1 - z^2)
+    G = _p(results["broken-advection-ftcs"]["von_neumann"]["witness"]["1 - |g|^2"])
+    assert P.add(G, _p("-nu^2*(1 - z^2)"), -1) == {}                                   # < 0 for every nu != 0, |z| < 1
+
+
+def test_lax_richtmyer_row(verdicts, results):
+    """Consistent of order p + von Neumann stable + in scope: converges_order_p VERIFIED (exact, Lax-Richtmyer)."""
+    for name in ("advection-lax-friedrichs", "advection-lax-wendroff"):
+        v = verdicts[name]["converges_order_p"]
+        assert v["verdict"] == C.VERIFIED and v["guarantee"] == C.EXACT and v["decided_by"] == ["truncation_order"]
+        assert any("Lax-Richtmyer" in a and "error constant" in a for a in v["assumes"])
+        assert {e["check"]: e["gives"] for e in v["evidence"]}["order/combined"] == C.NOT_REFUTED   # the study agrees
+    # upwind also claims space and time studies, which the theorem (fixed dt/dx) does not cover
+    assert verdicts["advection-upwind"]["converges_order_p"]["verdict"] == C.NOT_REFUTED
+    scope = results["advection-upwind"]["lax_richtmyer_scope"]
+    assert scope["status"] == checks.NOT_APPLICABLE and "combined" in scope["detail"]
+    # FTCS: consistent, but unstable, so the row says nothing and the blown-up study decides
+    ftcs = verdicts["broken-advection-ftcs"]
+    assert ftcs["consistent_order_p"]["verdict"] == C.VERIFIED
+    row = next(e for e in ftcs["converges_order_p"]["evidence"] if e["check"] == "truncation_order")
+    assert row["gives"] == C.UNKNOWN and row["unmet"] == ["von_neumann: REFUTED"]
+    # halved Lax-Wendroff: the order-2 consistency claim fails, and a failed sufficient condition proves nothing
+    assert verdicts["broken-advection-fake-second-order"]["converges_order_p"]["decided_by"] == ["order/combined"]
+    links = C.CLAIMS["converges_order_p"][1]
+    judge = lambda st: C.judge(["c"], [{"check": k, "status": x, "assumptions": []} for k, x in st.items()],
+                               {"c": ("t", links)})[0]
+    ok = {"truncation_order": "VERIFIED", "von_neumann": "VERIFIED", "lax_richtmyer_scope": "VERIFIED"}
+    assert judge(ok)["verdict"] == C.VERIFIED
+    for k, bad in (("von_neumann", "UNKNOWN"), ("lax_richtmyer_scope", "NOT_APPLICABLE"), ("von_neumann", None)):
+        st = {**ok, k: bad} if bad else {x: y for x, y in ok.items() if x != k}
+        assert judge(st)["verdict"] == C.UNKNOWN, (k, bad)
+    assert judge({**ok, "order/combined": "REFUTED_EMPIRICALLY"})["verdict"] == C.INCONSISTENT    # loud, if it ever happened
+
+
+def test_lax_richtmyer_never_fires_for_nonlinear_schemes():
+    """Burgers Lax-Friedrichs with every precondition claimed: the update is not linear, so all three new
+    checks are NOT_APPLICABLE and converges_order_p stays with the study."""
+    spec = load(S / "burgers-lax-friedrichs.json")
+    spec["named_claims"] = ["consistent_order_p", "von_neumann_stable_under_cfl", "converges_order_p"]
+    spec["claims"] = {"order": {"combined": 1}, "consistent_order": 1, "von_neumann_cfl": ["0", "1"]}
+    rep = check(spec)
+    st = {r["check"]: r["status"] for r in rep["checks"]}
+    assert {st[k] for k in ("truncation_order", "von_neumann", "lax_richtmyer_scope")} == {checks.NOT_APPLICABLE}
+    v = {x["claim"]: x["verdict"] for x in rep["claims"]}
+    assert v == {"consistent_order_p": C.UNKNOWN, "von_neumann_stable_under_cfl": C.UNKNOWN,
+                 "converges_order_p": C.NOT_REFUTED}
+
+
+def test_ftcs_study_can_miss_the_instability():
+    """At dt/dx = 1/2 to T = 1/4 the round-off has not grown enough by N = 400 and the study sees order 1.
+    The exact von Neumann check refutes stability; the judge says NOT_REFUTED, never VERIFIED or INCONSISTENT."""
+    spec = load(S / "broken-advection-ftcs.json")
+    spec["test"] = {**spec["test"], "lam": 0.5, "T": 0.25}
+    rep = check(spec)
+    st = {r["check"]: r["status"] for r in rep["checks"]}
+    assert st["order/combined"] == convergence.NOT_REFUTED and st["von_neumann"] == checks.REFUTED
+    v = {x["claim"]: x["verdict"] for x in rep["claims"]}
+    assert v["converges_order_p"] == C.NOT_REFUTED and v["von_neumann_stable_under_cfl"] == C.REFUTED

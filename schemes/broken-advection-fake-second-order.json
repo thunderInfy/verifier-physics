@@ -12,12 +12,19 @@
  "named_claims": [
   "consistent",
   "conservative",
-  "converges_order_p"
+  "converges_order_p",
+  "consistent_order_p",
+  "von_neumann_stable_under_cfl"
  ],
  "claims": {
   "order": {
    "combined": 2
-  }
+  },
+  "consistent_order": 2,
+  "von_neumann_cfl": [
+   "0",
+   "1"
+  ]
  },
  "test": {
   "problem": {

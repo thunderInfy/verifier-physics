@@ -13,13 +13,18 @@
   "consistent",
   "conservative",
   "positive_under_cfl",
-  "monotone_under_cfl"
+  "monotone_under_cfl",
+  "von_neumann_stable_under_cfl"
  ],
  "claims": {
   "positive_cfl": [
    "0",
    "11/10"
   ],
-  "monotone_cfl": "11/10"
+  "monotone_cfl": "11/10",
+  "von_neumann_cfl": [
+   "0",
+   "11/10"
+  ]
  }
 }
