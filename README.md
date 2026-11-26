@@ -141,6 +141,7 @@ below for how one becomes the other).
 | Shock speed on Riemann problems | empirical only | late-window speed at three crossing levels against the exact Rankine-Hugoniot speed, per grid |
 | Entropy stability (Tadmor), semi-discrete | exact for the semi-discrete inequality only, not the time stepping: Q = -[v](F - F*) >= 0 certified on sign cells, or an exact rational point with Q < 0 | F*, Q, per-cell D = Q/(uR - uL)^2 with a change of variables that makes it non-negative by form, or counterexample (uL, uR) |
 | Convergence to the rarefaction fan | empirical only | L1 error tables against u = (x - x0)/t, at two incommensurate dt/dx |
+| Steady non-entropy step (fully discrete) | exact refutation only: the four stencils of a step uL < uR with f'(uL) < f'(uR) (f'' >= 0 by form) are fixed, as normal forms in lam; a failed search is `UNKNOWN`, never `VERIFIED` | (uL, uR), how it was found (candidate or search), f'(uL), f'(uR), f(uL), f(uR) |
 | Monotonicity of the fully discrete update on a claimed CFL bound | exact: every partial of H(u_{i-1}, u_i, u_{i+1}) is >= 0 on every sign cell within lam*\|f'(u)\| <= c, or two exact states, one argument raised, with H lower | per cell: H, the three partials, and a certificate (by form, a Farkas identity in w = lam*u, or Bernstein in lam); or the decreasing pair |
 
 The exact checks use `Fraction` arithmetic and never decide on a float. Their verdicts are not
@@ -311,6 +312,26 @@ not pinned down the asymptotic rate (the fan's corners limit first-order schemes
 is a proof of the semi-discrete inequality only. The rarefaction study is float64 evidence on two
 state pairs. The proof for the fully discrete scheme is monotonicity (see "Checks vs claims").
 
+**Exact refutation for the fully discrete scheme: a steady non-entropy step.** Roe's 0.25 has an
+exact cause. Put uL for i < j and uR for i >= j, with the jump at a cell interface, so the same step
+sits on every grid. Only four stencils occur. If H(uL, uL, uL) = uL, H(uR, uR, uR) = uR,
+H(uL, uL, uR) = uL and H(uL, uR, uR) = uR, then u^n = u^0 for every n and every dx at fixed dt/dx,
+so the discrete solutions converge, trivially, to the stationary step. For convex f with
+f'(uL) < f'(uR), the entropy solution of that Riemann problem is the rarefaction fan, not the step,
+so the scheme does not select the entropy solution. The check (`steady_nonentropy_step`) needs
+f'' >= 0 by form and f'(uL) < f'(uR) in exact arithmetic. It checks the four identities as normal
+forms in lam, so they hold at every dt/dx. The candidate pairs are the spec's rarefaction cases,
+then (-1, 1), (-1/2, 1), (0, 1), then a search labelled as such over pairs of small rationals. No
+grid study is involved. It does not require conservation. The limit is the step whatever the
+conservation status, though only a conservative scheme with f(uL) = f(uR) makes the step a weak
+solution (an expansion shock), and the witness says which case holds. Roe without a fix has a
+steady step at (-1, 1) at every dt/dx, and so does Lax-Wendroff for Burgers
+(`benchmark/scheme-claims/specs/burgers-lax-wendroff.json`), whose flux is 1/2 = f(±1) whenever
+uL + uR = 0. Both become `REFUTED` (exact) on `selects_entropy_solution`. Harten's fix leaves the
+straddling stencils off by ∓lam·delta/2, so it has no steady step at (-1, 1). Engquist-Osher,
+Lax-Friedrichs and Rusanov have none in the search, which is what Crandall-Majda requires. A failed
+search proves nothing, so on those schemes the check is `UNKNOWN`, and it never verifies.
+
 **Exact rung for the fully discrete scheme: monotonicity.** The update u_i^{n+1} = H(u_{i-1}, u_i,
 u_{i+1}) is monotone if H is non-decreasing in each argument. The check splits every |x| in H into
 sign cells. On each closed cell H is a polynomial, and the check certifies its three partial
@@ -425,6 +446,7 @@ to refute.
 | `selects_entropy_solution_semidiscrete` | entropy_stability (Tadmor) | sufficient | exact (semi-discrete) |
 | `monotone_under_cfl` | monotonicity | equivalent | exact |
 | `selects_entropy_solution` | entropy_rarefaction | necessary | empirical |
+| | steady_nonentropy_step (a steady step uL < uR with f'(uL) < f'(uR), f convex) | necessary | exact |
 | | monotonicity (Crandall-Majda), only if conservation and consistency are VERIFIED | sufficient | exact |
 | `consistent_order_p` | truncation_order | equivalent | exact |
 | `von_neumann_stable_under_cfl` | von_neumann | equivalent | exact |
@@ -469,7 +491,7 @@ without a fix the exact refutation shows up on `entropy_stable_tadmor`.
 | Spec | Tadmor (raw) | Monotonicity (raw) | Rarefaction (raw) | `entropy_stable_tadmor` | `selects_entropy_solution_semidiscrete` | `selects_entropy_solution` |
 |---|---|---|---|---|---|---|
 | Roe + Harten fix | REFUTED | not run | NOT_REFUTED | not claimed | UNKNOWN | NOT_REFUTED (empirical, rarefaction) |
-| Roe, no fix | REFUTED | REFUTED (c = 1) | REFUTED_EMPIRICALLY | REFUTED (exact) | UNKNOWN | REFUTED_EMPIRICALLY (rarefaction) |
+| Roe, no fix | REFUTED | REFUTED (c = 1) | REFUTED_EMPIRICALLY | REFUTED (exact) | UNKNOWN | REFUTED (exact, steady step at (-1, 1)) |
 | Engquist-Osher, Lax-Friedrichs (c = 1), Rusanov (c = 1/3) | VERIFIED | VERIFIED | NOT_REFUTED | VERIFIED | VERIFIED (exact, under the premises above) | VERIFIED (exact, monotonicity + Crandall-Majda) |
 | Non-conservative upwind | not run | VERIFIED (c = 1/3) | not run | not claimed | not claimed | UNKNOWN (precondition: conservation REFUTED) |
 
