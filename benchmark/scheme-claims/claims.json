@@ -286,20 +286,20 @@
        "expected": true
       },
       {
-       "unformalized": "'for some nu0 > 0' is an existential over the CFL range; positive_cfl takes one fixed interval, and refuting [0, nu0] for one nu0 does not refute the existential"
+       "spec": "specs/advection-ftcs.json",
+       "claim": "stable_for_small_cfl",
+       "relation": "same",
+       "expected": false,
+       "bridge": "'stable for sufficiently small time steps' at fixed a and dx is 'for all nu in (0, nu0] for some nu0 > 0'; the claim's refutation covers the max norm as well as L2 (|g| > 1 on an open theta-set grows in every norm on a fine enough periodic grid), so it decides both readings of 'stable'"
       }
      ],
-     "gap": {
-      "kind": "inexpressible regime",
-      "note": "the spec can claim a CFL interval but not 'some interval (0, nu0]'; a check that a coefficient is negative on (0, eps) for all small eps (sign of the lowest-order term in nu) would decide it exactly; the exact von Neumann check now exists, but it too takes one fixed interval (the broken FTCS spec is REFUTED on [0, 1]), so the existential stays open"
-     },
      "actual": {
-      "verdict": "UNKNOWN",
-      "result": "gap",
+      "verdict": "REFUTED",
+      "result": "match",
       "components": [
        "VERIFIED",
        "VERIFIED",
-       "UNFORMALIZED"
+       "REFUTED"
       ]
      }
     }
@@ -502,15 +502,11 @@
        "expected": false
       }
      ],
-     "gap": {
-      "kind": "missing check",
-      "note": "the table has only a SUFFICIENT row (Tadmor) for this claim, so a refutation is impossible; an exact NECESSARY check 'F(uL, uR) = f(uL) = f(uR) for some uL < uR' (a stationary expansion shock is a steady state) would refute it in exact arithmetic"
-     },
      "actual": {
-      "verdict": "UNKNOWN",
-      "result": "gap",
+      "verdict": "REFUTED",
+      "result": "match",
       "components": [
-       "UNKNOWN"
+       "REFUTED"
       ]
      }
     }

@@ -8,22 +8,24 @@ claims of `physverify/schemes/claims.py` or marked unformalized. Run:
 uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 15 s
 ```
 
-Result now: **22 match, 12 gaps, 0 wrong decisive verdicts** over 34 readings. History: 14 match,
+Result now: **24 match, 10 gaps, 0 wrong decisive verdicts** over 34 readings. History: 14 match,
 19 gaps before the monotonicity check and the Crandall–Majda row (gap 3); 17 match, 16 gaps before
 the exact order checks for linear schemes; 18 match, 15 gaps over 33 readings once those checks
 settled C01 reading 1. The steady non-entropy step check left the counts unchanged but made two
 matches exact: C03 and C10 on the fully discrete entropy claim moved from REFUTED_EMPIRICALLY to
 REFUTED (see gap 4). Reformalizing readings onto the order and von Neumann checks closed four gaps
 (C01 reading 2, C04 reading 2, C19 readings 1 and 3; gaps 2 and 7) and added one reading, C19
-reading 4 (upwind's separate space and time orders), which is a gap.
+reading 4 (upwind's separate space and time orders), which is a gap: 22 match, 12 gaps. Two more
+exact checks then closed two expected-false gaps, both now REFUTED: the semi-discrete steady step
+(C10 reading 2, gap 4) and stability for every small CFL number (C06, gap 7).
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 13 (all VERIFIED) | 9 (8 REFUTED, 1 REFUTED_EMPIRICALLY) | 22 |
-| gap | 7 | 5 | 12 |
+| decisive and correct (match) | 13 (all VERIFIED) | 11 (10 REFUTED, 1 REFUTED_EMPIRICALLY) | 24 |
+| gap | 7 | 3 | 10 |
 | wrong | 0 | 0 | 0 |
 
-The 12 gaps by verdict: 6 UNFORMALIZED (no named claim expresses the reading), 3 UNKNOWN (a named
+The 10 gaps by verdict: 6 UNFORMALIZED (no named claim expresses the reading), 1 UNKNOWN (a named
 claim exists but its checks cannot decide), 3 NOT_REFUTED (only empirical evidence exists).
 
 What works: exact structural facts about three-point schemes. That covers flux form,
@@ -43,8 +45,8 @@ schemes, order of accuracy of nonlinear schemes, and TVD or stability of nonline
 
 The ranking below was redone after the order and von Neumann checks: order of accuracy, which was
 first, is now closed for every linear-scheme reading except separate space and time orders, so
-wider stencils move to the top, and von Neumann stability (formerly 4), now open only for C06's
-existential, moves down to 7.
+wider stencils move to the top, and von Neumann stability (formerly 4) moves down to 7. Gap 7 is
+now closed (C06, through `stable_for_small_cfl`), and so is the semi-discrete half of gap 4.
 
 ## Gaps, ranked by how often we think claims like these appear in papers
 
@@ -158,7 +160,18 @@ needs a smaller step. A human can easily get this wrong, and an exact check woul
 trivial once the check exists; Harten incremental-form TVD 2 days (the split into C and D is not
 unique, so we would try the canonical one, C = -λ(F(u_i, u_{i+1}) - F(u_i, u_i))/Δu and so on).
 
-### 4. Entropy claims outside the one-quadratic-entropy fragment (C09 reading 2, C10 reading 2)
+### 4. Entropy claims outside the one-quadratic-entropy fragment (C09 reading 2; C10 reading 2 CLOSED)
+
+**Status.** The semi-discrete steady step is on main: `steady_nonentropy_step` has a second
+instantiation, `steady_nonentropy_step_semidiscrete`, with an exact NECESSARY row for
+`selects_entropy_solution_semidiscrete`. The step uL | uR, jump at a cell interface, is a steady
+state of the method of lines iff F(uL, uL) = F(uL, uR) = F(uR, uR); the check uses that condition
+as it stands, so it needs no consistency. Roe without a fix is REFUTED at (-1, 1) (all three
+fluxes are 1/2), so C10 reading 2 is now a match. Engquist–Osher, Lax–Friedrichs and Rusanov have
+no steady step in the search and stay VERIFIED through Tadmor; a test checks on every spec that a
+Tadmor-VERIFIED flux is never refuted by the step check. The E-flux part below is still open.
+
+The original text follows.
 
 "Entropy stable" in papers often means "for all convex entropies" (E-schemes) or "converges to the
 entropy solution" for the method of lines. Two concrete gaps:
@@ -185,7 +198,7 @@ also blocked by gap 2 (its first-order clause).
 **Cost:** one SUFFICIENT row in `claims.py`, with its premise, plus review. We have not added it:
 trusted-table changes are reviewed separately.
 
-### 6. Regimes and norms the spec can't state (C19 reading 2, C18 reading 2; C06's quantifier is under gap 7)
+### 6. Regimes and norms the spec can't state (C19 reading 2, C18 reading 2)
 
 - "First order" for discontinuous solutions is false in L1 (rate O(√Δx), Kuznetsov 1976, sharp by
   Tang and Teng 1995). The order study has only smooth test problems. A square-wave problem is
@@ -196,16 +209,24 @@ trusted-table changes are reviewed separately.
   and L1 order exactly; the gap remains for the refinement studies and for nonlinear schemes.)
 **Cost:** half a day each; both stay empirical.
 
-### 7. Linear (von Neumann) stability (CLOSED for C04 reading 2; open: C06)
+### 7. Linear (von Neumann) stability (CLOSED for C04 reading 2 and C06)
 
 **Status.** The exact von Neumann check is on main (`von_neumann` in `linear.py`, named claim
 `von_neumann_stable_under_cfl`, EQUIVALENT row). C04 reading 2 ("upwind is von Neumann stable for
 every ν ≥ 0") now uses it on the upwind spec with the range overridden to [0, 2], relation
 `necessary` ("every ν ≥ 0" implies the instance [0, 2]): REFUTED exactly, |g|^2 > 1 at a rational
-(ν, cos θ) with ν > 1. C06 stays open: the check, like positivity, takes one fixed interval, so
-"stable for some (0, ν0]" is still an existential the spec cannot state (the broken FTCS spec is
-REFUTED on [0, 1], which does not refute it). The lowest-order-in-ν test in the proposal below is
-still the route.
+(ν, cos θ) with ν > 1.
+
+C06 is closed by a new claim, `stable_for_small_cfl` ("there is ν0 > 0 with |g| ≤ 1 for all θ and
+all ν in (0, ν0]"), with one exact check, `von_neumann_small_cfl`, under an EQUIVALENT row. It
+refutes through the lowest term in ν: with G = 1 - |g|^2 = Σ q_k(z) ν^k, if the lowest non-zero q_k
+is negative at a rational z0, then G(ν, z0) < 0 for every ν in (0, ν1], with an explicit
+ν1 = c/(c + 2M) (c = -q_k(z0), M the largest |q_j(z0)| for j > k) and exact spot values. It verifies
+with the Bernstein certificate on [0, ν1] for ν1 = 1, 1/2, ..., 2^-10, and is UNKNOWN otherwise (a
+lowest term ≥ 0 with zeros in z settles nothing). FTCS: G = -ν^2 (1 - z^2), z0 = 0, ν1 = 1, so C06
+is REFUTED, a match. The refutation covers the max norm too: Fourier modes are eigenvectors of the
+update on a periodic grid, so |g| > 1 on an open θ-set grows in every norm once the grid has a
+mode there.
 
 The original text follows.
 
@@ -250,7 +271,9 @@ the certificate.
   the truncation check decides as an identity in ν (C01 reading 2, C19 reading 3); "first-order
   accurate" as a convergence statement means refinement at fixed dt/dx in l2 or L1 (C19 reading 1,
   with the separate space and time orders kept as reading 4); and "every ν ≥ 0" is refuted by its
-  instance [0, 2] (C04 reading 2). Each lemma is in the
+  instance [0, 2] (C04 reading 2). C06 reads "stable (max norm or L2) for sufficiently small time
+  steps" as `stable_for_small_cfl`, whose refutation covers both norms (the Fourier-mode argument is
+  in the table's premise). Each lemma is in the
   `bridge` field. They are standard and we are confident in them, but a wrong bridge or a wrong
   relation (`same`, `necessary`, `sufficient`) would give a wrong verdict that the trusted table
   can't catch. Gap 3 proposes moving the TVD lemma into the trusted table.
