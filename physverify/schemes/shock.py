@@ -4,7 +4,8 @@ For data uL > uR on [0, 1] with the jump at x0 (a cell interface), the entropy s
 convex law such as Burgers is a single shock moving at the Rankine-Hugoniot speed
 s = (f(uL) - f(uR)) / (uL - uR), computed here from the spec's PDE flux in Fraction arithmetic.
 The scheme runs at fixed dt/dx on a non-periodic grid with transmissive (constant-extrapolation)
-ghost cells; the claim's T is chosen so the shock stays inside the domain.
+ghost cells; the claim's T is chosen so the shock stays inside the domain, and the study is
+UNKNOWN if the end cells drift from uL or uR by more than 1e-6*(uL - uR).
 
 The shock position is read off the profile: where u crosses (uL + uR)/2, interpolated linearly
 between the two cells. The measured speed is (x_s(T) - x_s(0)) / T. We also report the integral
@@ -100,7 +101,7 @@ def study(spec: dict, grids=GRIDS) -> dict:
             return checks.result("shock_speed", UNKNOWN, claim, str(ex))
         rows = [run(H, float(uL), float(uR), float(x0), float(T), float(lam), n) for n in grids]
         st, d = verdict(rows, float(s), float(T))
-        lost = [r["N"] for r in rows if not r["finite"] or max(abs(r["ends"][0] - float(uL)), abs(r["ends"][1] - float(uR))) > 1e-9]
+        lost = [r["N"] for r in rows if not r["finite"] or max(abs(r["ends"][0] - float(uL)), abs(r["ends"][1] - float(uR))) > 1e-6 * float(uL - uR)]
         if lost:
             st, d = UNKNOWN, f"waves reached the boundary or blew up at N = {lost}"
         statuses.append(st)

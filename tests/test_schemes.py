@@ -7,15 +7,17 @@ import numpy as np
 import pytest
 
 from physverify.expr import parse
-from physverify.schemes import FAILURES, check, checks, convergence, load, poly as P
+from physverify.schemes import FAILURES, check, checks, convergence, load, poly as P, shock
 
 S = Path(__file__).resolve().parent.parent / "schemes"
+BURGERS = ["burgers-lax-friedrichs", "burgers-engquist-osher", "burgers-rusanov"]
+SHOCK_GRIDS = (100, 200, 400, 800)  # the CLI refines to N = 3200
 CORRECT = ["advection-upwind", "advection-lax-friedrichs", "advection-lax-wendroff",
            "burgers-lax-friedrichs", "burgers-engquist-osher", "burgers-rusanov"]
 # broken spec -> the checks that must catch it (and nothing else may fail)
 BROKEN = {"broken-advection-inconsistent-flux": {"consistency", "order/combined"},
           "broken-burgers-scaled-flux": {"consistency", "order/combined"},
-          "broken-burgers-nonconservative": {"conservation"},
+          "broken-burgers-nonconservative": {"conservation", "shock_speed"},
           "broken-advection-lax-friedrichs-wide-cfl": {"positivity"},
           "broken-advection-downwind": {"positivity"},
           "broken-advection-fake-second-order": {"order/combined"}}
@@ -27,7 +29,8 @@ def _p(s):
 
 @pytest.fixture(scope="module")
 def results():
-    return {name: {r["check"]: r for r in check(load(S / f"{name}.json"))} for name in CORRECT + list(BROKEN)}
+    return {name: {r["check"]: r for r in check(load(S / f"{name}.json"), SHOCK_GRIDS)}
+            for name in CORRECT + list(BROKEN)}
 
 
 def test_every_spec_on_disk_is_covered():
@@ -42,6 +45,8 @@ def test_correct_schemes_pass(results, name):
     assert r["positivity"]["status"] in (checks.VERIFIED, checks.NOT_APPLICABLE)
     orders = [v for k, v in r.items() if k.startswith("order/")]
     assert orders and all(v["status"] == convergence.NOT_REFUTED for v in orders)
+    if name in BURGERS:
+        assert r["shock_speed"]["status"] == convergence.NOT_REFUTED
 
 
 @pytest.mark.parametrize("name", sorted(BROKEN))
@@ -129,3 +134,37 @@ def test_burgers_exact_solution_satisfies_characteristics():
     assert np.max(np.abs(u - 0.5 - 0.25 * np.sin(2 * np.pi * (x - 0.3 * u)))) < 1e-14
     with pytest.raises(AssertionError):
         convergence.exact(pr, x, 1.0)                                              # after the shock
+
+
+def test_three_checkers_one_claim(results):
+    """Benchmark: the non-conservative Burgers scheme passes the smooth convergence study, the exact
+    conservation check refutes it, and a Riemann problem shows the consequence (wrong shock speed)."""
+    r = results["broken-burgers-nonconservative"]
+    assert r["conservation"]["status"] == checks.REFUTED and r["conservation"]["guarantee"] == checks.EXACT
+    assert r["order/combined"]["status"] == convergence.NOT_REFUTED
+    sh = r["shock_speed"]
+    assert sh["status"] == convergence.REFUTED_EMPIRICALLY and "empirical" in sh["guarantee"]
+    assert "settled at a non-zero value" in sh["detail"]
+    for name in BURGERS:
+        assert all(results[name][k]["status"] in (checks.VERIFIED, convergence.NOT_REFUTED)
+                   for k in ("conservation", "order/combined", "shock_speed"))
+
+
+def test_shock_speed_numbers():
+    spec = load(S / "broken-burgers-nonconservative.json")
+    assert shock.rh_speed(spec, Fraction(2), Fraction(1, 2)) == Fraction(5, 4)
+    H = checks.update(spec)
+    # u = 0 is a fixed point of this update, so the (1, 0) step never moves: speed 0, not 1/2
+    assert shock.run(H, 1.0, 0.0, 0.25, 1.0, 0.8, 200)["speed"] == 0
+    # (2, 1/2): the speed settles near 0.98, not 5/4, on every grid
+    for n in (200, 800):
+        assert abs(shock.run(H, 2.0, 0.5, 0.25, 0.4, 0.4, n)["speed"] - 0.98) < 0.01
+    lf = checks.update(load(S / "burgers-lax-friedrichs.json"))
+    errs = [abs(shock.run(lf, 2.0, 0.5, 0.25, 0.4, 0.4, n)["speed"] - 1.25) for n in (200, 400)]
+    assert errs[1] < 0.6 * errs[0] < 1e-3                                         # error ~ dx
+
+
+def test_crossing_estimator():
+    u = np.array([2.0, 2.0, 1.25, 0.5, 0.5])
+    assert shock.crossing(u, 1.25, 0.2) == (0.5, 1)                               # cell 2 centre
+    assert shock.crossing(np.array([2.0, 2.0, 0.5, 0.5]), 1.25, 0.25)[0] == 0.5   # interface
