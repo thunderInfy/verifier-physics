@@ -20,7 +20,8 @@ CORRECT = ["advection-upwind", "advection-lax-friedrichs", "advection-lax-wendro
 # broken spec -> the checks that must catch it (and nothing else may fail)
 BROKEN = {"broken-advection-inconsistent-flux": {"consistency", "order/combined"},
           "broken-burgers-scaled-flux": {"consistency", "order/combined"},
-          "broken-burgers-nonconservative": {"conservation", "shock_speed", "stationary_rh_violation"},
+          "broken-burgers-nonconservative": {"conservation", "shock_speed", "stationary_rh_violation",
+                                             "stationary_shock_rh_violation"},
           "broken-burgers-roe-no-entropy-fix": {"entropy_stability", "entropy_rarefaction", "monotonicity",
                                                        "steady_nonentropy_step", "steady_nonentropy_step_semidiscrete"},
           "broken-advection-lax-friedrichs-wide-cfl": {"positivity", "monotonicity", "von_neumann"},
@@ -349,7 +350,9 @@ def test_roe_keeps_the_expansion_shock():
 # spec -> the named claims it must fail, with the verdict; every other claim it makes must not fail
 FAILING_CLAIMS = {"broken-advection-inconsistent-flux": {"consistent": C.REFUTED, "converges_order_p": C.REFUTED_EMPIRICALLY},
                   "broken-burgers-scaled-flux": {"consistent": C.REFUTED, "converges_order_p": C.REFUTED_EMPIRICALLY},
-                  "broken-burgers-nonconservative": {"conservative": C.REFUTED, "correct_shock_speed": C.REFUTED},
+                  # it freezes 1 | 0, which is no weak solution, so its limit is not the entropy solution
+                  "broken-burgers-nonconservative": {"conservative": C.REFUTED, "correct_shock_speed": C.REFUTED,
+                                                     "selects_entropy_solution": C.REFUTED},
                   "broken-burgers-roe-no-entropy-fix": {"entropy_stable_tadmor": C.REFUTED,
                                                         "selects_entropy_solution": C.REFUTED,
                                                         "selects_entropy_solution_semidiscrete": C.REFUTED,
@@ -463,7 +466,8 @@ def test_harten_is_not_refuted_by_tadmor(results, verdicts):
     assert v["verdict"] == C.NOT_REFUTED and v["guarantee"] == C.EMPIRICAL
     assert v["decided_by"] == ["entropy_rarefaction"]
     assert {e["check"]: e["gives"] for e in v["evidence"]} == {"entropy_rarefaction": C.NOT_REFUTED,
-                                                                "steady_nonentropy_step": C.UNKNOWN}
+                                                                "steady_nonentropy_step": C.UNKNOWN,
+                                                                "stationary_rh_violation": C.UNKNOWN}
     assert harten["selects_entropy_solution_semidiscrete"]["verdict"] == C.UNKNOWN
     roe = verdicts["broken-burgers-roe-no-entropy-fix"]
     assert roe["entropy_stable_tadmor"]["verdict"] == C.REFUTED and roe["entropy_stable_tadmor"]["guarantee"] == C.EXACT
@@ -647,7 +651,8 @@ def test_crandall_majda_needs_conservation_and_consistency(verdicts):
     v = verdicts["broken-burgers-nonconservative"]
     assert v["monotone_under_cfl"]["verdict"] == C.VERIFIED
     s = v["selects_entropy_solution"]
-    assert s["verdict"] == C.UNKNOWN and next(e for e in s["evidence"] if e["check"] == "monotonicity")["unmet"] == ["conservation: REFUTED", "consistency: NOT_APPLICABLE"]
+    # the Crandall-Majda row gives nothing; the frozen jump 1 | 0 (no weak solution) refutes it instead
+    assert s["verdict"] == C.REFUTED and s["decided_by"] == ["stationary_rh_violation"] and next(e for e in s["evidence"] if e["check"] == "monotonicity")["unmet"] == ["conservation: REFUTED", "consistency: NOT_APPLICABLE"]
     row = next(r for r in C.CLAIMS["selects_entropy_solution"][1] if r[0] == "monotonicity")
     table = {"c": ("test claim", (row,))}
     judge = lambda st: C.judge(["c"], [{"check": k, "status": x, "assumptions": []} for k, x in st.items()], table)[0]
