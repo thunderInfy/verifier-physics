@@ -18,7 +18,7 @@ A least-squares slope rather than (x_s(T) - x_s(t_h)) / (T - t_h): a translating
 profile, read off its samples, wobbles by a fraction of a cell as its phase against the grid
 changes. In a scan over dt/dx the endpoint difference was off by up to 0.2 cells over the window
 for Engquist-Osher and Rusanov and 0.7 cells for Lax-Friedrichs; the slope by at most 0.015 and
-0.33 (0.09 at N >= 800). The endpoint difference is exact only when the window moves the
+0.33 (0.07 at N = 800). The endpoint difference is exact only when the window moves the
 profile by a whole number of cells, as in the spec cases where s*T/2 = 1/4.
 
 For a conservative scheme a translating profile must move at exactly s: the total between the

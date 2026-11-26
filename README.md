@@ -122,7 +122,7 @@ $ uv run python -m physverify.schemes schemes/broken-advection-lax-friedrichs-wi
 | Conservation on a periodic grid | exact: the update telescopes as -(dt/dx)(F_{i+1/2} - F_{i-1/2}), or an exact periodic state whose total changes | recovered flux, or counterexample state |
 | Positivity of linear schemes on a claimed CFL range | exact: Bernstein coefficients of every c_k(nu) are >= 0 on the interval (endpoint values when c_k is affine in nu), or an exact nu where some c_k < 0 | coefficient list, or offending coefficient and nu |
 | Convergence order (combined, space, time) | empirical only | L1 and Linf error tables |
-| Shock speed on Riemann problems | empirical only | measured speed against the exact Rankine-Hugoniot speed, per grid |
+| Shock speed on Riemann problems | empirical only | late-window speed at three crossing levels against the exact Rankine-Hugoniot speed, per grid |
 
 The exact checks use `Fraction` arithmetic and never decide on a float. Their verdicts are not
 Lean-checked yet; each returns the witness a Lean certificate would need. The flux recovery is
@@ -143,35 +143,84 @@ not a proof of order.
 
 The shock-speed check runs a Riemann problem (a step from uL down to uR) on [0, 1] with
 transmissive boundaries, stopping before the waves reach them. It locates the shock where u
-crosses (uL + uR)/2 and compares the measured speed with the Rankine-Hugoniot speed
-s = (f(uL) - f(uR))/(uL - uR), which it computes exactly from the PDE flux. The claim is
-`NOT_REFUTED` when the error is within 4 dx/T on the last two grids, and `REFUTED_EMPIRICALLY`
-when it stays above that and has stopped changing. The output also shows the estimator
+crosses uR + l(uL - uR) and compares its speed with the Rankine-Hugoniot speed
+s = (f(uL) - f(uR))/(uL - uR), which it computes exactly from the PDE flux. Two things move the
+crossing. The step first relaxes into a discrete profile a few cells wide, which shifts the
+crossing by O(dx) once; after that the profile translates. So the speed (x_s(T) - x_s(0))/T
+carries an O(dx) start-up offset, and its sign depends on the level. On (2, 1/2) at N = 400 the
+[0, T] error is +4.3e-3, 0 and -4.3e-3 at levels 0.2, 0.5 and 0.8 for Engquist-Osher, which is
+±0.69 cells of offset (±0.9 for Rusanov, ±2 for Lax-Friedrichs). Engquist-Osher's 0 at level 0.5
+comes from the profile's symmetry, not from accuracy.
+
+The verdict therefore uses the late-window speed: the least-squares slope of the crossing over
+every step in [T/2, T], at levels 0.2, 0.5 and 0.8. The table still shows the [0, T] number,
+labelled "includes start-up offset", and the plain endpoint difference over [T/2, T]. We use the
+slope rather than the endpoints because a translating discrete profile, read off its samples,
+wobbles by a fraction of a cell as its phase against the grid changes. In a scan over dt/dx the
+endpoint difference was off by up to 0.2 cells over the window for Engquist-Osher and Rusanov and
+0.7 cells for Lax-Friedrichs. The slope was off by at most 0.015 and 0.33 cells (0.07 at
+N = 800). The endpoint difference is at round-off whenever the window moves the profile a whole
+number of cells. In the spec cases s·T/2 is 0, 1/16 or 1/4, so it comes out at round-off on most
+grids.
+
+The claim is `NOT_REFUTED` when the late-window speed is within half a cell of displacement over
+the window, d = dx/(2(T - T/2)) ≈ dx/T, at all three levels on the last two grids, and the levels
+agree with each other to within d. Agreement across levels means the profile is translating
+rigidly; if the speeds are within d but the levels disagree, the result is `UNKNOWN` (not
+settled). It is `REFUTED_EMPIRICALLY` when the error exceeds d at every level on the last two
+grids and has changed by under 10% between them. Half a cell covers the worst wobble we measured
+(0.33 cells, Lax-Friedrichs at N = 200), and is still 320 times smaller than the smallest
+refuted error (0.25) at N = 3200. The output also shows the estimator
 x0 + (∫u(T) - ∫u(0))/(uL - uR), but the verdict doesn't use it: for a conservative scheme it
 returns s from the boundary fluxes alone, wherever the shock is.
 
-One claim, three checkers. `broken-burgers-nonconservative` discretises u_t + u u_x = 0 directly
-with upwinding. An empirical convergence study passed this structurally wrong scheme. The exact
-conservation check caught it, and a Riemann problem shows the consequence: the wrong shock speed
-(Lax-Wendroff and Hou-LeFloch theorems). Numbers from
-`uv run python -m physverify.schemes schemes/*burgers*.json`:
+A correct late-window speed is a consequence of conservation, not independent evidence. Between
+the far fields the total of u grows at f(uL) - f(uR) per unit time. For a profile that translates
+at speed c, it grows at c(uL - uR). So a conservative scheme's translating profile must move at
+exactly s. The test is only a *necessary* condition. A non-conservative scheme can get the speed
+right for one state pair by accident, which is why each spec has several state pairs. Our
+non-conservative scheme does exactly that on (1, -1). The step is a fixed point of its update, so
+it measures 0, the right speed. On (1, -1/2) the step is again a fixed point, and 0 is wrong
+(s = 1/4).
 
-| Scheme | Conservation (exact) | Smooth order, last refinement to N = 400 (L1, Linf) | Shock-speed error (1, 0), s = 1/2, N = 200 → 3200 | Shock-speed error (2, 1/2), s = 5/4, N = 200 → 3200 | Shock speed verdict |
-|---|---|---|---|---|---|
-| non-conservative upwind | REFUTED | 0.99, 0.97: NOT_REFUTED | -0.5 → -0.5 (measured speed 0) | -0.274 → -0.268 (measured speed 0.976 → 0.982) | REFUTED_EMPIRICALLY |
-| Lax-Friedrichs | VERIFIED | 0.98, 0.95: NOT_REFUTED | -1.2e-4 → -7.6e-6 | -4.4e-4 → -2.8e-5 | NOT_REFUTED |
-| Engquist-Osher | VERIFIED | 0.99, 0.98: NOT_REFUTED | +2.0e-5 → +1.3e-6 | round-off (2e-16 → 0) | NOT_REFUTED |
-| Rusanov | VERIFIED | 1.01, 1.00: NOT_REFUTED | +2.9e-4 → +1.8e-5 | +6.1e-4 → +3.8e-5 | NOT_REFUTED |
+One structural fact, conservation, seen three ways. `broken-burgers-nonconservative`
+discretises u_t + u u_x = 0 directly with upwinding.
+- The exact conservation check decides it in one shot: the update does not telescope, and an
+  exact periodic state's total changes.
+- The shock-speed test sees the consequence (Lax-Wendroff and Hou-LeFloch theorems), but only on
+  discontinuous data and only with the right estimator. Over [0, T] the start-up offset makes
+  every scheme look O(dx) wrong, a speed error that is not there.
+- The smooth convergence study can't see it at all: the scheme converges at order 1 to smooth
+  solutions.
 
-The tolerance 4 dx/T is 0.0013 and 0.0031 at N = 3200. For the conservative schemes the error
-falls like dx (a factor 16 over four halvings). Engquist-Osher (plain upwinding for these
-non-negative data) measures the (2, 1/2) speed exactly to round-off; we have not worked out why. For the non-conservative scheme
-the error doesn't shrink. In the (1, 0) case u = 0 is a fixed point of the update, so the step
-never moves; in the (2, 1/2) case the speed settles near 0.98. Only the conservation check is a
-proof; the other two are float64 evidence on chosen data.
+Numbers from `uv run python -m physverify.schemes schemes/*burgers*.json`. Each shock entry is
+the late-window speed error at N = 3200, taken as the largest over the three levels:
+
+| Scheme | Conservation (exact) | Smooth order, last refinement to N = 400 (L1, Linf) | (1, 0), s = 1/2 | (2, 1/2), s = 5/4 | (1, -1), s = 0 | (1, -1/2), s = 1/4 | Shock speed verdict |
+|---|---|---|---|---|---|---|---|
+| non-conservative upwind | REFUTED | 0.99, 0.97: NOT_REFUTED | -0.5 (speed 0) | -0.267 (speed 0.983) | 2e-16 (by accident) | -0.25 (speed 0) | REFUTED_EMPIRICALLY |
+| Lax-Friedrichs | VERIFIED | 0.98, 0.95: NOT_REFUTED | 4.7e-7 | 1.6e-6 | 8e-16 | 3.1e-6 | NOT_REFUTED |
+| Engquist-Osher | VERIFIED | 0.99, 0.98: NOT_REFUTED | 5.6e-8 | 3e-15 | 3e-16 | 6.7e-7 | NOT_REFUTED |
+| Rusanov | VERIFIED | 1.01, 1.00: NOT_REFUTED | 1.8e-8 | 1e-15 | 4e-16 | 9.5e-7 | NOT_REFUTED |
+
+The tolerance d at N = 3200 is 3.1e-4 for (1, 0), 7.8e-4 for (2, 1/2) and 6.3e-4 for the two
+transonic cases. Where the conservative errors are not round-off, they fall by about 4 per
+halving of dx. We read that as leftover phase wobble in the slope plus Lax-Friedrichs' slow
+settling, not a speed error; we have not separated the two. The [0, T] errors at level 0.5 for
+comparison, (1, 0) and (2, 1/2) at N = 3200:
+Lax-Friedrichs -7.6e-6 and -2.8e-5, Engquist-Osher +1.3e-6 and 0, Rusanov +1.8e-5 and +3.8e-5.
+These halve with dx, as an offset divided by T should. On the transonic cases every conservative
+scheme settles to a profile moving at the right speed (stationary for (1, -1)). Lax-Friedrichs on
+(1, -1) at N = 200 still has three crossings (an odd-even oscillation) and a -5e-3 [0, T] error;
+it has settled to round-off by N = 800. Only the conservation check is a proof; the other two
+are float64 evidence on chosen data.
+
+We have not added an entropy check. A scheme that violates the entropy condition, such as a Roe
+flux without an entropy fix, can keep a stationary expansion shock on data like (-1, 1). That is a
+separate claim from the shock speed, and none of our specs tests it.
 
 Limits: one space dimension, scalar laws, three-point stencils, periodic grids (the shock-speed study alone uses
-transmissive boundaries), Riemann data with a single shock and no sonic point. Positivity of
+transmissive boundaries), Riemann data with a single shock (no rarefactions). Positivity of
 nonlinear schemes (Burgers) is out of scope in v0. Consistency with an inconsistent flux shows
 up in the order study only weakly when the defect is small (the 1.01-scaled flux still shows
 order about 0.8 at N = 400); the exact check is what catches it. A non-conservative scheme can
