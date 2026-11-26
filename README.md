@@ -720,6 +720,9 @@ to refute.
 | `converges_order_p` | order/combined, order/space, order/time | necessary | empirical |
 | | truncation_order (Lax-Richtmyer), only if von_neumann and lax_richtmyer_scope are VERIFIED | sufficient | exact |
 | `correct_shock_speed` | shock_speed | necessary | empirical |
+| | monotonicity (Crandall-Majda), only if conservation, consistency, flux_lipschitz and shock_scope_monotone are VERIFIED | sufficient | exact |
+| | tvd_harten (Helly + Lax-Wendroff, a subsequence), only if conservation, consistency, flux_lipschitz and shock_scope_tvd are VERIFIED | sufficient | exact |
+| `limit_is_weak_solution` | conservation (Lax-Wendroff theorem), only if consistency and flux_lipschitz are VERIFIED | sufficient | exact |
 | `tvd_under_cfl` | tvd_harten (Harten's incremental form on sign cells) | sufficient | exact |
 | | tv_increase (an explicit periodic state whose TV grows) | necessary | exact |
 | `local_max_principle_under_cfl` | tvd_harten (a convex combination of two stencil values) | sufficient | exact |
@@ -778,6 +781,31 @@ Roe without a fix is the cross-check. If the monotonicity check had certified it
 rarefaction study refutes it, the judge would report `INCONSISTENT`. It doesn't: monotonicity fails
 exactly at the transonic expansion, the same place the scheme keeps its expansion shock.
 
+**Shock speed and weak limits** (`physverify/schemes/shockspeed.py`). Three rows turn exact checks
+into statements about the limit dx -> 0 at fixed dt/dx, for scalar 1D conservation laws:
+- `limit_is_weak_solution` is the Lax–Wendroff theorem (1960): for a conservative scheme with a
+  consistent, locally Lipschitz numerical flux, every bounded a.e. limit is a weak solution, so its
+  discontinuities move at the Rankine–Hugoniot speed. It is conditional: it does not say the scheme
+  converges, and the limit may be a non-entropy weak solution.
+- `correct_shock_speed` from monotonicity (Crandall–Majda): the whole sequence converges to the
+  entropy solution, whose shocks satisfy Rankine–Hugoniot. The row also needs `shock_scope_monotone`:
+  every (uL, uR, dt/dx) of the spec's shock study has dt/dx * max|f'| inside the certified monotone
+  bound. Lax–Friedrichs and Engquist–Osher on Burgers are VERIFIED this way; Rusanov is certified only
+  up to 1/3 while its study runs at 4/5, so it stays `NOT_REFUTED`.
+- `correct_shock_speed` from exact TVD (Helly + Lax–Wendroff): TVD bounds plus L1-Lipschitz
+  continuity in time give a convergent subsequence, and its limit is a weak solution. Subsequence
+  only: the limit may contain an entropy-violating discontinuity that still moves at the RH speed,
+  and the row says nothing about uniqueness or entropy. It needs `shock_scope_tvd` (each study nu in
+  the claimed TVD range). TVD is exact only for linear advection today, where the only
+  discontinuities are contacts moving at speed a. The row is correct there but weak, and it becomes
+  useful once there is a TVD check for nonlinear fluxes.
+
+`flux_lipschitz` checks the numerical flux by form: polynomials, |.| (so min, max and minmod) and
+factors in dt/dx only are locally Lipschitz, and local is enough because the maximum principle or
+TVD bounds the states. A square root of anything other than an even power, a division by the states,
+or sin, exp and so on give `UNKNOWN`. Without a declared flux it checks a three-point update H, whose
+flux (if it is conservative and consistent) is F(a, b) = f(a) + (a - H(a, a, b))/lam.
+
 Reported as the verdict on "the claim", the raw `REFUTED` would have said Harten's fix picks the
 wrong solution. Likewise for `broken-burgers-nonconservative` the exact conservation check
 decides `conservative`. The shock-speed study is only a necessary condition: it agrees there, but
@@ -791,8 +819,11 @@ TVD", "our upwind scheme is unconditionally stable", "the minmod MUSCL scheme is
 Each reading of each sentence is formalized into the named claims above, with an expected truth
 and a citation. `uv run python -m physverify.schemes.bench benchmark/scheme-claims/` prints
 expected against actual. It fails on a decisive verdict that contradicts the expectation and lists
-non-decisive results as gaps. Now: 30 of 40 readings decided correctly, 9 gaps, 1 unscored
-(expected truth unsettled), none wrong. Before the limiter checks it was 24 of 34 with 10 gaps
+non-decisive results as gaps. Now: 32 of 43 readings decided correctly, 10 gaps, 1 unscored
+(expected truth unsettled), none wrong. The shock-speed rows split C12's shock clause into a
+conditional reading (every bounded limit is a weak solution) and an unconditional one (the scheme's
+shocks move at the RH speed), both VERIFIED for Lax–Friedrichs on Burgers, and added C13's
+conditional reading, a gap (see `GAPS.md`); before them it was 30 of 40 with 9 gaps. Before the limiter checks it was 24 of 34 with 10 gaps
 (the monotonicity check settles the Rusanov and Engquist–Osher monotonicity claims, and the exact
 order and von Neumann checks settle the truncation and global orders of Lax–Wendroff and upwind and
 refute "upwind is unconditionally L2-stable"; the steady-step check makes the Roe and Lax–Wendroff

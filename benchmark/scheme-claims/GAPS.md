@@ -1,14 +1,14 @@
 # Paper-style scheme claims: what the verifier can and cannot decide
 
 `claims.json` holds 22 sentences about 1D linear-advection and Burgers schemes, written the way
-papers and models write them. They are split into 40 readings, each formalized into the named
+papers and models write them. They are split into 43 readings, each formalized into the named
 claims of `physverify/schemes/claims.py` or marked unformalized. Run:
 
 ```
 uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 45 s
 ```
 
-Result now: **30 match, 9 gaps, 1 unscored, 0 wrong decisive verdicts** over 40 readings. History: 14 match,
+Result now: **32 match, 10 gaps, 1 unscored, 0 wrong decisive verdicts** over 43 readings. History: 14 match,
 19 gaps before the monotonicity check and the Crandall–Majda row (gap 3); 17 match, 16 gaps before
 the exact order checks for linear schemes; 18 match, 15 gaps over 33 readings once those checks
 settled C01 reading 1. The steady non-entropy step check left the counts unchanged but made two
@@ -24,16 +24,24 @@ reading 1 (L1 order 2 without extrema) moved from UNFORMALIZED to NOT_REFUTED, s
 new readings are C18 reading 3 (pointwise truncation order 2 at smooth extrema: REFUTED, exact), C18
 reading 4 (L1 order 2 on sine data: unsettled, unscored), C02 reading 2 (Lax–Wendroff in flux-limiter
 form is TVD: REFUTED, exact), C21 (minmod and superbee are TVD on [0, 1]: two VERIFIED) and C22
-(superbee is TVD up to 3/2: REFUTED). Result: 30 match, 9 gaps, 1 unscored.
+(superbee is TVD up to 3/2: REFUTED). Result: 30 match, 9 gaps, 1 unscored. The shock-speed rows
+(gap 5) then split the shock-speed clauses into a conditional reading (every bounded a.e. limit is
+a weak solution: `limit_is_weak_solution`, the Lax–Wendroff theorem) and an unconditional one (the
+scheme's shocks move at the RH speed: `correct_shock_speed`, now with exact Crandall–Majda and TVD
+rows). C12 readings 2 and 3 are new matches (both VERIFIED); C12 reading 1 keeps its gap, now from
+its order clause alone (its shock component moved from NOT_REFUTED to VERIFIED). C13 reading 2 (the
+conditional reading for the non-conservative scheme, expected false) is a new gap, UNKNOWN. C19
+reading 4 was reworded (the CFL condition must hold at the finest dx); its verdict is unchanged.
+Result: 32 match, 10 gaps, 1 unscored.
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 15 (all VERIFIED) | 15 (13 REFUTED, 2 REFUTED_EMPIRICALLY) | 30 |
-| gap | 7 | 2 | 9 |
+| decisive and correct (match) | 17 (all VERIFIED) | 15 (13 REFUTED, 2 REFUTED_EMPIRICALLY) | 32 |
+| gap | 7 | 3 | 10 |
 | wrong | 0 | 0 | 0 |
 
-One more reading (C18 reading 4) has expected truth "unsettled" and is not scored. The 9 gaps by
-verdict: 4 UNFORMALIZED (no named claim expresses the reading), 1 UNKNOWN (a named claim exists but
+One more reading (C18 reading 4) has expected truth "unsettled" and is not scored. The 10 gaps by
+verdict: 4 UNFORMALIZED (no named claim expresses the reading), 2 UNKNOWN (a named claim exists but
 its checks cannot decide), 4 NOT_REFUTED (only empirical evidence exists).
 
 What works: exact structural facts about three-point schemes. That covers flux form,
@@ -60,7 +68,11 @@ first, is now closed for every linear-scheme reading except separate space and t
 wider stencils move to the top, and von Neumann stability (formerly 4) moves down to 7. Gap 7 is
 now closed (C06, through `stable_for_small_cfl`), and so is the semi-discrete half of gap 4. Gap 1
 is now closed for limited schemes of linear advection, and the per-norm half of gap 6 with it; we kept
-the numbering so that older references stay valid.
+the numbering so that older references stay valid. Gap 5 (shock speed) is now closed for C12 as
+well. Re-ranked over what is still open, by how often we think it appears: global order of
+nonlinear and limited schemes (gaps 1 and 2, C12 reading 1, C18 reading 1), then nonlinear TVD and
+entropy claims (gaps 3 and 4), separate space and time orders and regimes (gaps 2 and 6, C19), the
+non-conservative weak-limit row (gap 5, C13 reading 2), and the formula dependence of gap 8.
 
 ## Gaps, ranked by how often we think claims like these appear in papers
 
@@ -129,7 +141,8 @@ and TVD claims for limited schemes are research-sized (weeks).
 
 Still open:
 - C19 reading 4, new: a paper might mean order 1 in Δx and in Δt separately. True (error
-  O(Δx + Δt)), but Lax–Richtmyer covers only fixed dt/dx, so only the space and time refinement
+  O(Δx + Δt)) as long as the fixed Δt keeps the CFL condition at the finest Δx; refining Δx at a
+  Δt that breaks it makes upwind unstable and the reading false, so the reading now says so, but Lax–Richtmyer covers only fixed dt/dx, so only the space and time refinement
   studies bear on it: NOT_REFUTED. An exact route would bound the error by C1 Δx + C2 Δt from the
   truncation terms and stability, which is not a table row.
 - C12 (Lax–Friedrichs on Burgers, order 1): nonlinear, so the linear checks are NOT_APPLICABLE and
@@ -233,7 +246,35 @@ entropy solution" for the method of lines. Two concrete gaps:
 **Cost:** semi-discrete steady-step row an hour or two; E-flux check 1 to 2 days
 (three variables, interval constraint on u; may need certifier work).
 
-### 5. "Conservative, so shocks move at the right speed" has no exact route (C12)
+### 5. "Conservative, so shocks move at the right speed" has no exact route (CLOSED for C12; open: C13 reading 2)
+
+**Status.** Three trusted rows are on main (`claims.py`, preconditions in `shockspeed.py`):
+- `limit_is_weak_solution` ⇐ conservation, SUFFICIENT, requires consistency and `flux_lipschitz`
+  (the Lax–Wendroff theorem: every bounded a.e. limit at fixed dt/dx is a weak solution). This is the
+  conditional reading, C12 reading 2: VERIFIED.
+- `correct_shock_speed` ⇐ monotonicity, SUFFICIENT, requires conservation, consistency,
+  `flux_lipschitz` and `shock_scope_monotone` (Crandall–Majda: the whole sequence converges to the
+  entropy solution, whose shocks satisfy Rankine–Hugoniot). The scope check asks that every
+  (uL, uR, dt/dx) of the shock study have dt/dx * max|f'| inside the certified monotone bound. C12
+  reading 3 and the shock component of reading 1 are VERIFIED. Reading 1 stays a gap through its
+  order clause (gap 2).
+- `correct_shock_speed` ⇐ tvd_harten, SUFFICIENT, requires conservation, consistency,
+  `flux_lipschitz` and `shock_scope_tvd` (Helly compactness and the Lax–Wendroff theorem; a
+  subsequence only, and nothing about uniqueness or entropy). It fires only on linear advection
+  today, where the discontinuities are contacts; no benchmark reading uses it.
+
+`flux_lipschitz` is structural (polynomials, |.|, factors in dt/dx); a square root of anything other
+than an even power, or a division by the states, gives UNKNOWN. We added it to all three rows: the
+three theorems assume a Lipschitz numerical flux, which the original proposal below left implicit.
+
+Still open: C13 reading 2, "every bounded limit of the quasilinear upwind scheme is a weak solution"
+(expected false), is UNKNOWN. The Lax–Wendroff row is sufficient only, so failed conservation says
+nothing. An exact NECESSARY row exists: the step 1 | 0 is a fixed point of the update, and
+f(1) ≠ f(0), so the scheme's limit there is a stationary jump that violates Rankine–Hugoniot. That
+is the steady-step identity check without its uL < uR condition. **Cost:** a few hours plus review
+of the row.
+
+The original text follows.
 
 Papers often say this. The exact conservation check plus the Lax–Wendroff theorem is sufficient
 for `correct_shock_speed`, with the premise that the scheme converges. The same kind of premise is
