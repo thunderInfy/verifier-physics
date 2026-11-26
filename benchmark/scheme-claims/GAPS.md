@@ -1,14 +1,14 @@
 # Paper-style scheme claims: what the verifier can and cannot decide
 
-`claims.json` holds 20 sentences about 1D linear-advection and Burgers schemes, written the way
-papers and models write them. They are split into 34 readings, each formalized into the named
+`claims.json` holds 22 sentences about 1D linear-advection and Burgers schemes, written the way
+papers and models write them. They are split into 40 readings, each formalized into the named
 claims of `physverify/schemes/claims.py` or marked unformalized. Run:
 
 ```
-uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 15 s
+uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 45 s
 ```
 
-Result now: **24 match, 10 gaps, 0 wrong decisive verdicts** over 34 readings. History: 14 match,
+Result now: **30 match, 9 gaps, 1 unscored, 0 wrong decisive verdicts** over 40 readings. History: 14 match,
 19 gaps before the monotonicity check and the Crandall–Majda row (gap 3); 17 match, 16 gaps before
 the exact order checks for linear schemes; 18 match, 15 gaps over 33 readings once those checks
 settled C01 reading 1. The steady non-entropy step check left the counts unchanged but made two
@@ -17,16 +17,24 @@ REFUTED (see gap 4). Reformalizing readings onto the order and von Neumann check
 (C01 reading 2, C04 reading 2, C19 readings 1 and 3; gaps 2 and 7) and added one reading, C19
 reading 4 (upwind's separate space and time orders), which is a gap: 22 match, 12 gaps. Two more
 exact checks then closed two expected-false gaps, both now REFUTED: the semi-discrete steady step
-(C10 reading 2, gap 4) and stability for every small CFL number (C06, gap 7).
+(C10 reading 2, gap 4) and stability for every small CFL number (C06, gap 7): 24 match, 10 gaps over
+34 readings. Five-point stencils and limiters (gap 1) then made C18 expressible and added six
+readings. C18 reading 2 (max-norm order 2 at extrema) is now a match (REFUTED_EMPIRICALLY), and
+reading 1 (L1 order 2 without extrema) moved from UNFORMALIZED to NOT_REFUTED, still a gap. The
+new readings are C18 reading 3 (pointwise truncation order 2 at smooth extrema: REFUTED, exact), C18
+reading 4 (L1 order 2 on sine data: unsettled, unscored), C02 reading 2 (Lax–Wendroff in flux-limiter
+form is TVD: REFUTED, exact), C21 (minmod and superbee are TVD on [0, 1]: two VERIFIED) and C22
+(superbee is TVD up to 3/2: REFUTED). Result: 30 match, 9 gaps, 1 unscored.
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 13 (all VERIFIED) | 11 (10 REFUTED, 1 REFUTED_EMPIRICALLY) | 24 |
-| gap | 7 | 3 | 10 |
+| decisive and correct (match) | 15 (all VERIFIED) | 15 (13 REFUTED, 2 REFUTED_EMPIRICALLY) | 30 |
+| gap | 7 | 2 | 9 |
 | wrong | 0 | 0 | 0 |
 
-The 10 gaps by verdict: 6 UNFORMALIZED (no named claim expresses the reading), 1 UNKNOWN (a named
-claim exists but its checks cannot decide), 3 NOT_REFUTED (only empirical evidence exists).
+One more reading (C18 reading 4) has expected truth "unsettled" and is not scored. The 9 gaps by
+verdict: 4 UNFORMALIZED (no named claim expresses the reading), 1 UNKNOWN (a named claim exists but
+its checks cannot decide), 4 NOT_REFUTED (only empirical evidence exists).
 
 What works: exact structural facts about three-point schemes. That covers flux form,
 consistency, positivity of linear schemes on a stated CFL interval, truncation order, von Neumann
@@ -40,20 +48,56 @@ nothing could verify the true version. Examples: Lax–Wendroff "TVD" (C02), Lax
 "entropy stable" (C03, C10), upwind "unconditionally stable" (C04), and quasilinear upwinding
 "captures shocks" (C13).
 
-What does not work is mostly the claims papers make most often: high-resolution (wider-stencil)
-schemes, order of accuracy of nonlinear schemes, and TVD or stability of nonlinear schemes.
+Limited (high-resolution) schemes of linear advection on five-point stencils now work for TVD, a
+local maximum principle and the pointwise truncation order: minmod and superbee are VERIFIED TVD on
+[0, 1], and superbee on [0, 3/2], Lax–Wendroff in flux-limiter form and minmod's pointwise second
+order at extrema are REFUTED exactly. What does not work is mostly the global order of nonlinear
+schemes (empirical only, so a true "second order in L1" stays NOT_REFUTED) and TVD or stability of
+nonlinear (Burgers) schemes.
 
 The ranking below was redone after the order and von Neumann checks: order of accuracy, which was
 first, is now closed for every linear-scheme reading except separate space and time orders, so
 wider stencils move to the top, and von Neumann stability (formerly 4) moves down to 7. Gap 7 is
-now closed (C06, through `stable_for_small_cfl`), and so is the semi-discrete half of gap 4.
+now closed (C06, through `stable_for_small_cfl`), and so is the semi-discrete half of gap 4. Gap 1
+is now closed for limited schemes of linear advection, and the per-norm half of gap 6 with it; we kept
+the numbering so that older references stay valid.
 
 ## Gaps, ranked by how often we think claims like these appear in papers
 
 The ranking is our judgement from reading the numerical-methods literature, not a measurement.
 Cost estimates are rough, for one person who knows this code base.
 
-### 1. High-resolution schemes can't be written down (C18 both readings)
+### 1. High-resolution schemes can't be written down (CLOSED for limited schemes of linear advection: C18, C02 reading 2, C21, C22; open: global order, nonlinear fluxes, WENO)
+
+**Status.** Specs may use `um2, um1, u0, up1, up2` and fluxes F(uLL, uL, uR, uRR); the expression
+language has `abs`, `min`, `max` and `minmod` (as |x| = sqrt(x^2), so no new AST node). Conservation
+(`telescoping_wide`), consistency, the truncation and von Neumann checks for linear schemes, positivity
+and the convergence studies work on the wider stencil. `physverify/schemes/limiters.py` adds sign cells
+with certified pruning of lower-dimensional cells and a cover argument (the retained closed cells cover
+the state space by construction; every VERIFIED rests on that), a cap (`MAX_CELLS`, past which the
+checks give UNKNOWN) and an overlap check (cells agree where they meet). On these cells:
+- `tvd_under_cfl`: Harten's incremental form, certified per cell by Farkas identities with multipliers
+  polynomial in ν (SUFFICIENT), and an exact periodic state whose total variation grows (NECESSARY).
+  Minmod (18 cells) and superbee (50 cells) are VERIFIED on [0, 1]. Superbee on [0, 3/2] is REFUTED
+  (TV 2 → 4 at ν = 3/2), and so is Lax–Wendroff in flux-limiter form on [0, 1] (TV 2 → 33/16 at
+  ν = 1/4). The checker agrees with the literature range; we did not hard-code it.
+- `local_max_principle_under_cfl`: the same certificate (u_i^{n+1} is a convex combination of u_{i-1}
+  and u_i), refuted by an explicit state outside its stencil's range.
+- `truncation_order_smooth_data`: the per-branch truncation order (SUFFICIENT when every branch has
+  order ≥ p) and the exact local truncation error at an explicit polynomial solution (NECESSARY). For
+  minmod at U = 1 - x^2/2, x_i = 0: τ = (1 - ν)/4 · dx exactly, so it is REFUTED (C18 reading 3).
+- `converges_order_p_l1`, `converges_order_p_linf`: the global error in one named norm, empirical only.
+  C18 reading 2 (max norm with extrema) is REFUTED_EMPIRICALLY at dt/dx = 1/2 and at the
+  incommensurate 0.37 (observed order 1.3). C18 reading 1 (L1 without extrema, on a C∞ monotone step
+  with transmissive boundaries) is NOT_REFUTED at observed order 2.00, and stays a gap: a nonlinear
+  scheme has no Lax–Richtmyer theorem.
+
+Still open: the global order of limited schemes (no exact route; a convergence proof for TVD schemes
+gives an order only under assumptions we cannot check), limiters on nonlinear fluxes (the Harten check
+needs f = a u so that the CFL number is a parameter), MUSCL with a separate reconstruction and Riemann
+solver step, and WENO (its weights are rational functions, outside the polynomial fragment).
+
+The original text follows.
 
 MUSCL, minmod, WENO and every TVD limiter use five or more points. Specs are three-point
 (`um1, u0, up1`), so "the minmod-limited MUSCL scheme is second order" can't be formalized at all.
@@ -198,7 +242,14 @@ also blocked by gap 2 (its first-order clause).
 **Cost:** one SUFFICIENT row in `claims.py`, with its premise, plus review. We have not added it:
 trusted-table changes are reviewed separately.
 
-### 6. Regimes and norms the spec can't state (C19 reading 2, C18 reading 2)
+### 6. Regimes and norms the spec can't state (C19 reading 2; the per-norm half CLOSED for C18)
+
+**Status.** The per-norm claims exist now: `claims.order_l1` and `claims.order_linf` feed
+`converges_order_p_l1` and `converges_order_p_linf`, which read only their own column of the
+combined study. A smooth test problem without extrema (`advection-smooth-step`, a C∞ monotone step
+with constant ends and transmissive boundaries, `test.boundary`) and per-spec grids (`test.grids`)
+are in `convergence.py`. C18 readings 1, 2 and 4 use them. Both stay empirical. The square-wave half
+(C19 reading 2) is still open. The original text follows.
 
 - "First order" for discontinuous solutions is false in L1 (rate O(√Δx), Kuznetsov 1976, sharp by
   Tang and Teng 1995). The order study has only smooth test problems. A square-wave problem is
@@ -286,7 +337,18 @@ the certificate.
   above. The verifier now agrees: the monotonicity check refutes it with its own exact
   counterexample and certifies the scheme at the sharp bound 1/3 (gap 3).
 - C18 reading 2 cites Osher and Chakravarthy (1984) for "TVD schemes drop to first order at smooth
-  extrema" from memory. The fact itself is standard (LeVeque 2002, ch. 6).
+  extrema" from memory. The fact itself is standard (LeVeque 2002, ch. 6). Our measured max-norm
+  order on sine data is about 1.3, not 1, at dt/dx = 1/2, 0.37 and 0.9 up to N = 1600. The reading
+  only needs "not 2", so the verdict does not depend on the exact rate, but we have not derived it.
+- C18 reading 4 (L1 order 2 on sine data, with extrema) is unsettled on purpose: the measured L1
+  order is 1.89–1.95 up to N = 1600 and still rising, and we know no sharp result. It is recorded so
+  the number is visible, and it is not scored.
+- The limiter readings add bridges: minmod and superbee are written polynomially (no ratio r), and
+  superbee's maxmod as max(0, max(m1, m2)) + min(0, min(m1, m2)), equal to it because m1, m2 never have
+  opposite signs (C21). The tests replay every limiter witness with the textbook ratio form
+  (LeVeque 2002, (6.39)) in exact arithmetic, so a transcription error in the spec would show up there.
+  "Order 2 without extrema" is read on one C∞ monotone step at dt/dx = 1/2 (C18 reading 1, relation
+  `necessary`).
 - Empirical passes come only from existing specs (C01, C11, C12, C19, and the Engquist–Osher
   rarefaction in C08, which now only agrees with the exact Crandall–Majda verification), whose studies already run at an incommensurate dt/dx. The new specs'
   empirical results are refutations (Lax–Wendroff on Burgers keeps the expansion shock at both
@@ -294,7 +356,8 @@ the certificate.
 
 ## Sources
 
-LeVeque, *Finite Volume Methods for Hyperbolic Problems*, CUP 2002 (cited by chapter). Toro,
+LeVeque, *Finite Volume Methods for Hyperbolic Problems*, CUP 2002 (cited by chapter). Sweby,
+SINUM 21 (1984). Roe (1985), as cited in LeVeque (2002) ch. 6, for superbee. Toro,
 *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3rd ed., Springer 2009. Godunov, Mat.
 Sb. 47 (1959). Lax and Wendroff, CPAM 13 (1960). Rusanov, USSR J. Comput. Math. Math. Phys. 1
 (1961). Harten, Hyman and Lax, CPAM 29 (1976). Kuznetsov, USSR Comput. Math. Math. Phys. 16
