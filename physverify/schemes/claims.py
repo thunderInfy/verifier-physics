@@ -41,6 +41,7 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "tvd_harten": EXACT, "tv_increase": EXACT, "truncation_branches": EXACT, "truncation_smooth_data": EXACT,
              "max_principle_violation": EXACT,
              "order_l1/combined": EMPIRICAL, "order_linf/combined": EMPIRICAL}
+GUARANTEE.update({"flux_lipschitz": EXACT, "shock_scope_monotone": EXACT, "shock_scope_tvd": EXACT})  # shockspeed.py
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -97,6 +98,28 @@ _DEPTH_STEP = ("induction over n: if h_j^n > 0 and the CFL condition holds on ev
                "first step has h <= 0. Shallow water, three-point schemes, any boundary that copies grid states "
                "into ghost cells; wet/dry states (h = 0) are outside the claim")
 
+# shock speed and weak limits (scalar 1D conservation laws, refinement dx -> 0 at fixed dt/dx)
+_LAX_WENDROFF = ("Lax-Wendroff theorem (1960): for a conservative scheme with a consistent, locally Lipschitz numerical "
+                 "flux, any limit u of the scheme as dx -> 0 at fixed dt/dx that is bounded and a.e. (hence L1_loc) is a "
+                 "weak solution; conditional: it says nothing about whether the scheme converges, and nothing about "
+                 "entropy (the limit may be a non-entropy weak solution); also needs the consistency and flux_lipschitz "
+                 "checks to pass")
+_CM_SHOCK = ("Crandall-Majda (1980): a conservative, consistent, monotone scheme with a locally Lipschitz numerical flux "
+             "converges as dx -> 0 at fixed dt/dx (the whole sequence, in L1_loc) to the entropy solution, for data in "
+             "L-infinity and BV with values in the CFL range (Riemann data reduce to compactly supported data by finite "
+             "propagation speed at fixed dt/dx); the entropy solution is a weak solution, so across each of its shocks "
+             "the Rankine-Hugoniot condition holds and they move at the Rankine-Hugoniot speed; scalar 1D laws only; "
+             "also needs the conservation, consistency and flux_lipschitz checks to pass and every dt/dx of the shock "
+             "study to lie inside the certified monotone range (shock_scope_monotone)")
+_HELLY_LW = ("TVD for BV and L1 data gives uniform L-infinity and total-variation bounds, and conservative form with a "
+             "Lipschitz numerical flux gives L1-Lipschitz continuity in time; by Helly's compactness theorem a "
+             "subsequence converges in L1_loc, and by the Lax-Wendroff theorem every such limit is a weak solution, so "
+             "its discontinuities move at the Rankine-Hugoniot speed. Subsequence only; the limit may contain an "
+             "entropy-violating discontinuity that still moves at the Rankine-Hugoniot speed; says nothing about "
+             "uniqueness or entropy. Also needs the conservation, consistency and flux_lipschitz checks to pass and "
+             "every dt/dx of the shock study inside the certified TVD range (shock_scope_tvd); linear advection only "
+             "today, where the discontinuities are contacts moving at speed a")
+
 # claim -> (statement, ((check, relation, premise[, requires]), ...)). The premise is what the relation
 # rests on; it is carried into the verdict as an assumption. `requires` lists exact checks that must be
 # VERIFIED on the same spec for the row to count at all; otherwise the row gives UNKNOWN.
@@ -136,7 +159,15 @@ CLAIMS = {
                           # the row cannot fire for a nonlinear scheme: lax_richtmyer_scope is NOT_APPLICABLE there
                           + (("truncation_order", SUFFICIENT, _LAX_RICHTMYER, ("von_neumann", "lax_richtmyer_scope")),)),
     "correct_shock_speed": ("shocks move at the Rankine-Hugoniot speed in the limit dx -> 0",
-                            (("shock_speed", NECESSARY, "on the spec's Riemann data and grids only"),)),
+                            (("shock_speed", NECESSARY, "on the spec's Riemann data and grids only"),
+                             ("monotonicity", SUFFICIENT, _CM_SHOCK,
+                              ("conservation", "consistency", "flux_lipschitz", "shock_scope_monotone")),
+                             ("tvd_harten", SUFFICIENT, _HELLY_LW,
+                              ("conservation", "consistency", "flux_lipschitz", "shock_scope_tvd")))),
+    "limit_is_weak_solution": ("every bounded a.e. (L1_loc) limit of the scheme as dx -> 0 at fixed dt/dx is a weak "
+                               "solution, so its discontinuities move at the Rankine-Hugoniot speed (conditional on "
+                               "convergence)",
+                               (("conservation", SUFFICIENT, _LAX_WENDROFF, ("consistency", "flux_lipschitz")),)),
     # limited schemes (limiters.py)
     "tvd_under_cfl": ("TVD: the total variation sum_i |u_{i+1} - u_i| does not increase in one step, for every "
                       "state and every nu = a*dt/dx in the claimed range",
