@@ -112,15 +112,19 @@ theories. Examples are in `schemes/`, the broken ones prefixed `broken-`.
 
 ```
 $ uv run python -m physverify.schemes schemes/broken-advection-lax-friedrichs-wide-cfl.json
-## BROKEN: Lax-Friedrichs claimed positive up to nu = 1.1: FAILS positive_under_cfl
+## BROKEN: Lax-Friedrichs claimed positive and monotone up to nu = 1.1: FAILS positive_under_cfl, monotone_under_cfl
 claims (judged by the table in claims.py):
 ...
 - [REFUTED] (positive_under_cfl, exact) the linear update is a non-negative combination of u_{i-1}, u_i, u_{i+1} on the claimed CFL range
     evidence: positivity EQUIVALENT REFUTED -> REFUTED
+- [REFUTED] (monotone_under_cfl, exact) H is non-decreasing in each argument for states with lam*|f'(u)| <= c
+    evidence: monotonicity EQUIVALENT REFUTED -> REFUTED
 checks (raw evidence):
 ...
 - [REFUTED] (positivity, exact ...) positivity: every coefficient c_k(nu) >= 0 for nu = a*dt/dx in [0, 11/10]
     coefficient of up1 = -1/2*nu + 1/2 is -1/20 < 0 at nu = 11/10
+- [REFUTED] (monotonicity, exact ...) monotone: H(um1, u0, up1) is non-decreasing in each argument for lam > 0 and states with lam*|f'(u)| <= 11/10
+    H decreases from -1 to -1201/1200 when up1 increases by 1/60 at lam = 11/10, state ['-1', '-1', '-1']
 ```
 
 The claim verdicts come first; the raw checks underneath are the evidence (see "Checks vs claims"
@@ -135,6 +139,7 @@ below for how one becomes the other).
 | Shock speed on Riemann problems | empirical only | late-window speed at three crossing levels against the exact Rankine-Hugoniot speed, per grid |
 | Entropy stability (Tadmor), semi-discrete | exact for the semi-discrete inequality only, not the time stepping: Q = -[v](F - F*) >= 0 certified on sign cells, or an exact rational point with Q < 0 | F*, Q, per-cell D = Q/(uR - uL)^2 with a change of variables that makes it non-negative by form, or counterexample (uL, uR) |
 | Convergence to the rarefaction fan | empirical only | L1 error tables against u = (x - x0)/t, at two incommensurate dt/dx |
+| Monotonicity of the fully discrete update on a claimed CFL bound | exact: every partial of H(u_{i-1}, u_i, u_{i+1}) is >= 0 on every sign cell within lam*\|f'(u)\| <= c, or two exact states, one argument raised, with H lower | per cell: H, the three partials, and a certificate (by form, a Farkas identity in w = lam*u, or Bernstein in lam); or the decreasing pair |
 
 The exact checks use `Fraction` arithmetic and never decide on a float. Their verdicts are not
 Lean-checked yet; each returns the witness a Lean certificate would need. The flux recovery is
@@ -257,8 +262,8 @@ cell fails, it searches small rationals for a point with Q < 0 (`REFUTED`). If n
 verdict is `UNKNOWN`.
 
 This certifies the *semi-discrete* inequality only. The time discretisation is not covered:
-forward Euler can produce entropy, so the fully discrete scheme is not certified. The output says
-so in the guarantee line.
+forward Euler can produce entropy, so this check does not certify the fully discrete scheme (the
+monotonicity rung below does). The output says so in the guarantee line.
 
 | Scheme | Entropy stability (exact, semi-discrete) | Witness |
 |---|---|---|
@@ -300,15 +305,48 @@ update, not a round-off coincidence. On (-1/2, 1), Roe keeps a stationary jump f
 (a = 0 across it) with a fan above it. That limit's L1 error is T/4 = 1/16 = 0.0625, which the
 measured error approaches from above (largest jump between neighbouring cells 1.0). The
 entropy-satisfying schemes converge at observed order about 0.8, still rising at N = 1600; we have
-not pinned down the asymptotic rate (the fan's corners limit first-order schemes). Only the exact
-rung is a proof, and only of the semi-discrete inequality. The rarefaction study is float64
-evidence on two state pairs.
+not pinned down the asymptotic rate (the fan's corners limit first-order schemes). Tadmor's rung
+is a proof of the semi-discrete inequality only. The rarefaction study is float64 evidence on two
+state pairs. The proof for the fully discrete scheme is monotonicity (see "Checks vs claims").
+
+**Exact rung for the fully discrete scheme: monotonicity.** The update u_i^{n+1} = H(u_{i-1}, u_i,
+u_{i+1}) is monotone if H is non-decreasing in each argument. The check splits every |x| in H into
+sign cells. On each closed cell H is a polynomial, and the check certifies its three partial
+derivatives >= 0 on the cell within the claimed CFL region lam*|f'(u)| <= c. In w = lam*u the
+partials and cell boundaries are affine for these fluxes, so the certificate is an exact Farkas
+identity p = r + sum mu_j a_j with mu_j, r >= 0 over the cell's atoms. H is continuous and
+Lipschitz, so if it is non-decreasing on each closed piece of a cover of a segment, it is
+non-decreasing along the whole segment; the kinks are finitely many points and don't matter. A
+refutation is two exact states in the region, differing in one argument, where raising that
+argument lowers H. The CFL bounds in the specs are sharp: each scheme is `REFUTED` just above its
+bound.
+
+| Scheme | Monotone for | Just above |
+|---|---|---|
+| Upwind, Lax-Friedrichs (advection, a = 1) | dt/dx <= 1 (the same range as positivity) | REFUTED at 11/10 |
+| Lax-Friedrichs, Engquist-Osher (Burgers) | lam*\|u\| <= 1 | REFUTED at 101/100 |
+| Rusanov (Burgers) | lam*\|u\| <= 1/3 | REFUTED at 334/1000 |
+| Lax-Wendroff | never on (0, 1): the up1 coefficient is -lam(1 - lam)/2 | REFUTED |
+| Roe, no fix | under no bound: a transonic expansion breaks it | REFUTED at 1 and at 1/10 |
+| Roe + Harten fix (delta = 1/2) | not at any bound we tried down to 1/10 | REFUTED at 1, 1/2, 1/4, 1/10; UNKNOWN at 1/100 |
+| Non-conservative upwind (Burgers) | lam*\|u\| <= 1/3 | REFUTED at 334/1000 |
+
+Rusanov's 1/3 is not a typo. The dissipation alpha = max(|uL|, |uR|) depends on the states, and
+differentiating it adds to dH/du_i: on the cell where |u_i| >= |u_{i+1}|, u_i >= 0, the partial is
+1 - 2 w_i + (w_{i-1} + w_{i+1})/2, which reaches 1 - 3c. Roe fails at a transonic expansion
+(u_{i-1} < 0 < u_i, where dH/du_{i-1} = lam*u_{i-1} < 0) under any CFL bound. Harten's fix is not
+monotone at the bounds we tried, so its entropy claim still rests on the study alone. Its cells are
+cubic, so there is no Farkas certificate, and at 1/100 the search's dt/dx values keep the states
+well below delta, which is why it returns `UNKNOWN` there. delta is a fixed state scale, so a
+smaller dt/dx reaches the failing states (|u| near 0.3) under any c. We expect it is never
+monotone, but the check has not shown this.
 
 Limits: one space dimension, scalar laws, three-point stencils, periodic grids (the shock-speed and
 rarefaction studies use transmissive boundaries), Riemann data with a single shock or a single fan.
 The exact entropy check needs a quadratic entropy, and the rarefaction study's exact fan is for
 Burgers only. Positivity of
-nonlinear schemes (Burgers) is out of scope in v0. Consistency with an inconsistent flux shows
+nonlinear schemes (Burgers) is out of scope in v0; monotonicity, its nonlinear counterpart, is
+covered for fluxes whose cells give affine partials in w = lam*u (Harten's cubic cells are not). Consistency with an inconsistent flux shows
 up in the order study only weakly when the defect is small (the 1.01-scaled flux still shows
 order about 0.8 at N = 400); the exact check is what catches it. A non-conservative scheme can
 converge at the right order on smooth data, as `broken-burgers-nonconservative` does; only the
@@ -333,13 +371,29 @@ to refute.
 | `positive_under_cfl` | positivity (Bernstein) | equivalent | exact |
 | `entropy_stable_tadmor` | entropy_stability (Tadmor) | equivalent | exact (semi-discrete) |
 | `selects_entropy_solution_semidiscrete` | entropy_stability (Tadmor) | sufficient | exact (semi-discrete) |
+| `monotone_under_cfl` | monotonicity | equivalent | exact |
 | `selects_entropy_solution` | entropy_rarefaction | necessary | empirical |
+| | monotonicity (Crandall-Majda), only if conservation and consistency are VERIFIED | sufficient | exact |
 | `converges_order_p` | order/combined, order/space, order/time | necessary | empirical |
 | `correct_shock_speed` | shock_speed | necessary | empirical |
 
 Tadmor's inequality is about the method of lines and says nothing about time stepping, so it
-bears only on the semi-discrete claim. For the fully discrete scheme we have only the
-rarefaction study, so the best that claim can get is `NOT_REFUTED`.
+bears only on the semi-discrete claim. For the fully discrete scheme, monotonicity verifies the
+claim honestly. By Crandall and Majda (1980), a conservative, consistent, monotone scheme
+converges to the entropy solution (initial data in L1 ∩ BV). The same theorem gives a discrete
+entropy inequality for every Kruzkov entropy, the maximum principle and TVD. The theorem needs
+all three properties, so the row carries a precondition in the table: it counts only when the
+conservation and consistency checks are exactly `VERIFIED` on the same spec, and otherwise it
+gives `UNKNOWN`. `broken-burgers-nonconservative` shows why the precondition is there. That update
+is monotone for lam*|u| <= 1/3 (`VERIFIED`), yet it moves shocks at the wrong speed, and its
+`selects_entropy_solution` stays `UNKNOWN` ("requires conservation: REFUTED"). The CFL bound is part
+of the result. The maximum principle keeps the states inside it if the initial data start there.
+
+The cost is order. By Godunov's theorem a monotone scheme is at most first order, so this route
+never verifies the entropy claim for Lax-Wendroff or any other second-order scheme (Lax-Wendroff
+claiming monotone is `REFUTED`). That is the No Free Lunch trade in one line: a proof that the limit
+is the entropy solution costs the order of accuracy. For non-monotone schemes, such as Roe with
+Harten's fix, the claim still rests on the rarefaction study and can reach only `NOT_REFUTED`.
 
 A passing exact sufficient or equivalent check verifies the claim, and a failing necessary or
 equivalent check refutes it. A passing necessary check only fails to refute it, and a failing
@@ -357,11 +411,16 @@ Roe with Harten's fix is the case the table exists for. Tadmor's check fails on 
 condition proves nothing, so both Roe schemes are `UNKNOWN` on the semi-discrete claim; for Roe
 without a fix the exact refutation shows up on `entropy_stable_tadmor`.
 
-| Spec | Tadmor (raw) | Rarefaction (raw) | `entropy_stable_tadmor` | `selects_entropy_solution_semidiscrete` | `selects_entropy_solution` |
-|---|---|---|---|---|---|
-| Roe + Harten fix | REFUTED | NOT_REFUTED | not claimed | UNKNOWN | NOT_REFUTED (empirical, rarefaction) |
-| Roe, no fix | REFUTED | REFUTED_EMPIRICALLY | REFUTED (exact) | UNKNOWN | REFUTED_EMPIRICALLY (rarefaction) |
-| Engquist-Osher, Rusanov, Lax-Friedrichs | VERIFIED | NOT_REFUTED | VERIFIED | VERIFIED (exact, under the premises above) | NOT_REFUTED (empirical, rarefaction) |
+| Spec | Tadmor (raw) | Monotonicity (raw) | Rarefaction (raw) | `entropy_stable_tadmor` | `selects_entropy_solution_semidiscrete` | `selects_entropy_solution` |
+|---|---|---|---|---|---|---|
+| Roe + Harten fix | REFUTED | not run | NOT_REFUTED | not claimed | UNKNOWN | NOT_REFUTED (empirical, rarefaction) |
+| Roe, no fix | REFUTED | REFUTED (c = 1) | REFUTED_EMPIRICALLY | REFUTED (exact) | UNKNOWN | REFUTED_EMPIRICALLY (rarefaction) |
+| Engquist-Osher, Lax-Friedrichs (c = 1), Rusanov (c = 1/3) | VERIFIED | VERIFIED | NOT_REFUTED | VERIFIED | VERIFIED (exact, under the premises above) | VERIFIED (exact, monotonicity + Crandall-Majda) |
+| Non-conservative upwind | not run | VERIFIED (c = 1/3) | not run | not claimed | not claimed | UNKNOWN (precondition: conservation REFUTED) |
+
+Roe without a fix is the cross-check. If the monotonicity check had certified it while the
+rarefaction study refutes it, the judge would report `INCONSISTENT`. It doesn't: monotonicity fails
+exactly at the transonic expansion, the same place the scheme keeps its expansion shock.
 
 Reported as the verdict on "the claim", the raw `REFUTED` would have said Harten's fix picks the
 wrong solution. Likewise for `broken-burgers-nonconservative` the exact conservation check
