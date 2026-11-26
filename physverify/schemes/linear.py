@@ -106,7 +106,7 @@ def truncation_order(spec: dict) -> dict:
     wit = {"nu": f"{a}*lam (a = {a})", "coefficients": _show_coefficients(c),
            "tau": "sum_j e_j(nu) dx^(j-1) d^j u/dx^j, e_j = a/(nu j!) ((-nu)^j - sum_k c_k k^j)",
            "e_j": {j: P.show(ej) for j, ej in enumerate(e[:max(p + 2, (lead or 0) + 1)])}}
-    assumptions = ["u smooth (bounded derivatives up to order p + 2)", "dt = lam*dx with lam fixed as dx -> 0",
+    assumptions = [f"u smooth (bounded derivatives up to order {p + 2})","dt = lam*dx with lam fixed as dx -> 0",
                    "the e_j are identities in nu, so the order holds for every lam != 0 (no CFL bound needed)"]
     if lead is None:
         return result("truncation_order", UNKNOWN, claim,
@@ -118,7 +118,7 @@ def truncation_order(spec: dict) -> dict:
     nu, v = hit
     wit["leading_term"] = {"j": lead, "e_j": P.show(e[lead]),
                            "modified_equation": f"u_t + a u_x = ({P.show(P.scale(e[lead], -1))})*dx^{lead - 1}*d^{lead}u/dx^{lead} + ...",
-                           "kind": _kind(lead, e[lead], nus[0])}
+                           "kind": _kind(lead, e[lead], next(x for x in nus if x / a > 0))}   # dt > 0
     wit["order"] = order
     if order < p:
         wit.update(offending_j=lead, nu_value=str(nu), lam_value=str(nu / a), e_j_value=str(v))
