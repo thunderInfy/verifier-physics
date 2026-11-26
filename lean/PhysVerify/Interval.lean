@@ -1,5 +1,6 @@
-import Mathlib
 import PhysVerify.Expr
+import Mathlib.Analysis.Real.Pi.Bounds
+import Mathlib.Tactic.Linarith
 
 /-!
 # Interval-bound certificates (step 3)

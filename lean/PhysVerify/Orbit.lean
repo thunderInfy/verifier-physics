@@ -1,5 +1,8 @@
-import Mathlib
 import PhysVerify.Expr
+import Mathlib.Analysis.Calculus.Deriv.MeanValue
+import Mathlib.Analysis.Calculus.Deriv.Slope
+import Mathlib.Analysis.Calculus.LocalExtr.Basic
+import Mathlib.Tactic.Linarith
 
 /-!
 # Orbit-existence checks (step 6)
