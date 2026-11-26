@@ -1,7 +1,7 @@
 """Checks for discrete schemes: a numerical scheme is a theory of a discrete universe.
 
 `check(spec)` runs the exact structural checks (`checks.py`) and the empirical convergence
-studies (`convergence.py`) that the spec claims, and returns a list of plain result dicts.
+studies (`convergence.py`, `shock.py`) that the spec claims, and returns a list of plain result dicts.
 """
 
 from __future__ import annotations
@@ -9,17 +9,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import checks, convergence
+from . import checks, convergence, shock
 
 
 def load(path) -> dict:
     return json.loads(Path(path).read_text())
 
 
-def check(spec: dict) -> list[dict]:
+def check(spec: dict, shock_grids=shock.GRIDS) -> list[dict]:
     out = [checks.consistency(spec), checks.conservation(spec), checks.positivity(spec)]
     if "test" in spec:
         out += convergence.studies(spec)
+    if "shock_speed" in spec.get("claims", {}):
+        out.append(shock.study(spec, shock_grids))
     return out
 
 
