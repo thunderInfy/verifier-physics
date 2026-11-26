@@ -453,6 +453,9 @@ to refute.
 | `converges_order_p` | order/combined, order/space, order/time | necessary | empirical |
 | | truncation_order (Lax-Richtmyer), only if von_neumann and lax_richtmyer_scope are VERIFIED | sufficient | exact |
 | `correct_shock_speed` | shock_speed | necessary | empirical |
+| `hyperbolic` (systems) | hyperbolicity (discriminant of the 2x2 Jacobian) | equivalent | exact |
+| `positive_depth_under_cfl` (systems) | depth_positivity (Riemann runs) | necessary | empirical |
+| `converges_to_riemann_solution` (systems) | riemann_l1 (against the exact Riemann solution) | necessary | empirical |
 
 Tadmor's inequality is about the method of lines and says nothing about time stepping, so it
 bears only on the semi-discrete claim. For the fully discrete scheme, monotonicity verifies the
@@ -519,13 +522,100 @@ refute "upwind is unconditionally L2-stable"; the steady-step check makes the Ro
 entropy refutations exact). `GAPS.md` there ranks the gaps. The largest are stencils wider than
 three points, order of accuracy outside linear schemes, and TVD and stability of nonlinear schemes.
 
+### Systems
+
+`physverify/schemes/systems.py` takes systems q_t + f(q)_x = 0. The first one is shallow water,
+q = (h, m) with m = h u and f(q) = (m, m^2/h + g h^2/2). A system spec lists the state components,
+a flux per component, positive parameters and a state domain:
+
+```
+"pde": {"state": ["h", "m"], "flux": ["m", "m^2/h + g*h^2/2"],
+        "parameters": {"g": "positive"}, "domain": {"h": "positive"}}
+```
+
+The numerical flux is a list in hL, hR, mL, mR, and an update is a list in hm1, h0, hp1, mm1, m0,
+mp1. A scalar spec is the 1-component case with state u. On all 17 scalar specs the system code
+returns the same consistency and conservation verdicts as the scalar checks, and the scalar specs
+still go through the scalar code, so no scalar verdict changes. Specs are in `schemes/systems/`.
+
+| Spec | `hyperbolic` | `conservative` | `consistent` | `positive_depth_under_cfl` | `converges_to_riemann_solution` |
+|---|---|---|---|---|---|
+| Lax-Friedrichs | VERIFIED | VERIFIED | VERIFIED | NOT_REFUTED | NOT_REFUTED |
+| Rusanov, wave speed max(\|u\| + sqrt(g h)) | VERIFIED | VERIFIED | VERIFIED | NOT_REFUTED | NOT_REFUTED |
+| BROKEN: pressure sign flipped, f2 = m^2/h - g h^2/2 | REFUTED (discriminant -4 at g = h = 1) | VERIFIED | VERIFIED | not claimed | not claimed |
+| BROKEN: m_t + u m_x + h (u u_x + g h_x) = 0, LxF averaging | VERIFIED | REFUTED (exact periodic state) | UNKNOWN (no flux form) | UNKNOWN | UNKNOWN |
+
+**Hyperbolicity.** We compute the Jacobian A(q) = df/dq symbolically. A real 2x2 matrix has real,
+distinct eigenvalues exactly when tr(A)^2 - 4 det(A) > 0, so the check is equivalent to "strictly
+hyperbolic on the stated domain". For shallow water the discriminant is 4 g h. It is a polynomial,
+so no square root is needed, and it is certified positive by form with g, h > 0. The eigenvalues
+u ± sqrt(g h) are reported for information only. A refutation is an exact domain point where the
+discriminant is <= 0. **Limit:** the test is for n = 2 only. A cubic's discriminant would still
+decide n = 3, but from n = 4 on a positive discriminant also allows two complex pairs. For n > 2
+the check returns UNKNOWN.
+
+**Conservation and consistency** work componentwise with the scalar telescoping argument. The base
+state is h = 1, since h = 0 is outside the domain and 1/h is undefined there. `poly.py` handles 1/h
+as a Laurent monomial. Division by a sum is still outside the fragment, and any check that reaches
+it reports UNKNOWN. One trap showed up on the way: the centred quasi-linear terms
+u_i (m_{i+1} - m_{i-1}) + m_i (u_{i+1} - u_{i-1}) telescope (a discrete product rule), so that
+"non-conservative" update is in flux form and verifies. The broken spec uses
+h_i ((u^2)_{i+1} - (u^2)_{i-1}) instead, which does not telescope.
+
+**Rusanov and sqrt(g h).** We extended `poly.py` rather than return UNKNOWN. A caller may declare
+variables positive on its domain. Then sqrt(p) is accepted when p is non-negative by form with
+those variables at any power, so sqrt(g hL) and |uL| = sqrt(mL^2/hL^2) qualify. This is sound on
+the domain, where p >= 0 and sqrt(p)^2 = p, and only there, so every system verdict lists
+"g > 0, h > 0 in every cell" as an assumption. The maximum wave speed is written as
+max(a, b) = (a + b + sqrt((a - b)^2))/2. With h not declared positive, Rusanov's consistency and
+conservation return UNKNOWN (tested).
+
+**Depth positivity and the Riemann solution (empirical, necessary).** Two Riemann problems on
+[0, 1] with transmissive boundaries and g = 1. One is the dam break h = 2 | 1, u = 0. The other is
+a near-dry double rarefaction, h = 1, u = -3/2 | 3/2, whose exact middle depth is 1/16. Each runs at
+two dt/dx values, one deliberately incommensurate (2/5 and 37/100; 1/3 and 3/10 for the faster near-dry
+case), on N = 100 to 800. The exact solution comes from the exact Riemann solver: a
+rarefaction or a shock on each side of the star state. For the dam break that is the Stoker
+solution, h* = 1.45384, u* = 0.41692, with the shock at speed 1.3356. depth_positivity requires
+min h > 0 at every step with the observed CFL number lam·max(|u| + sqrt(g h)) at most the claimed 0.9.
+A run that goes past the bound is outside the claim and counts as UNKNOWN. riemann_l1 requires the
+L1 error of (h, m) on the last two grids to fall at observed order >= 0.3, as in the scalar
+rarefaction study.
+
+| Scheme, case, dt/dx | L1(h) + L1(m), N = 400 | N = 800 | order | min h | max CFL |
+|---|---|---|---|---|---|
+| LxF, dam break, 2/5 | 3.07e-2 | 1.78e-2 | 0.79 | 1 | 0.649 |
+| LxF, dam break, 37/100 | 3.35e-2 | 1.97e-2 | 0.77 | 1 | 0.599 |
+| LxF, near-dry, 1/3 | 3.97e-2 | 2.47e-2 | 0.69 | 0.046 | 0.833 |
+| LxF, near-dry, 3/10 | 4.74e-2 | 2.95e-2 | 0.68 | 0.047 | 0.750 |
+| Rusanov, dam break, 2/5 | 1.66e-2 | 9.56e-3 | 0.79 | 1 | 0.649 |
+| Rusanov, dam break, 37/100 | 1.72e-2 | 9.92e-3 | 0.80 | 1 | 0.600 |
+| Rusanov, near-dry, 1/3 | 2.34e-2 | 1.37e-2 | 0.77 | 0.037 | 0.833 |
+| Rusanov, near-dry, 3/10 | 2.65e-2 | 1.57e-2 | 0.75 | 0.034 | 0.750 |
+
+This is evidence and not a proof. The dam break never comes near h = 0, so only the near-dry case
+tests positivity. An exact positivity proof for LxF on shallow water is a later item. The
+non-conservative scheme goes past the CFL bound and blows up on the near-dry case, so both of its
+studies are UNKNOWN. On the dam break alone its observed order falls from 0.52 to 0.23 between
+N = 800 and 3200 (LxF stays near 0.78), which looks like convergence to the wrong shock, but the
+error has not settled by the 10% rule.
+
+**What carries over from scalar 1D, and what doesn't.** Consistency and conservation carry over
+componentwise, with the same exact witnesses. Tadmor's entropy test needs entropy variables
+v = eta'(q), a vector, and an entropy-conservative flux defined by a line integral, so it is not
+ported. Monotonicity has no direct analogue: a system update is not monotone in each argument
+even for good schemes, and the scalar route through Crandall-Majda does not apply. Invariant
+domains (positivity of h, Riemann-invariant bounds) take its place, and we only test them
+empirically so far. The eigenvalues need square roots. We report them, but no check depends on
+them.
+
 ## Setup
 
 Python 3.11+ and [uv](https://docs.astral.sh/uv/):
 
 ```
 uv sync
-uv run pytest tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py tests/test_entropy_steady.py
+uv run pytest tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py tests/test_entropy_steady.py tests/test_systems.py
 ```
 
 The Lean checks need [elan](https://github.com/leanprover/elan) and a built Mathlib (Lean
@@ -546,6 +636,8 @@ To check certificates on a remote GCP machine instead, set `PHYSVERIFY_LEAN=vm` 
   use `sin`, `exp` or non-integer powers are only checked by the trajectory tool.
 - The statistical channel takes value ± σ error bars only. Full likelihoods with correlations,
   such as those on HEPData, are not supported yet.
+- The hyperbolicity check for systems decides 2x2 systems only (the discriminant tr^2 - 4 det).
+  For n > 2 it returns UNKNOWN.
 - The orbit check is deliberately weak. A 1/r³ force, the borderline case, is not rejected.
 - Two steps are assumptions rather than Lean proofs: the radial equation of motion for a central
   force, and the translation from a theory file to the Lean expression. Both are listed on every
