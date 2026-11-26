@@ -89,8 +89,7 @@ def run(H, uL: float, uR: float, x0: float, T: float, lam: float, n: int) -> dic
                 ts.append(k * dt)
                 xs.append([crossing(u, c, dx)[0] for c in levels])
             if k < steps:
-                u = ev(H, {**transmissive(u), "u0": u,
-                           "lam": dt / dx})
+                u = ev(H, transmissive(u).with_lam(dt / dx))
     ts, xs = np.array(ts), np.array(xs)
     finite = bool(np.all(np.isfinite(u)) and np.all(np.isfinite(xs)))
     late = list(np.polyfit(ts, xs, 1)[0]) if finite and len(ts) > 1 else [float("nan")] * len(LEVELS)

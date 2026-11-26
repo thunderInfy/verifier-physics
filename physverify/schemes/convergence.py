@@ -74,19 +74,37 @@ def exact(problem: dict, x: np.ndarray, t: float) -> np.ndarray:
     raise ValueError(problem["kind"])
 
 
+class _Neighbours(dict):
+    """{um2: u_{i-2}, ..., up2: u_{i+2}} as arrays, each built only when the update uses it."""
+
+    def __init__(self, shift):
+        super().__init__()
+        self.shift = shift
+
+    def with_lam(self, lam):
+        self["lam"] = lam
+        return self
+
+    def __missing__(self, name):
+        if name not in checks.OFFSET5:
+            raise KeyError(name)
+        self[name] = self.shift(checks.OFFSET5[name])
+        return self[name]
+
+
 def periodic(u) -> dict:
     """The neighbours u_{i+k}, k = -2..2, on a periodic grid."""
-    return {x: np.roll(u, -k) for x, k in checks.OFFSET5.items()}
+    return _Neighbours(lambda k: np.roll(u, -k) if k else u)
 
 
 def transmissive(u) -> dict:
     """The neighbours u_{i+k}, k = -2..2, with constant extrapolation past both ends."""
     pad = np.concatenate(([u[0]] * 2, u, [u[-1]] * 2))
-    return {x: pad[2 + k: len(pad) - 2 + k] for x, k in checks.OFFSET5.items()}
+    return _Neighbours(lambda k: pad[2 + k: len(pad) - 2 + k])
 
 
 def _stencil(H: E, u, lam):
-    return ev(H, {**periodic(u), "lam": lam})
+    return ev(H, periodic(u).with_lam(lam))
 
 
 def _grid(n):
@@ -118,7 +136,10 @@ def combined(H: E, problem: dict, T: float, lam: float, boundary: str = "periodi
         steps, dt = _steps(T, lam * dx)
         u = exact(problem, x, 0)
         for _ in range(steps):
-            u = _stencil(H, u, dt / dx) if boundary == "periodic" else ev(H, {**transmissive(u), "lam": dt / dx})
+            if boundary == "periodic":
+                u = _stencil(H, u, dt / dx)
+            else:
+                u = ev(H, transmissive(u).with_lam(dt / dx))
         rows.append((n, *_errors(u, exact(problem, x, T), dx)))
     return rows
 
