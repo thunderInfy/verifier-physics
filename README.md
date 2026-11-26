@@ -753,7 +753,9 @@ to refute.
 | `correct_shock_speed` | shock_speed | necessary | empirical |
 | | monotonicity (Crandall-Majda), only if conservation, consistency, flux_lipschitz and shock_scope_monotone are VERIFIED | sufficient | exact |
 | | tvd_harten (Helly + Lax-Wendroff, a subsequence), only if conservation, consistency, flux_lipschitz and shock_scope_tvd are VERIFIED | sufficient | exact |
+| | stationary_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR)) | necessary | exact |
 | `limit_is_weak_solution` | conservation (Lax-Wendroff theorem), only if consistency and flux_lipschitz are VERIFIED | sufficient | exact |
+| | stationary_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR)) | necessary | exact |
 | `tvd_under_cfl` | tvd_harten (Harten's incremental form on sign cells) | sufficient | exact |
 | | tv_increase (an explicit periodic state whose TV grows) | necessary | exact |
 | `local_max_principle_under_cfl` | tvd_harten (a convex combination of two stencil values) | sufficient | exact |
@@ -837,6 +839,21 @@ TVD bounds the states. A square root of anything other than an even power, a div
 or sin, exp and so on give `UNKNOWN`. Without a declared flux it checks a three-point update H, whose
 flux (if it is conservative and consistent) is F(a, b) = f(a) + (a - H(a, a, b))/lam.
 
+Both claims also have an exact necessary row, `stationary_rh_violation` (`fixedjump.py`), which works
+on the update as written and so covers non-conservative schemes. It looks for Riemann data uL | uR,
+jump at a cell interface, that the update returns unchanged at every stencil position (the far-field
+constants and every window across the jump, three- or five-point) as an identity in dt/dx, with
+f(uL) != f(uR). Then the numerical solution is that jump at every dx, its limit is the stationary
+jump, and a stationary jump is a weak solution only if f(uL) = f(uR): the limit is not a weak
+solution, and its discontinuity stays put while the RH speed is not 0. The candidates are the spec's
+shock-study pairs and a small grid; each hit is replayed by evaluating H and f in exact rationals.
+For the quasilinear upwind scheme on Burgers, 1 | 0 is such a jump (H(1, 1, 0) = 1, H(1, 0, 0) = 0,
+f(1) = 1/2), so both claims are `REFUTED` exactly. A conservative consistent scheme is never refuted
+this way: a fixed jump there forces F(uL, uL) = F(uL, uR) = F(uR, uR), so f(uL) = f(uR). Roe without a
+fix freezes -1 | 1, but f(-1) = f(1), so that frozen step is a (non-entropy) weak solution and this
+row says nothing; the entropy row's steady-step check catches it. No pair found gives
+`NOT_APPLICABLE`, which decides nothing.
+
 Reported as the verdict on "the claim", the raw `REFUTED` would have said Harten's fix picks the
 wrong solution. Likewise for `broken-burgers-nonconservative` the exact conservation check
 decides `conservative`. The shock-speed study is only a necessary condition: it agrees there, but
@@ -850,8 +867,10 @@ TVD", "our upwind scheme is unconditionally stable", "the minmod MUSCL scheme is
 Each reading of each sentence is formalized into the named claims above, with an expected truth
 and a citation. `uv run python -m physverify.schemes.bench benchmark/scheme-claims/` prints
 expected against actual. It fails on a decisive verdict that contradicts the expectation and lists
-non-decisive results as gaps. Now: 33 of 44 readings decided correctly, 10 gaps, 1 unscored
-(expected truth unsettled), none wrong. Five-point monotonicity added C23 (one match, below); before
+non-decisive results as gaps. Now: 34 of 44 readings decided correctly, 9 gaps, 1 unscored
+(expected truth unsettled), none wrong. The stationary-jump row closed C13's conditional reading
+(REFUTED, exact) and made its unconditional one exact (REFUTED_EMPIRICALLY to REFUTED); before it
+the count was 33 of 44 with 10 gaps. Five-point monotonicity added C23 (one match, below); before
 it the count was 32 of 43. The shock-speed rows split C12's shock clause into a
 conditional reading (every bounded limit is a weak solution) and an unconditional one (the scheme's
 shocks move at the RH speed), both VERIFIED for Lax–Friedrichs on Burgers, and added C13's

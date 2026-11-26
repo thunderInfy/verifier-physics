@@ -680,10 +680,10 @@
       }
      ],
      "actual": {
-      "verdict": "REFUTED_EMPIRICALLY",
+      "verdict": "REFUTED",
       "result": "match",
       "components": [
-       "REFUTED_EMPIRICALLY"
+       "REFUTED"
       ]
      }
     },
@@ -700,15 +700,11 @@
        "expected": false
       }
      ],
-     "gap": {
-      "kind": "missing table row",
-      "note": "the only row for limit_is_weak_solution is the Lax–Wendroff one (SUFFICIENT from conservation), which says nothing when conservation fails; an exact NECESSARY row would be a stationary step uL | uR that is a fixed point of the update with f(uL) != f(uR) (the steady-step identities of checks.steady_nonentropy_step, without the uL < uR condition), not added here"
-     },
      "actual": {
-      "verdict": "UNKNOWN",
-      "result": "gap",
+      "verdict": "REFUTED",
+      "result": "match",
       "components": [
-       "UNKNOWN"
+       "REFUTED"
       ]
      }
     }

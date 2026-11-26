@@ -8,7 +8,7 @@ claims of `physverify/schemes/claims.py` or marked unformalized. Run:
 uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 45 s
 ```
 
-Result now: **33 match, 10 gaps, 1 unscored, 0 wrong decisive verdicts** over 44 readings. History: 14 match,
+Result now: **34 match, 9 gaps, 1 unscored, 0 wrong decisive verdicts** over 44 readings. History: 14 match,
 19 gaps before the monotonicity check and the Crandall–Majda row (gap 3); 17 match, 16 gaps before
 the exact order checks for linear schemes; 18 match, 15 gaps over 33 readings once those checks
 settled C01 reading 1. The steady non-entropy step check left the counts unchanged but made two
@@ -33,16 +33,19 @@ its order clause alone (its shock component moved from NOT_REFUTED to VERIFIED).
 conditional reading for the non-conservative scheme, expected false) is a new gap, UNKNOWN. C19
 reading 4 was reworded (the CFL condition must hold at the finest dx); its verdict is unchanged.
 Result: 32 match, 10 gaps, 1 unscored. Monotonicity on five-point stencils then added C23 (minmod
-is monotone under ν ≤ 1: REFUTED, exact): 33 match, 10 gaps, 1 unscored over 44 readings.
+is monotone under ν ≤ 1: REFUTED, exact): 33 match, 10 gaps, 1 unscored over 44 readings. The
+stationary-jump row (`stationary_rh_violation`, gap 5) then closed C13 reading 2 (UNKNOWN to REFUTED,
+exact) and made C13 reading 1 exact (REFUTED_EMPIRICALLY to REFUTED). Result: 34 match, 9 gaps,
+1 unscored over 44 readings.
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 17 (all VERIFIED) | 16 (14 REFUTED, 2 REFUTED_EMPIRICALLY) | 33 |
-| gap | 7 | 3 | 10 |
+| decisive and correct (match) | 17 (all VERIFIED) | 17 (16 REFUTED, 1 REFUTED_EMPIRICALLY) | 34 |
+| gap | 7 | 2 | 9 |
 | wrong | 0 | 0 | 0 |
 
-One more reading (C18 reading 4) has expected truth "unsettled" and is not scored. The 10 gaps by
-verdict: 4 UNFORMALIZED (no named claim expresses the reading), 2 UNKNOWN (a named claim exists but
+One more reading (C18 reading 4) has expected truth "unsettled" and is not scored. The 9 gaps by
+verdict: 4 UNFORMALIZED (no named claim expresses the reading), 1 UNKNOWN (a named claim exists but
 its checks cannot decide), 4 NOT_REFUTED (only empirical evidence exists).
 
 What works: exact structural facts about three-point schemes. That covers flux form,
@@ -72,8 +75,9 @@ is now closed for limited schemes of linear advection, and the per-norm half of 
 the numbering so that older references stay valid. Gap 5 (shock speed) is now closed for C12 as
 well. Re-ranked over what is still open, by how often we think it appears: global order of
 nonlinear and limited schemes (gaps 1 and 2, C12 reading 1, C18 reading 1), then nonlinear TVD and
-entropy claims (gaps 3 and 4), separate space and time orders and regimes (gaps 2 and 6, C19), the
-non-conservative weak-limit row (gap 5, C13 reading 2), and the formula dependence of gap 8.
+entropy claims (gaps 3 and 4), separate space and time orders and regimes (gaps 2 and 6, C19), and
+the formula dependence of gap 8. The non-conservative weak-limit row (gap 5, C13 reading 2) is now
+closed as well.
 
 ## Gaps, ranked by how often we think claims like these appear in papers
 
@@ -257,7 +261,7 @@ entropy solution" for the method of lines. Two concrete gaps:
 **Cost:** semi-discrete steady-step row an hour or two; E-flux check 1 to 2 days
 (three variables, interval constraint on u; may need certifier work).
 
-### 5. "Conservative, so shocks move at the right speed" has no exact route (CLOSED for C12; open: C13 reading 2)
+### 5. "Conservative, so shocks move at the right speed" has no exact route (CLOSED for C12 and C13 reading 2)
 
 **Status.** Three trusted rows are on main (`claims.py`, preconditions in `shockspeed.py`):
 - `limit_is_weak_solution` ⇐ conservation, SUFFICIENT, requires consistency and `flux_lipschitz`
@@ -278,12 +282,25 @@ entropy solution" for the method of lines. Two concrete gaps:
 than an even power, or a division by the states, gives UNKNOWN. We added it to all three rows: the
 three theorems assume a Lipschitz numerical flux, which the original proposal below left implicit.
 
-Still open: C13 reading 2, "every bounded limit of the quasilinear upwind scheme is a weak solution"
+Open until the row below: C13 reading 2, "every bounded limit of the quasilinear upwind scheme is a weak solution"
 (expected false), is UNKNOWN. The Lax–Wendroff row is sufficient only, so failed conservation says
 nothing. An exact NECESSARY row exists: the step 1 | 0 is a fixed point of the update, and
 f(1) ≠ f(0), so the scheme's limit there is a stationary jump that violates Rankine–Hugoniot. That
 is the steady-step identity check without its uL < uR condition. **Cost:** a few hours plus review
 of the row.
+
+**Closed** for C13 reading 2. `stationary_rh_violation` (`physverify/schemes/fixedjump.py`) is that
+check, and it is a NECESSARY row for both `limit_is_weak_solution` and `correct_shock_speed`. It
+needs no flux form. It searches the shock-study pairs, then a small grid {-1, 0, 1/2, 1, 2}, for a step
+uL | uR whose every stencil window (the far-field constants and the 2 (three-point) or 4 (five-point)
+windows across the jump) H returns unchanged, as an identity in dt/dx, with f(uL) != f(uR). It
+replays each hit by evaluating H and f in exact rationals. The quasilinear upwind scheme gives 1 | 0:
+H(1, 1, 1) = H(1, 1, 0) = 1 and H(1, 0, 0) = H(0, 0, 0) = 0 at every dt/dx, f(1) = 1/2, f(0) = 0, so the
+RH speed is 1/2 while the computed jump never moves. C13 reading 2 is REFUTED (a match), and
+reading 1 (the same scheme on `correct_shock_speed`) moved from REFUTED_EMPIRICALLY to REFUTED. No
+other spec in the repo is refuted by it. A conservative consistent scheme cannot be: a fixed jump forces
+equal interface fluxes, so f(uL) = f(uR). With no pair found the check is NOT_APPLICABLE and the row
+decides nothing.
 
 The original text follows.
 
