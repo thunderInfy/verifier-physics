@@ -1,0 +1,16 @@
+{
+ "name": "BROKEN: MUSCL with minmod slopes and the Roe flux without an entropy fix, Burgers: keeps the expansion shock -1 | 1",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "((uL + minmod(uR - uL, uL - uLL)/2)^2 + (uR - minmod(uRR - uR, uR - uL)/2)^2)/4 - abs((uL + minmod(uR - uL, uL - uLL)/2) + (uR - minmod(uRR - uR, uR - uL)/2))/4*((uR - minmod(uRR - uR, uR - uL)/2) - (uL + minmod(uR - uL, uL - uLL)/2))"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "selects_entropy_solution",
+  "selects_entropy_solution_semidiscrete"
+ ],
+ "claims": {}
+}

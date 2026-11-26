@@ -1,0 +1,16 @@
+{
+ "name": "MUSCL with minmod slopes and the Rusanov flux, Burgers (forward Euler)",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "((uL + minmod(uR - uL, uL - uLL)/2)^2 + (uR - minmod(uRR - uR, uR - uL)/2)^2)/4 - max(abs((uL + minmod(uR - uL, uL - uLL)/2)), abs((uR - minmod(uRR - uR, uR - uL)/2)))/2*((uR - minmod(uRR - uR, uR - uL)/2) - (uL + minmod(uR - uL, uL - uLL)/2))"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "selects_entropy_solution",
+  "selects_entropy_solution_semidiscrete"
+ ],
+ "claims": {}
+}

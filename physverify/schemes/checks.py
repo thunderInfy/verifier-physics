@@ -372,6 +372,8 @@ def entropy_stability(spec: dict) -> dict:
         F_e = numerical_flux(spec)
         if F_e is None:
             return result("entropy_stability", NOT_APPLICABLE, claim, "no numerical flux declared")
+        if P.variables(P.from_expr(F_e)) & {"uLL", "uRR"}:
+            return result("entropy_stability", UNKNOWN, claim, "Tadmor's check covers two-point fluxes F(uL, uR) only")
         eta, q, how = entropy_pair(spec)
         f_e = pde_flux(spec)
         f, v = P.from_expr(f_e), P.from_expr(diff(eta, "u"))
@@ -787,7 +789,8 @@ def monotonicity(spec: dict) -> dict:
         e = update(spec)
         H = P.from_expr(e)
         if stencil_of(P.variables(H)) != STENCIL:
-            raise P.Undecided("the monotonicity check covers three-point stencils only")
+            from . import limiters                    # five-point (limited) updates: per-cell partials in nu
+            return limiters.monotonicity_wide(spec)
         cfl = _monotone_cfl_atoms(spec, Fraction(c))
         region = [_scaled(a)[0] for a in cfl] + [P.var("lam")]
         cells = sign_cells(e)
@@ -852,6 +855,54 @@ def semidiscrete_identities(F: P.Poly, uL: Fraction, uR: Fraction) -> dict:
     return {name: P.add(at(a), at(b), -1) for name, a, b in STEADY_INTERFACES}
 
 
+def _steps(width: int) -> list[str]:
+    """Every window of `width` cells on the step uL | uR: L^p R^(width - p), from all L to all R."""
+    return ["L" * p + "R" * (width - p) for p in range(width, -1, -1)]
+
+
+def _call(fn: str, s: str) -> str:
+    return f"{fn}({', '.join('u' + c for c in s)})"
+
+
+# The five-point update sees six windows of the step (two constant, four straddling the jump), with u_i
+# in the middle; a four-point flux F(uLL, uL, uR, uRR) sees five interfaces.
+STEADY_STENCILS5 = tuple((_call("H", s), s, s[2]) for s in _steps(5))
+STEADY_INTERFACES4 = tuple((f"{_call('F', a)} - {_call('F', b)}", a, b) for b, a in zip(_steps(4), _steps(4)[1:]))
+
+
+def _window(e: E, names, s: str, uL: Fraction, uR: Fraction) -> P.Poly:
+    """The normal form, in lam, of e with the window s (a string of L and R) put in for `names`. The
+    numbers go into the expression before normalising, which is much cheaper than substituting them
+    into the normal form of a nested limiter; the result is the same normal form."""
+    v = {"L": uL, "R": uR}
+    return P.from_expr(substitute(e, {x: lit(v[c]) for x, c in zip(names, s)}))
+
+
+def _until_nonzero(items) -> dict:
+    """{name: normal form} up to and including the first non-zero one (the caller only asks whether all
+    are 0, and a limited scheme's windows are costly to normalise)."""
+    out = {}
+    for name, p in items:
+        out[name] = p
+        if p:
+            break
+    return out
+
+
+def steady_identities5(e: E, uL: Fraction, uR: Fraction) -> dict:
+    """`steady_identities` for a five-point update e: {window: H(window) - its centre value} in lam,
+    stopping at the first non-zero one."""
+    return _until_nonzero((name, P.add(_window(e, STENCIL5, s, uL, uR), P.const(uL if t == "L" else uR), -1))
+                          for name, s, t in STEADY_STENCILS5)
+
+
+def semidiscrete_identities4(e: E, uL: Fraction, uR: Fraction) -> dict:
+    """`semidiscrete_identities` for a four-point flux e: the differences of consecutive interface fluxes
+    across the step, all 0 iff the five interface fluxes it meets are equal; stops at the first non-zero one."""
+    at = lambda s: _window(e, FLUX_ARGS, s, uL, uR)
+    return _until_nonzero((name, P.add(at(a), at(b), -1)) for name, a, b in STEADY_INTERFACES4)
+
+
 STEADY_MODES = {
     "discrete": ("steady_nonentropy_step",
                  "no steady non-entropy step: no Riemann data uL < uR with f'(uL) < f'(uR) is an exact fixed point "
@@ -880,6 +931,13 @@ def steady_nonentropy_step(spec: dict, mode: str = "discrete") -> dict:
       and |.|, so it is locally Lipschitz and the right-hand side is Lipschitz on bounded sets of
       l-infinity; by Picard-Lindelof the steady state is the solution. The condition is used as it
       stands, so consistency is not needed (with it, the condition says F(uL, uR) = f(uL) = f(uR)).
+    - Five-point stencils (an update in um2..up2, a flux F(uLL, uL, uR, uRR)): the same argument with
+      every window that meets the jump. The update sees six windows, H(uL, uL, uL, uL, uL) = uL,
+      H(uL, uL, uL, uL, uR) = uL, H(uL, uL, uL, uR, uR) = uL, H(uL, uL, uR, uR, uR) = uR,
+      H(uL, uR, uR, uR, uR) = uR and H(uR, uR, uR, uR, uR) = uR (`STEADY_STENCILS5`); the method of lines
+      sees five interface fluxes, F(LLLL), F(LLLR), F(LLRR), F(LRRR), F(RRRR), which must be equal
+      (`STEADY_INTERFACES4`). Limited schemes whose slopes vanish next to a step (minmod, superbee)
+      reduce on these windows to their first-order flux, so they keep its steady steps.
     Either way the solutions converge, trivially, to the stationary step. For convex f (f'' >= 0 by
     form) with f'(uL) < f'(uR), f is not affine on [uL, uR], so the entropy solution of this Riemann
     problem (unique, by Kruzkov) is the rarefaction fan, which differs from the step on a set of
@@ -897,18 +955,19 @@ def steady_nonentropy_step(spec: dict, mode: str = "discrete") -> dict:
     try:
         f = P.from_expr(pde_flux(spec))
         if discrete:
-            G, args = P.from_expr(update(spec)), set(STENCIL)
+            G_e = update(spec)
+            G, args = P.from_expr(G_e), set(STENCIL)
         else:
             F_e = numerical_flux(spec)
             if F_e is None:
                 return result(check, NOT_APPLICABLE, claim, "no numerical flux declared, so no method of lines")
+            G_e = F_e
             G, args = P.from_expr(F_e), {"uL", "uR"}
     except P.Undecided as ex:
         return result(check, UNKNOWN, claim, str(ex))
-    if discrete and stencil_of(P.variables(G)) != STENCIL:
-        return result(check, UNKNOWN, claim, "the steady-step check covers three-point stencils only")
-    if not discrete and P.variables(G) & {"uLL", "uRR"}:
-        return result(check, UNKNOWN, claim, "the steady-step check covers two-point fluxes only")
+    wide = stencil_of(P.variables(G)) != STENCIL if discrete else bool(P.variables(G) & {"uLL", "uRR"})
+    if wide:
+        args = set(STENCIL5) if discrete else set(FLUX_ARGS)
     if P.variables(f) - {"u"} or P.variables(G) - args - {"lam"}:
         return result(check, UNKNOWN, claim, "the flux or the " + ("update" if discrete else "numerical flux")
                       + " has free parameters")
@@ -920,7 +979,8 @@ def steady_nonentropy_step(spec: dict, mode: str = "discrete") -> dict:
     if "u" not in P.variables(fp):
         return result(check, NOT_APPLICABLE, claim, "linear flux: f' is constant, so no data "
                       "has f'(uL) < f'(uR) and every weak solution of a Riemann problem is the entropy solution")
-    identities = steady_identities if discrete else semidiscrete_identities
+    identities = {(True, False): steady_identities, (True, True): steady_identities5,
+                  (False, False): semidiscrete_identities, (False, True): semidiscrete_identities4}[discrete, wide]
     fp_at = lambda x: P.evaluate(fp, {"u": x})
     cases = spec.get("claims", {}).get("entropy_rarefaction", {}).get("cases", [])
     given = [(Fraction(k["uL"]), Fraction(k["uR"])) for k in cases]
@@ -932,7 +992,7 @@ def steady_nonentropy_step(spec: dict, mode: str = "discrete") -> dict:
                 continue
             tried += 1
             try:
-                res = identities(G, uL, uR)
+                res = identities(G_e if wide else G, uL, uR)
             except P.Undecided:
                 undecided += 1
                 continue
@@ -944,14 +1004,21 @@ def steady_nonentropy_step(spec: dict, mode: str = "discrete") -> dict:
                     "information: conservation is not verified or f(uL) != f(uR), so the frozen step may not even "
                     "be a weak solution")
             name = {"L": str(uL), "R": str(uR)}
+            at = lambda fn, s: f"{fn}({', '.join(name[c] for c in s)})"
             if discrete:
-                shown = {k: f"H({', '.join(name[c] for c in s)}) - {name[t]} = 0 in lam" for k, s, t in STEADY_STENCILS}
+                shown = {k: f"{at('H', s)} - {name[t]} = 0 in lam"
+                         for k, s, t in (STEADY_STENCILS5 if wide else STEADY_STENCILS)}
                 what = "an exact fixed point of the update at every dt/dx"
             else:
-                shown = {k: f"F({name[a[0]]}, {name[a[1]]}) - F({name[b[0]]}, {name[b[1]]}) = 0 in lam"
-                         for k, a, b in STEADY_INTERFACES}
-                shown["F(uL, uR)"] = P.show(P.subst(G, {"uL": P.const(uL), "uR": P.const(uR)}))
-                what = "a steady state of the method of lines: F(uL, uL) = F(uL, uR) = F(uR, uR)"
+                shown = {k: f"{at('F', a)} - {at('F', b)} = 0 in lam"
+                         for k, a, b in (STEADY_INTERFACES4 if wide else STEADY_INTERFACES)}
+                if wide:
+                    for s in ("LLRR", "LLLR", "LRRR"):
+                        shown[_call("F", s)] = P.show(_window(G_e, FLUX_ARGS, s, uL, uR))
+                    what = "a steady state of the method of lines: the five interface fluxes it meets are equal"
+                else:
+                    shown["F(uL, uR)"] = P.show(P.subst(G, {"uL": P.const(uL), "uR": P.const(uR)}))
+                    what = "a steady state of the method of lines: F(uL, uL) = F(uL, uR) = F(uR, uR)"
             wit = {"uL": str(uL), "uR": str(uR), "found_by": found_by, "identities": shown,
                    "f''(u)": P.show(fpp), "f'(uL)": str(fp_at(uL)), "f'(uR)": str(fp_at(uR)),
                    "f(uL)": str(fL), "f(uR)": str(fR)}

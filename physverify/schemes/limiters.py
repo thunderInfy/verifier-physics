@@ -34,6 +34,7 @@ from __future__ import annotations
 import random
 from fractions import Fraction
 from itertools import combinations
+from math import lcm
 
 from ..expr import intern, parse, substitute, to_str
 from . import checks, linear, poly as P
@@ -930,3 +931,165 @@ def truncation_smooth_data(spec: dict) -> dict:
     return result("truncation_smooth_data", UNKNOWN, claim,
                   f"tau = O(dx^{p}) on all {len(rows)} (data, placement) pairs tried; a failed search proves nothing",
                   {"rows": rows})
+
+
+# ---------------------------------------------------------------- monotonicity on five-point stencils
+
+MONO_NUS = ("1/2", "1/4", "3/4", "1/8", "7/8", "1")          # fractions of the CFL bound tried for a refutation
+
+
+def mono_claim(c) -> str:
+    return (f"monotone: H(um2, um1, u0, up1, up2) is non-decreasing in each argument for lam > 0 and every "
+            f"state, with nu = a*lam, |nu| <= {c}")
+
+
+def nonneg_in_nu(c: list, lo: Fraction, hi: Fraction) -> list | None:
+    """Pieces [(lo_k, hi_k, Bernstein coefficients)] covering [lo, hi], each with all coefficients >= 0, so
+    the polynomial sum_j c_j nu^j is >= 0 on [lo, hi]; None if a sample is negative or bisection to
+    MAX_DEPTH_NU finds no certificate."""
+    out, todo = [], [(lo, hi, 0)]
+    while todo:
+        a0, b0, depth = todo.pop(0)
+        b = checks.bernstein(list(c), a0, b0)
+        if min(b) >= 0:
+            out.append((a0, b0, b))
+        elif depth >= MAX_DEPTH_NU or min(checks._horner(c, x) for x in (a0, (a0 + b0) / 2, b0)) < 0:
+            return None
+        else:
+            m = (a0 + b0) / 2
+            todo += [(a0, m, depth + 1), (m, b0, depth + 1)]
+    return sorted(out, key=lambda t: t[0])
+
+
+def cone_interior(atoms: list, names: list) -> dict | None:
+    """A rational point where every homogeneous linear atom is > 0, so the closed cell is full-dimensional
+    and the point is in its interior: small integers first, then an exact LP (phase 1 of the simplex
+    method on a_j(p - q) - s_j = 1 with p, q, s >= 0), scaled to integers. Only a search: the caller
+    re-checks every atom."""
+    pt = _interior(atoms, names)
+    if pt is not None or not atoms:
+        return pt if pt is not None else {x: Fraction(0) for x in names}
+    vecs = _lin_vectors(atoms, names)
+    if vecs is None:
+        return None
+    m, n = len(atoms), len(names)
+    cols = ([[v[i] for v in vecs] for i in range(n)] + [[-v[i] for v in vecs] for i in range(n)]
+            + [[-Fraction(int(j == k)) for j in range(m)] for k in range(m)])
+    mu = feasible(cols, [Fraction(1)] * m)
+    if mu is None:
+        return None
+    x = [mu[i] - mu[n + i] for i in range(n)]
+    den = lcm(*(v.denominator for v in x))
+    return {name: v * den for name, v in zip(names, x)}
+
+
+def _decreasing_pair(e, cell: dict, x: str, nu: Fraction, a: Fraction, stencil) -> dict | None:
+    """States u <= v (v = u + h e_x), both strictly inside the cell, with H(u) > H(v) at nu, replayed by
+    evaluating the update expression itself (not the cell polynomial) in Fraction arithmetic."""
+    names = list(checks.STENCIL5)
+    pt = cone_interior(cell["atoms"], names)
+    if pt is None:
+        return None
+    u = {k: pt.get(k, Fraction(0)) for k in names}
+    lins = [checks._linear(at, names) for at in cell["atoms"]]
+    if None in lins:
+        return None
+    big = max((abs(la[1].get(x, Fraction(0))) for la in lins), default=Fraction(0))
+    h = Fraction(1, 2 * (int(big) + 1))
+    v = {**u, x: u[x] + h}
+    lam = nu / a
+    inside = lambda s: all(P.evaluate(at, s) > 0 for at in cell["atoms"])
+    if not (inside(u) and inside(v)):
+        return None
+    Hu, Hv = evaluate(e, {**u, "lam": lam}), evaluate(e, {**v, "lam": lam})
+    if Hu is None or Hv is None or not Hv < Hu:
+        return None
+    return {"nu": str(nu), "lam": str(lam), "u": {k: str(u[k]) for k in stencil}, "v": {k: str(v[k]) for k in stencil},
+            "increased": x, "h": str(h), "H(u)": str(Hu), "H(v)": str(Hv), "H(u) - H(v)": str(Hu - Hv),
+            "cell": [_show(at) for at in cell["atoms"]],
+            "inside": "every atom of the cell is > 0 at u and at v (checked exactly)"}
+
+
+def monotonicity_wide(spec: dict, stencil=checks.STENCIL5) -> dict:
+    """Monotonicity of a limited (piecewise-polynomial) update of linear advection u_t + a u_x = 0 on the
+    stencil u_{i-2}, ..., u_{i+2}: H non-decreasing in each argument for lam > 0 and |nu| = |a| lam <= c
+    (c = claims.monotone_cfl; for f = a*u the CFL bound constrains lam only).
+
+    Method. On each retained sign cell (`cells`; they cover the state space) H is a polynomial H_c,
+    linear in the u's for the Sweby forms, so dH_c/du_k = c_k(nu) is a polynomial in nu alone; we
+    certify c_k >= 0 on the closed nu-interval [0, c] (or [-c, 0] for a < 0) by Bernstein coefficients
+    on a bisection (nu = 0 is outside the claim, so the interval is a superset: sound). A partial that
+    still depends on the state is certified by `farkas_in_nu` on the cell. Non-negative partials on every
+    closed cell give a non-decreasing H: H is continuous and piecewise polynomial, so along a coordinate
+    line it is Lipschitz and the integral of its derivative, which is >= 0 off finitely many kinks (the
+    argument in `checks.monotonicity`).
+
+    REFUTED needs a real violation, not a derivative: a cell with an interior point (every atom > 0,
+    checked exactly), a rational nu in the claimed range with c_k(nu) < 0, and two states u <= v that
+    differ in u_k, both strictly inside that cell, with H(u) > H(v), replayed by evaluating the scheme's
+    own expression in Fraction arithmetic. Past MAX_CELLS the check is UNKNOWN."""
+    c = spec.get("claims", {}).get("monotone_cfl")
+    if c is None:
+        return result("monotonicity", NOT_APPLICABLE, "monotonicity", "no CFL bound claimed (claims.monotone_cfl)")
+    c = Fraction(c)
+    claim = mono_claim(c)
+    assumptions = ["lam = dt/dx > 0", f"nu = a*lam with |nu| <= {c}"]
+    try:
+        a = _advection(spec)
+        e = checks.update(spec)
+        H = P.from_expr(e)
+        if P.variables(H) - set(checks.STENCIL5) - {"lam"}:
+            raise P.Undecided("the update has free parameters")
+        lo, hi = (Fraction(0), c) if a > 0 else (-c, Fraction(0))
+        cs = cells(e)
+        rows, failed = [], []
+        for k, cell in enumerate(cs["cells"]):
+            if any(P.variables(x) & {"lam"} for x in cell["atoms"]):
+                raise P.Undecided("a sign-cell atom depends on dt/dx")
+            Hc = _in_nu(cell["poly"], a)
+            row = {"cell": [_show(x) for x in cell["atoms"]], "H (in nu)": P.show(Hc), "partials": {}}
+            for x in stencil:
+                d = P.derivative(Hc, x)
+                parts = _nu_parts(d)
+                co = None
+                if parts is not None and not P.variables(d) - {"nu"}:
+                    co = [parts.get(j, {}).get((), Fraction(0)) for j in range(max(parts, default=0) + 1)]
+                    pieces = nonneg_in_nu(co, lo, hi)
+                    cert = None if pieces is None else {"bernstein_in_nu": [
+                        {"nu": [str(p0), str(p1)], "min": str(min(b))} for p0, p1, b in pieces]}
+                else:
+                    cert = farkas_in_nu(d, cell["atoms"], lo, hi)
+                row["partials"][x] = {f"dH/d{x}": P.show(d), "certificate": cert or "none found"}
+                if cert is None:
+                    failed.append((k, x, co))
+            rows.append(row)
+    except checks.NonlinearFlux as ex:
+        return result("monotonicity", UNKNOWN, claim,
+                      f"{ex}: the five-point monotonicity check covers linear advection f = a*u only",
+                      assumptions=assumptions)
+    except P.Undecided as ex:
+        return result("monotonicity", UNKNOWN, claim, str(ex), assumptions=assumptions)
+    wit = {"nu": f"{a}*lam (a = {a})", "nu interval certified": [str(lo), str(hi)], "cell_counts": cell_counts(cs),
+           "cover": COVER, "cells": rows}
+    assumptions += ["the cells cover the state space (by construction, see cover)",
+                    "|x| = sqrt(x^2) is split into the cases x >= 0 and x <= 0"]
+    if not failed:
+        return result("monotonicity", VERIFIED, claim,
+                      f"every partial dH/du_k is >= 0 on each of {len(rows)} closed sign cells for every nu in "
+                      f"[{lo}, {hi}] (Bernstein certificates); H is continuous, so it is non-decreasing", wit, assumptions)
+    ei = intern(e)
+    nus = [t * (hi if a > 0 else lo) for t in map(Fraction, MONO_NUS)]
+    for k, x, co in failed:
+        for nu in nus if co is not None else ():
+            if checks._horner(co, nu) >= 0:
+                continue
+            pair = _decreasing_pair(ei, cs["cells"][k], x, nu, a, stencil)
+            if pair:
+                wit["counterexample"] = {"cell index": k, f"dH/d{x} at nu": str(checks._horner(co, nu)), **pair}
+                return result("monotonicity", REFUTED, claim,
+                              f"u <= v (v = u + {pair['h']} in {x}) with H(u) = {pair['H(u)']} > H(v) = {pair['H(v)']} "
+                              f"at nu = {nu}, both states strictly inside one sign cell, replayed from the scheme's "
+                              "own expression", wit, assumptions)
+    return result("monotonicity", UNKNOWN, claim,
+                  f"no certificate for {len(failed)} (cell, argument) pairs and no replayed decreasing pair found",
+                  wit, assumptions)

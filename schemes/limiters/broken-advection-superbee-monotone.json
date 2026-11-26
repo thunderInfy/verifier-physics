@@ -1,0 +1,20 @@
+{
+ "name": "BROKEN: Superbee flux limiter (Sweby form) claimed monotone for nu = a*dt/dx <= 1 (TVD, but not monotone: a monotone linear scheme is at most first order)",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL + a/2*(1 - a*lam)*(max(0, max(minmod(2*(uR - uL), uL - uLL), minmod(uR - uL, 2*(uL - uLL)))) + min(0, min(minmod(2*(uR - uL), uL - uLL), minmod(uR - uL, 2*(uL - uLL)))))"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "monotone_under_cfl"
+ ],
+ "claims": {
+  "monotone_cfl": "1"
+ }
+}
