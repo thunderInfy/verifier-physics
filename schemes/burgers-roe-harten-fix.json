@@ -1,0 +1,76 @@
+{
+ "name": "Roe flux for Burgers with Harten's entropy fix, delta = 1/2",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uR^2)/4 - (sqrt(((uL + uR)/2)^2) + ((delta - sqrt(((uL + uR)/2)^2) + sqrt((delta - sqrt(((uL + uR)/2)^2))^2))/2)^2/(2*delta))*(uR - uL)/2"
+ },
+ "claims": {
+  "order": {
+   "combined": 1,
+   "space": 1,
+   "time": 1
+  },
+  "shock_speed": {
+   "x0": "1/4",
+   "cases": [
+    {
+     "uL": "1",
+     "uR": "0",
+     "T": "1",
+     "lam": "4/5"
+    },
+    {
+     "uL": "2",
+     "uR": "1/2",
+     "T": "2/5",
+     "lam": "2/5"
+    },
+    {
+     "uL": "1",
+     "uR": "-1",
+     "T": "1/2",
+     "lam": "4/5"
+    },
+    {
+     "uL": "1",
+     "uR": "-1/2",
+     "T": "1/2",
+     "lam": "4/5"
+    }
+   ]
+  },
+  "entropy_rarefaction": {
+   "x0": "1/2",
+   "lams": [
+    "2/5",
+    "37/100"
+   ],
+   "cases": [
+    {
+     "uL": "-1",
+     "uR": "1",
+     "T": "1/4"
+    },
+    {
+     "uL": "-1/2",
+     "uR": "1",
+     "T": "1/4"
+    }
+   ]
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "burgers-sine",
+   "mean": 0.5,
+   "amplitude": 0.25
+  },
+  "T": 0.3,
+  "lam": 1
+ },
+ "params": {
+  "delta": "1/2"
+ }
+}
