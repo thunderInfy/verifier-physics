@@ -102,13 +102,59 @@ pendulum at 90°, Brans-Dicke with ω ≤ 1000, Nordström's scalar gravity, and
 vacuum. The linear pendulum restricted to small angles is reported as `OUT_OF_REGIME` for the
 90° data rather than rejected.
 
+## Discrete schemes
+
+A numerical scheme is a theory of a discrete universe, so claims about it can be checked the
+same way. `physverify/schemes/` takes a 1D scalar conservation law u_t + f(u)_x = 0 and a
+three-point scheme, given either as a numerical flux F(uL, uR) or as an update
+u_i^{n+1} = H(u_{i-1}, u_i, u_{i+1}, dt/dx), written in the same expression language as
+theories. Examples are in `schemes/`, the broken ones prefixed `broken-`.
+
+```
+$ uv run python -m physverify.schemes schemes/broken-advection-lax-friedrichs-wide-cfl.json
+- [REFUTED] (positivity, exact ...) positivity: every coefficient c_k(nu) >= 0 for nu = a*dt/dx in [0, 11/10]
+    coefficient of up1 = -1/2*nu + 1/2 is -1/20 < 0 at nu = 11/10
+```
+
+| Check | Guarantee | Witness |
+|---|---|---|
+| Consistency F(u, u) = f(u) | exact: normal form of the residual is 0, or an exact rational point where it isn't | normal form, or counterexample u |
+| Conservation on a periodic grid | exact: the update telescopes as -(dt/dx)(F_{i+1/2} - F_{i-1/2}), or an exact periodic state whose total changes | recovered flux, or counterexample state |
+| Positivity of linear schemes on a claimed CFL range | exact: Bernstein coefficients of every c_k(nu) are >= 0 on the interval (endpoint values when c_k is affine in nu), or an exact nu where some c_k < 0 | coefficient list, or offending coefficient and nu |
+| Convergence order (combined, space, time) | empirical only | L1 and Linf error tables |
+
+The exact checks use `Fraction` arithmetic and never decide on a float. Their verdicts are not
+Lean-checked yet; each returns the witness a Lean certificate would need. The flux recovery is
+complete for three-point stencils: if the update is in flux form at all, the flux it finds is
+the only one up to a constant. Square roots (so |u| = sqrt(u^2)) and division by monomials such
+as dt/dx are supported. Anything else (sin, division by a sum) gives `UNKNOWN`, and so does a
+non-zero normal form with no exact counterexample found.
+
+The convergence check runs refinement studies against exact solutions: an advected sine, and
+Burgers before shock formation, solved along characteristics by Newton's method to round-off.
+It reports which study it ran: *combined* (fixed dt/dx), *space* (method of lines with RK4 at
+small dt) or *time* (forward Euler on a fixed grid, compared with the same-grid RK4 solution so
+the spatial error cancels). Space and time are only separated when the update is linear in
+dt/dx. A claim of order p is `NOT_REFUTED` when the observed orders of the last two refinements
+are within 0.2 of p, `REFUTED_EMPIRICALLY` when one is below, and `SUSPICIOUS` when one is above
+(superconvergence on a test is not a pass). This is evidence from float64 runs on one problem,
+not a proof of order.
+
+Limits: one space dimension, scalar laws, three-point stencils, periodic grids. Positivity of
+nonlinear schemes (Burgers) is out of scope in v0. Consistency with an inconsistent flux shows
+up in the order study only weakly when the defect is small (the 1.01-scaled flux still shows
+order about 0.8 at N = 400); the exact check is what catches it. A non-conservative scheme can
+converge at the right order on smooth data, as `broken-burgers-nonconservative` does; only the
+conservation check catches it. The Burgers tests use data without sonic points, where
+Rusanov's L∞ order is still pre-asymptotic at these grid sizes.
+
 ## Setup
 
 Python 3.11+ and [uv](https://docs.astral.sh/uv/):
 
 ```
 uv sync
-uv run pytest tests/test_fast.py
+uv run pytest tests/test_fast.py tests/test_schemes.py
 ```
 
 The Lean checks need [elan](https://github.com/leanprover/elan) and a built Mathlib (Lean
