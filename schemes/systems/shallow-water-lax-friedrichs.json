@@ -1,0 +1,65 @@
+{
+ "name": "Lax-Friedrichs, shallow water",
+ "pde": {
+  "state": [
+   "h",
+   "m"
+  ],
+  "flux": [
+   "m",
+   "m^2/h + g*h^2/2"
+  ],
+  "parameters": {
+   "g": "positive"
+  },
+  "domain": {
+   "h": "positive"
+  }
+ },
+ "scheme": {
+  "numerical_flux": [
+   "(mL + mR)/2 - (hR - hL)/(2*lam)",
+   "(mL^2/hL + g*hL^2/2 + mR^2/hR + g*hR^2/2)/2 - (mR - mL)/(2*lam)"
+  ]
+ },
+ "named_claims": [
+  "hyperbolic",
+  "conservative",
+  "consistent",
+  "positive_depth_under_cfl",
+  "converges_to_riemann_solution"
+ ],
+ "claims": {
+  "riemann": {
+   "g": "1",
+   "x0": "1/2",
+   "cfl": "9/10",
+   "lams": [
+    "2/5",
+    "37/100"
+   ],
+   "cases": [
+    {
+     "name": "dam break",
+     "hL": "2",
+     "uL": "0",
+     "hR": "1",
+     "uR": "0",
+     "T": "1/5"
+    },
+    {
+     "name": "near-dry double rarefaction",
+     "hL": "1",
+     "uL": "-3/2",
+     "hR": "1",
+     "uR": "3/2",
+     "T": "3/20",
+     "lams": [
+      "1/3",
+      "3/10"
+     ]
+    }
+   ]
+  }
+ }
+}

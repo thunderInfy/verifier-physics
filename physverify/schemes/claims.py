@@ -35,7 +35,8 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "order/combined": EMPIRICAL, "order/space": EMPIRICAL, "order/time": EMPIRICAL,
              "monotonicity": EXACT, "shock_speed": EMPIRICAL, "entropy_rarefaction": EMPIRICAL,
              "truncation_order": EXACT, "von_neumann": EXACT, "lax_richtmyer_scope": EXACT,
-             "steady_nonentropy_step": EXACT}
+             "steady_nonentropy_step": EXACT, "hyperbolicity": EXACT,
+             "depth_positivity": EMPIRICAL, "riemann_l1": EMPIRICAL}
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -66,7 +67,8 @@ _LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable 
 CLAIMS = {
     "consistent": ("the numerical flux is consistent: F(u, u) = f(u)",
                    (("consistency", EQUIVALENT, ""),)),
-    "conservative": ("the update is in flux form, so the total of u is conserved on periodic grids",
+    "conservative": ("the update is in flux form, so the total of u (of each component, for a system) is conserved "
+                     "on periodic grids",
                      (("conservation", EQUIVALENT, ""),
                       ("shock_speed", NECESSARY, "a conservative scheme's translating shock profile moves at the "
                        "Rankine-Hugoniot speed; a non-conservative one can match it by accident on one state pair"))),
@@ -94,6 +96,14 @@ CLAIMS = {
                           + (("truncation_order", SUFFICIENT, _LAX_RICHTMYER, ("von_neumann", "lax_richtmyer_scope")),)),
     "correct_shock_speed": ("shocks move at the Rankine-Hugoniot speed in the limit dx -> 0",
                             (("shock_speed", NECESSARY, "on the spec's Riemann data and grids only"),)),
+    # systems (systems.py); `consistent` and `conservative` above apply componentwise
+    "hyperbolic": ("the PDE is strictly hyperbolic on the stated domain: df/dq has real, distinct eigenvalues",
+                   # equivalent for 2x2 systems; the check is UNKNOWN for n > 2
+                   (("hyperbolicity", EQUIVALENT, ""),)),
+    "positive_depth_under_cfl": ("the depth h stays positive under the claimed CFL number",
+                                 (("depth_positivity", NECESSARY, "on the spec's Riemann data, grids and dt/dx only"),)),
+    "converges_to_riemann_solution": ("the scheme converges in L1 to the exact (entropy) Riemann solution",
+                                      (("riemann_l1", NECESSARY, "on the spec's Riemann data, grids and dt/dx only"),)),
 }
 
 # (relation, outcome) -> polarity of the evidence for the claim

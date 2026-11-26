@@ -1,0 +1,30 @@
+{
+ "name": "BROKEN: shallow water with the pressure sign flipped, f2 = m^2/h - g h^2/2 (elliptic)",
+ "pde": {
+  "state": [
+   "h",
+   "m"
+  ],
+  "flux": [
+   "m",
+   "m^2/h - g*h^2/2"
+  ],
+  "parameters": {
+   "g": "positive"
+  },
+  "domain": {
+   "h": "positive"
+  }
+ },
+ "scheme": {
+  "numerical_flux": [
+   "(mL + mR)/2 - (hR - hL)/(2*lam)",
+   "(mL^2/hL - g*hL^2/2 + mR^2/hR - g*hR^2/2)/2 - (mR - mL)/(2*lam)"
+  ]
+ },
+ "named_claims": [
+  "hyperbolic",
+  "conservative",
+  "consistent"
+ ]
+}

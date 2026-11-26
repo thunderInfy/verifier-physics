@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import checks, claims, convergence, entropy, linear, shock
+from . import checks, claims, convergence, entropy, linear, shock, systems
 
 
 def load(path) -> dict:
@@ -22,6 +22,9 @@ def load(path) -> dict:
 def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) -> dict:
     names = spec.get("named_claims", [])
     claims.validate(names)
+    if systems.is_system(spec):
+        out = systems.check_all(spec)
+        return {"checks": out, "claims": claims.judge(names, out)}
     params = spec.get("claims", {})
     wanted = {c for n in names for c, *_ in claims.CLAIMS[n][1]}
     out = [checks.consistency(spec), checks.conservation(spec), checks.positivity(spec)]
