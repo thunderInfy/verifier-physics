@@ -13,15 +13,16 @@ ROOT = Path(__file__).resolve().parent.parent / "schemes"
 S = ROOT / "systems"
 EXPECTED = {
     "shallow-water-lax-friedrichs": {"hyperbolic": C.VERIFIED, "conservative": C.VERIFIED, "consistent": C.VERIFIED,
-                                     "positive_depth_under_cfl": C.NOT_REFUTED,
+                                     "positive_depth_under_cfl": C.VERIFIED,
                                      "converges_to_riemann_solution": C.NOT_REFUTED},
     "shallow-water-rusanov": {"hyperbolic": C.VERIFIED, "conservative": C.VERIFIED, "consistent": C.VERIFIED,
-                              "positive_depth_under_cfl": C.NOT_REFUTED, "converges_to_riemann_solution": C.NOT_REFUTED},
+                              "positive_depth_under_cfl": C.VERIFIED, "converges_to_riemann_solution": C.NOT_REFUTED},
     "broken-shallow-water-elliptic": {"hyperbolic": C.REFUTED, "conservative": C.VERIFIED, "consistent": C.VERIFIED},
     # the PDE is fine; the update of m is not in flux form. It is not in flux form, so it has no numerical flux to
-    # check for consistency; it blows up past the CFL bound on the near-dry case, so the studies say nothing.
+    # check for consistency; it blows up past the CFL bound on the near-dry case, so the studies say nothing. Its
+    # depth update is Lax-Friedrichs', so the exact induction step still proves depth positivity under the CFL bound.
     "broken-shallow-water-nonconservative": {"hyperbolic": C.VERIFIED, "conservative": C.REFUTED,
-                                             "consistent": C.UNKNOWN, "positive_depth_under_cfl": C.UNKNOWN,
+                                             "consistent": C.UNKNOWN, "positive_depth_under_cfl": C.VERIFIED,
                                              "converges_to_riemann_solution": C.UNKNOWN},
 }
 
@@ -57,8 +58,10 @@ def test_check_dispatches_systems():
 def test_exact_results_are_exact_and_studies_empirical(reports):
     for rep in reports.values():
         for v in rep["claims"]:
-            if v["claim"] in ("positive_depth_under_cfl", "converges_to_riemann_solution"):
+            if v["claim"] == "converges_to_riemann_solution":
                 assert v["guarantee"] in ("", C.EMPIRICAL)
+            elif v["claim"] == "positive_depth_under_cfl":         # decided by the exact induction step
+                assert v["decided_by"] == ["depth_positivity_exact"] and v["guarantee"] == C.EXACT
             elif v["verdict"] in (C.VERIFIED, C.REFUTED):
                 assert v["guarantee"] == C.EXACT
 

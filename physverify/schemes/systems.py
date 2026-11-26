@@ -29,10 +29,11 @@ from __future__ import annotations
 import math
 import random
 from fractions import Fraction
+from itertools import product
 
 import numpy as np
 
-from ..expr import E, lit, parse, substitute, var
+from ..expr import E, lit, parse, substitute, var, variables as expr_variables
 from . import checks, poly as P
 from .checks import NOT_APPLICABLE, REFUTED, UNKNOWN, VERIFIED, result
 from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, _steps, ev
@@ -482,8 +483,328 @@ def _emp(check, status, claim, detail, witness=None, assumptions=()):
     return r
 
 
+# ---------------------------------------------------------------- exact depth positivity (one induction step)
+
+DEPTH = ("hm1", "h0", "hp1")
+STEP_N = ("g",) + DEPTH                 # the only variables ever declared positive here: step-n depths and g
+DEPTH_EPS = Fraction(1, 1024)
+
+
+def _sqrt_root(p: P.Poly) -> P.Poly | None:
+    """q with q^2 = p for a single monomial p = c*x1^(2k1)*... with c an exact square, else None."""
+    if len(p) != 1:
+        return None
+    ((m, c),) = p.items()
+    r = P._exact_sqrt(c) if c > 0 else None
+    if r is None or any(a[0] != "v" or k % 2 for a, k in m):
+        return None
+    return {P._mono({a: k // 2 for a, k in m}): r}
+
+
+def _depth_cells(e: E) -> tuple[list, dict]:
+    """Sign cells of the depth update e (in h_j, u_j, lam, g), as checks.sign_cells, but a square root of a
+    step-n quantity that is not a square is kept as a variable: sqrt(g*h_j) becomes s_j, any other one a
+    fresh _t_k. Returns ([(poly, cell atoms)], {variable: (argument, strictly positive)}). The variables
+    forget that s_j^2 = g*h_j: a relaxation, so a certificate over them is a certificate for the scheme."""
+    names = {checks._key(P.mul(P.var("g"), P.var(h))): f"s_{h[1:]}" for h in DEPTH}
+    roots: dict = {}
+
+    def hook(assign):
+        def h(node, rec):
+            a = node.args[0]
+            if a.kind == "powi" and a.q % 2 == 0:
+                x = P.power(rec(a.args[0]), a.q // 2)
+            else:
+                p = rec(a)
+                x = _sqrt_root(p)
+                if x is None:
+                    if not P.nonneg_by_form(p, positive=STEP_N):
+                        raise P.Undecided(f"cannot show sqrt argument {P.show(p)} is non-negative from step-n data")
+                    k = checks._key(p)
+                    if k not in names:
+                        names[k] = f"_t_{len(names) - len(DEPTH)}"
+                    roots[names[k]] = (p, P.positive_by_form(p, positive=STEP_N))
+                    return P.var(names[k])
+            if set(x) <= {()}:
+                return P.const(abs(x.get((), Fraction(0))))
+            if P.positive_by_form(x, positive=STEP_N):
+                return x
+            for key, sgn in ((checks._key(x), 1), (checks._key(P.scale(x, -1)), -1)):
+                if key in assign:
+                    return P.scale(x, sgn * assign[key][1])
+            raise checks._Split(x)
+        return h
+
+    todo, out = [{}], []
+    while todo:
+        assign = todo.pop(0)
+        try:
+            p = P.from_expr(e, hook(assign))
+        except checks._Split as s:
+            todo += [{**assign, checks._key(s.p): (s.p, sgn)} for sgn in (1, -1)]
+            continue
+        out.append((p, [P.scale(x, sgn) for x, sgn in assign.values()]))
+    return out, roots
+
+
+def _depth_scaled(p: P.Poly) -> P.Poly:
+    """lam^k * p with u_j = w_j/lam and s_j = z_j/lam (k clears negative powers of lam; lam > 0 keeps the sign)."""
+    q = P.subst(p, {f"{v}{j}": P.mul(P.var(f"{w}_{j}"), P.inverse(P.var("lam")))
+                    for v, w in (("u", "w"), ("s_", "z")) for j in SLOTS})
+    k = -min((dict(m).get(("v", "lam"), 0) for m in q), default=0)
+    return P.mul(q, P.power(P.var("lam"), k))
+
+
+def _depth_coefficients(Hc: P.Poly) -> dict | None:
+    """{h_j: c_j} with Hc = sum_j c_j h_j and no depth in any c_j, or None."""
+    out: dict = {}
+    for m, c in Hc.items():
+        d = dict(m)
+        hs = [x for x in DEPTH if ("v", x) in d]
+        if len(hs) != 1 or d[("v", hs[0])] != 1 or any(a[0] == "s" for a in d):
+            return None
+        del d[("v", hs[0])]
+        out[hs[0]] = P.add(out.get(hs[0], {}), {P._mono(d): c})
+    return out
+
+
+def _depth_point(H: P.Poly, c: Fraction) -> dict | None:
+    """An exact rational stencil state with h_j > 0, g = 1 and lam*(|u_j| + sqrt(g h_j)) <= c for every j
+    whose update gives h_i^{n+1} <= 0. States are built from z_j = lam*sqrt(g h_j) > 0 and w_j = lam*u_j
+    with |w_j| + z_j <= c, so every square root is rational; H is evaluated exactly at the point."""
+    zs = [c, c / 2, c / 10, c / 100, c / 10000]
+    opts = [(z, w) for z in zs for w in (-(c - z), Fraction(0), c - z)]
+    for lam in (Fraction(1), Fraction(1, 3)):
+        for pick in product(opts, repeat=3):
+            pt = {"lam": lam, "g": Fraction(1)}
+            for j, (z, w) in zip(SLOTS, pick):
+                h = (z / lam) ** 2
+                pt.update({f"h{j}": h, f"m{j}": h * w / lam})
+            v = P.evaluate(H, pt)
+            cfl = [lam * (abs(pt[f"m{j}"] / pt[f"h{j}"]) + z / lam) for j, (z, _) in zip(SLOTS, pick)]
+            if v is not None and v <= 0 and all(x <= c for x in cfl) and all(pt[h] > 0 for h in DEPTH):
+                return {"state": checks._fmt(pt), "h_i^{n+1}": str(v), "cfl_numbers": [str(x) for x in cfl]}
+    return None
+
+
+def _simplex(A: list, b: list, cost: list) -> tuple | None:
+    """min cost.mu subject to A mu = b, mu >= 0, exactly (two-phase tableau simplex, Bland's rule).
+    Returns ("optimal", mu), ("unbounded", mu, d) with mu feasible, d >= 0, A d = 0 and cost.d < 0, or
+    None if infeasible. Only finds candidates: callers replay what they use."""
+    m, n = len(A), len(cost)
+    rows = [[-x for x in r] + [-y] if y < 0 else list(r) + [y] for r, y in zip(A, b)]
+    T = [r[:n] + [Fraction(int(i == k)) for k in range(m)] + [r[n]] for i, r in enumerate(rows)]
+    basis = list(range(n, n + m))
+
+    def pivot(i, j):
+        T[i] = [x / T[i][j] for x in T[i]]
+        for k in range(len(T)):
+            if k != i and T[k][j]:
+                T[k] = [a - T[k][j] * c for a, c in zip(T[k], T[i])]
+        basis[i] = j
+
+    def run(c, cols):
+        while True:
+            red = {j: c[j] - sum(c[basis[i]] * T[i][j] for i in range(len(T))) for j in cols if j not in basis}
+            j = next((j for j in sorted(red) if red[j] < 0), None)
+            if j is None:
+                return None
+            ratios = [(T[i][-1] / T[i][j], basis[i], i) for i in range(len(T)) if T[i][j] > 0]
+            if not ratios:
+                return j
+            pivot(min(ratios)[2], j)
+
+    run([Fraction(0)] * n + [Fraction(1)] * m, range(n + m))
+    if any(T[i][-1] for i in range(len(T)) if basis[i] >= n):
+        return None
+    for i in reversed(range(len(T))):                  # drive zero artificials out, or drop redundant rows
+        if basis[i] >= n:
+            j = next((j for j in range(n) if T[i][j]), None)
+            if j is None:
+                del T[i], basis[i]
+            else:
+                pivot(i, j)
+    T[:] = [r[:n] + [r[-1]] for r in T]
+    c = list(cost) + [Fraction(0)] * m
+    j = run(c, range(n))
+    mu = [Fraction(0)] * n
+    for i, k in enumerate(basis):
+        mu[k] = T[i][-1]
+    if j is None:
+        return "optimal", mu
+    d = [Fraction(0)] * n
+    d[j] = Fraction(1)
+    for i, k in enumerate(basis):
+        d[k] = -T[i][j]
+    return "unbounded", mu, d
+
+
+def _farkas_lp(p: P.Poly, atoms: list) -> dict | None:
+    """The affine Farkas certificate of checks.certify_farkas, p = r + sum_j mu_j a_j with mu_j, r >= 0,
+    found by linear programming (max r over the multipliers) instead of enumerating atom subsets. The
+    identity is replayed in the normal form before it is returned, so the solver is not trusted."""
+    names = sorted(P.variables(p).union(*(P.variables(a) for a in atoms)))
+    lp = checks._linear(p, names)
+    usable = [(a, la) for a in atoms if (la := checks._linear(a, names)) is not None]
+    if lp is None:
+        return None
+    sol = _simplex([[la[1].get(v, Fraction(0)) for _, la in usable] for v in names],
+                   [lp[1].get(v, Fraction(0)) for v in names], [la[0] for _, la in usable])
+    if sol is None:
+        return None
+    mu = sol[1]
+    if sol[0] == "unbounded":                           # r grows without bound along d: step until r >= 0
+        r0 = lp[0] - sum(m * la[0] for m, (_, la) in zip(mu, usable))
+        slope = -sum(x * la[0] for x, (_, la) in zip(sol[2], usable))
+        mu = [m + max(Fraction(0), -r0 / slope) * x for m, x in zip(mu, sol[2])]
+    r = lp[0] - sum((m * la[0] for m, (_, la) in zip(mu, usable)), Fraction(0))
+    rest = p
+    for m, (a, _) in zip(mu, usable):
+        rest = P.add(rest, P.scale(a, m), -1)
+    if r < 0 or any(m < 0 for m in mu) or rest != P.const(r):
+        return None
+    return {"farkas": f"{P.show(p)} = {r}" + "".join(f" + {m}*({P.show(a)})" for m, (a, _) in zip(mu, usable) if m),
+            "multipliers": {P.show(a): str(m) for m, (a, _) in zip(mu, usable) if m}, "remainder": str(r)}
+
+
+def _depth_certify(p: P.Poly, region: list) -> dict | None:
+    """p >= 0 on the region: by form (z_j >= 0, any power of lam), else an affine Farkas identity."""
+    if P.nonneg_by_form(p, nonneg={v for v in P.variables(p) if v.startswith(("z_", "_t_"))}, positive={"lam"}):
+        return {"by_form": P.show(p)}
+    return _farkas_lp(p, region)
+
+
+def _depth_strict(coeffs: dict, region: list, zs: list) -> dict | None:
+    """A certificate that some coefficient is > 0 everywhere on the region (every z_j > 0 there): p - eps*t >= 0
+    with t = 1 or t = z_j > 0, for p one coefficient c_j (tried first: fewer atoms) or their sum S. Then
+    h_i^{n+1} = sum_j c_j h_j > 0: every term is >= 0, and one term (all of S, if p = S) is > 0. As t >= 0,
+    p - eps*t >= 0 for some eps > 0 implies it for every smaller eps, so one small eps is enough."""
+    S = P.add(P.add(coeffs["hm1"], coeffs["h0"]), coeffs["hp1"])
+    cands = sorted(((f"coefficient of {h}", p) for h, p in coeffs.items() if p), key=lambda x: len(P.variables(x[1])))
+    for what, p in cands + [("sum of coefficients", S)]:
+        cells = {v[2:] for v in P.variables(p) if v.startswith(("w_", "z_"))}
+        for t in [P.var(z) for z in zs if z[2:] in cells] + [P.const(1)]:
+            cert = _depth_certify(P.add(p, P.scale(t, DEPTH_EPS), -1), region)
+            if cert:
+                return {"bound": f"{what} >= {DEPTH_EPS}*{P.show(t)}", **cert}
+    return None
+
+
+def depth_positivity_exact(spec: dict, cfl=None) -> dict:
+    """Exact depth positivity for a shallow-water scheme: the induction step
+
+        if h_j^n > 0 for j = i-1, i, i+1, g > 0, and lam*(|u_j| + sqrt(g h_j)) <= c on that stencil,
+        then h_i^{n+1} > 0.
+
+    Induction over n then gives h > 0 for all time from positive initial data, as long as the CFL
+    condition holds at every step (the claim's hypothesis). The hypothesis is on the stencil only, which
+    is weaker than a CFL condition on the whole grid, so the theorem is stronger.
+
+    The no-circularity rule. h^n > 0 and g > 0 are the only uses of the domain: `positive=` (and the
+    square roots it admits) is applied to the step-n variables in STEP_N only, and h_i^{n+1} is never
+    declared positive. The conclusion comes from an explicit algebraic form of h_i^{n+1}:
+
+    1. With h_j > 0 every momentum is m_j = h_j u_j for a free real u_j; we substitute that.
+    2. Every |x| = sqrt(x^2) is split into sign cells (closed, covering, as in checks.sign_cells). A
+       square root of a step-n quantity that is not a square is kept as a variable: s_j for sqrt(g h_j),
+       which is > 0 because g, h_j > 0. We forget s_j^2 = g h_j (and treat s_j as any positive number):
+       a weaker hypothesis, so a certificate over the relaxed variables proves the claim.
+    3. On each cell h_i^{n+1} = sum_j c_j h_j, with c_j free of the depths. With w_j = lam*u_j and
+       z_j = lam*s_j the CFL condition is the affine region c - w_j - z_j >= 0, c + w_j - z_j >= 0
+       (|w_j| >= +-w_j), z_j >= 0, and c_j is affine in (w, z) for the three-point fluxes here. For
+       Rusanov the interface speed max(|u| + sqrt(g h)) is resolved by the sign cells, so on each cell it
+       is one neighbour's |u| + sqrt(g h), bounded by c/lam.
+    4. Each c_j >= 0 is certified on the cell intersected with the CFL region, by form or by an affine
+       Farkas identity c_j = r + sum_k mu_k a_k (mu_k, r >= 0; found by an exact LP and replayed in the
+       normal form); a cell with contradictory atoms (a Farkas identity for -1 >= 0) is empty and skipped.
+       Then h_i^{n+1} >= 0. For h_i^{n+1} > 0 we certify p >= eps*t for p one c_j (or their sum) and
+       t = 1 or t = z_j > 0: then that term (or some term) of sum_j c_j h_j is > 0, as h_j > 0.
+
+    REFUTED needs an exact rational stencil state with h_j > 0, g = 1 and the CFL condition holding at
+    every cell of the stencil whose exact update has h_i^{n+1} <= 0. Embedded in a grid a, ..., a, b, c,
+    ..., c (constant extension, so every cell's state is one of the three and the CFL condition holds
+    everywhere) it is positive initial data whose first step has h <= 0: the claim fails. Wet/dry data
+    (h = 0 allowed, i.e. the domain does not state h > 0) is outside the claim: NOT_APPLICABLE."""
+    c = cfl if cfl is not None else spec.get("claims", {}).get("riemann", {}).get("cfl")
+    claim = (f"induction step for depth positivity: h_j^n > 0 and lam*(|u_j| + sqrt(g h_j)) <= {c} for j = i-1, i, "
+             "i+1 imply h_i^{n+1} > 0, so h > 0 for all time from positive data while the CFL condition holds")
+    pde = spec["pde"]
+    if c is None:
+        return result("depth_positivity_exact", NOT_APPLICABLE, claim, "no CFL number claimed (claims.riemann.cfl)")
+    c = Fraction(c)
+    if pde.get("domain", {}).get("h") != "positive" or pde.get("parameters", {}).get("g") != "positive":
+        return result("depth_positivity_exact", NOT_APPLICABLE, claim, "the domain does not state h > 0 and g > 0: "
+                      "wet/dry states (h = 0) are outside the claim, and the induction hypothesis needs h^n > 0")
+    if not _shallow_water(spec) or c <= 0:
+        return result("depth_positivity_exact", UNKNOWN, claim, "the CFL condition is defined for shallow water "
+                      "f = (m, m^2/h + g h^2/2) with a positive CFL number only")
+    assumptions = ["induction hypothesis: g > 0 and h_j^n > 0 at the stencil cells i-1, i, i+1 (step n only)",
+                   f"lam = dt/dx > 0 and lam*(|u_j| + sqrt(g h_j)) <= {c} at those cells",
+                   "the certificate keeps only z_j = lam*sqrt(g h_j) > 0 (it forgets z_j^2 = lam^2 g h_j): a weaker "
+                   "hypothesis, so a stronger theorem"]
+    try:
+        e = read(spec)["update"][0]
+        stray = expr_variables(e) - set(STEP_N) - {"mm1", "m0", "mp1", "lam"}
+        if stray:
+            return result("depth_positivity_exact", UNKNOWN, claim, f"the depth update uses {sorted(stray)}, which "
+                          "are not step-n stencil data", assumptions=assumptions)
+        H = P.from_expr(e, positive=STEP_N)
+        cells, roots = _depth_cells(substitute(e, {f"m{j}": E("mul", (var(f"h{j}"), var(f"u{j}"))) for j in SLOTS}))
+    except P.Undecided as ex:
+        return result("depth_positivity_exact", UNKNOWN, claim, str(ex), assumptions=assumptions)
+    zs, ws = [f"z_{j}" for j in SLOTS], [f"w_{j}" for j in SLOTS]
+    region = ([P.add(P.const(c), P.add(P.scale(P.var(w), s), P.var(z)), -1) for w, z in zip(ws, zs) for s in (1, -1)]
+              + [P.var(z) for z in zs] + [P.var("lam")] + [P.var(t) for t in roots])
+    wit = {"h_i^{n+1}": P.show(H), "substitution": "m_j = h_j*u_j, w_j = lam*u_j, z_j = lam*sqrt(g h_j)",
+           "cfl_region": [checks._show_atom(a) for a in region], "cells": []}
+    failed = []
+    try:
+        for Hc, atoms in cells:
+            reg = [_depth_scaled(a) for a in atoms] + region
+            coeffs = _depth_coefficients(Hc)
+            row = {"cell": [checks._show_atom(a) for a in atoms], "h_i^{n+1}": P.show(Hc)}
+            wit["cells"].append(row)
+            if coeffs is None:
+                failed.append("not linear in the depths")
+                break
+            scaled = {h: _depth_scaled(coeffs.get(h, {})) for h in DEPTH}
+            row["coefficients"] = {h: P.show(p) for h, p in scaled.items()}
+            certs = {}
+            for h, p in scaled.items():                  # stop at the first failure: VERIFIED is then out of reach
+                certs[h] = _depth_certify(p, reg)
+                if certs[h] is None:
+                    break
+            if None in certs.values():
+                if empty := _farkas_lp(P.const(-1), reg):
+                    row["empty"] = empty
+                    continue
+                failed.append(f"coefficient of {h}")
+                break
+            strict = _depth_strict(scaled, reg, zs)
+            row.update(certificates=certs, strict=strict or "none found")
+            if strict is None:
+                failed.append("strict positivity")
+                break
+    except P.Undecided as ex:
+        return result("depth_positivity_exact", UNKNOWN, claim, str(ex), wit, assumptions)
+    if not failed:
+        return result("depth_positivity_exact", VERIFIED, claim,
+                      f"on each of {len(cells)} closed sign cells h_i^{{n+1}} = sum_j c_j h_j^n with every c_j >= 0 and "
+                      "sum_j c_j > 0 on the CFL region (certificates below), so h_i^{n+1} > 0", wit, assumptions)
+    hit = _depth_point(H, c)
+    if hit:
+        wit["counterexample"] = hit
+        return result("depth_positivity_exact", REFUTED, claim,
+                      f"h_i^{{n+1}} = {hit['h_i^{n+1}']} <= 0 at the exact positive stencil state {hit['state']} "
+                      f"with CFL numbers {hit['cfl_numbers']} <= {c}", wit, assumptions)
+    return result("depth_positivity_exact", UNKNOWN, claim, f"no certificate (cell {len(wit['cells'])}: {failed[0]}) "
+                  "and no exact counterexample found", wit, assumptions)
+
+
 def check_all(spec: dict) -> list[dict]:
     out = [hyperbolicity(spec), consistency(spec), conservation(spec)]
     if "riemann" in spec.get("claims", {}):
         out += riemann_studies(spec)
+    if "positive_depth_under_cfl" in spec.get("named_claims", []):
+        out.append(depth_positivity_exact(spec))
     return out

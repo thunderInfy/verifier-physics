@@ -37,7 +37,7 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "truncation_order": EXACT, "von_neumann": EXACT, "lax_richtmyer_scope": EXACT,
              "steady_nonentropy_step": EXACT, "steady_nonentropy_step_semidiscrete": EXACT,
              "von_neumann_small_cfl": EXACT, "hyperbolicity": EXACT,
-             "depth_positivity": EMPIRICAL, "riemann_l1": EMPIRICAL,
+             "depth_positivity": EMPIRICAL, "riemann_l1": EMPIRICAL, "depth_positivity_exact": EXACT,
              "tvd_harten": EXACT, "tv_increase": EXACT, "truncation_branches": EXACT, "truncation_smooth_data": EXACT,
              "max_principle_violation": EXACT,
              "order_l1/combined": EMPIRICAL, "order_linf/combined": EMPIRICAL}
@@ -90,6 +90,12 @@ _SMOOTH_DATA = ("one explicit polynomial exact solution u = U(x - a t) and grid 
                 "about the global error (a nonlinear scheme has no Lax-Richtmyer theorem, and it may damp local errors)")
 _NORM = ("only on the spec's test problem, grids and dt/dx; a refinement study refutes or fails to refute, it never "
          "proves an order (no Lax-Richtmyer theorem for nonlinear schemes)")
+_DEPTH_STEP = ("induction over n: if h_j^n > 0 and the CFL condition holds on every stencil i-1, i, i+1, the step gives "
+               "h_i^{n+1} > 0, so positive initial data stay positive at every step at which the CFL condition holds; "
+               "the converse: a positive stencil state a | b | c within the CFL bound whose step gives h <= 0, embedded "
+               "in the grid a, ..., a, b, c, ..., c (every cell within the bound), is positive initial data whose "
+               "first step has h <= 0. Shallow water, three-point schemes, any boundary that copies grid states "
+               "into ghost cells; wet/dry states (h = 0) are outside the claim")
 
 # claim -> (statement, ((check, relation, premise[, requires]), ...)). The premise is what the relation
 # rests on; it is carried into the verdict as an assumption. `requires` lists exact checks that must be
@@ -157,7 +163,8 @@ CLAIMS = {
                    # equivalent for 2x2 systems; the check is UNKNOWN for n > 2
                    (("hyperbolicity", EQUIVALENT, ""),)),
     "positive_depth_under_cfl": ("the depth h stays positive under the claimed CFL number",
-                                 (("depth_positivity", NECESSARY, "on the spec's Riemann data, grids and dt/dx only"),)),
+                                 (("depth_positivity", NECESSARY, "on the spec's Riemann data, grids and dt/dx only"),
+                                  ("depth_positivity_exact", EQUIVALENT, _DEPTH_STEP))),
     "converges_to_riemann_solution": ("the scheme converges in L1 to the exact (entropy) Riemann solution",
                                       (("riemann_l1", NECESSARY, "on the spec's Riemann data, grids and dt/dx only"),)),
 }
