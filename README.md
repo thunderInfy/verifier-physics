@@ -332,6 +332,17 @@ straddling stencils off by ∓lam·delta/2, so it has no steady step at (-1, 1).
 Lax-Friedrichs and Rusanov have none in the search, which is what Crandall-Majda requires. A failed
 search proves nothing, so on those schemes the check is `UNKNOWN`, and it never verifies.
 
+The same check has a semi-discrete instantiation (`steady_nonentropy_step_semidiscrete`) for the
+method of lines du_i/dt = -(F_{i+1/2} - F_{i-1/2})/dx with the declared numerical flux. On the
+same step only three interface fluxes occur, F(uL, uL), F(uL, uR) and F(uR, uR). If they are
+equal, every cell's right-hand side is 0 and the step is a steady state for every dx. The check
+uses that condition as it stands, so it does not need consistency. Roe without a fix has
+F = 1/2 at all three at (-1, 1), so `selects_entropy_solution_semidiscrete` is now `REFUTED`
+(exact) for it, where it was `UNKNOWN` (Tadmor fails, and a failed sufficient condition says
+nothing). The two rows cannot contradict each other on a consistent flux. A steady step has
+F = f(uL) = f(uR), so Tadmor's Q reduces to -[q], and an expansion shock has [q] > 0 for a strictly
+convex entropy. A test checks this on every spec.
+
 **Exact rung for the fully discrete scheme: monotonicity.** The update u_i^{n+1} = H(u_{i-1}, u_i,
 u_{i+1}) is monotone if H is non-decreasing in each argument. The check splits every |x| in H into
 sign cells. On each closed cell H is a polynomial, and the check certifies its three partial
@@ -386,6 +397,18 @@ directly (e_q from the truncation error on u = x^q; |g|^2 from Re g and Im g).
 
 The halved Lax-Wendroff spec was written as an order test, but the exact check shows it is also
 unstable: at z = 0, |g|^2 = 1 + nu^4/4.
+
+"Stable for sufficiently small time steps" is a different claim, `stable_for_small_cfl`: some
+nu0 > 0 has |g| <= 1 for all theta and all nu in (0, nu0]. Its check (`von_neumann_small_cfl`)
+writes 1 - |g|^2 = sum_k q_k(z) nu^k and looks at the lowest non-zero q_k. If q_k(z0) < 0 at a
+rational z0, then 1 - |g|^2 < 0 at z0 for every nu in (0, nu1], with nu1 = c/(c + 2M) explicit
+(c = -q_k(z0), M the largest |q_j(z0)| above k) and exact spot values: `REFUTED`. Otherwise it tries
+the Bernstein certificate on [0, nu1] for nu1 = 1, 1/2, ..., 2^-10: `VERIFIED` with the first that
+works, `UNKNOWN` if none does. A lowest term that is >= 0 but has zeros in z settles nothing, and
+the check does not treat it as settling anything. FTCS is `REFUTED` (q_2 = -(1 - z^2), z0 = 0,
+nu1 = 1). Upwind, Lax-Friedrichs and Lax-Wendroff are `VERIFIED` with nu0 = 1. The refutation also
+holds in the max norm. On a periodic grid the Fourier modes are eigenvectors of the update, so
+|g| > 1 on an open set of theta means growth in every norm once the grid has a mode there.
 
 The Lax-Richtmyer equivalence theorem turns the two into a convergence order. For a linear
 constant-coefficient scheme on a periodic grid, consistency of order p plus stability gives
@@ -444,12 +467,14 @@ to refute.
 | `positive_under_cfl` | positivity (Bernstein) | equivalent | exact |
 | `entropy_stable_tadmor` | entropy_stability (Tadmor) | equivalent | exact (semi-discrete) |
 | `selects_entropy_solution_semidiscrete` | entropy_stability (Tadmor) | sufficient | exact (semi-discrete) |
+| | steady_nonentropy_step_semidiscrete (F(uL, uL) = F(uL, uR) = F(uR, uR), uL < uR, f'(uL) < f'(uR), f convex) | necessary | exact |
 | `monotone_under_cfl` | monotonicity | equivalent | exact |
 | `selects_entropy_solution` | entropy_rarefaction | necessary | empirical |
 | | steady_nonentropy_step (a steady step uL < uR with f'(uL) < f'(uR), f convex) | necessary | exact |
 | | monotonicity (Crandall-Majda), only if conservation and consistency are VERIFIED | sufficient | exact |
 | `consistent_order_p` | truncation_order | equivalent | exact |
 | `von_neumann_stable_under_cfl` | von_neumann | equivalent | exact |
+| `stable_for_small_cfl` | von_neumann_small_cfl (lowest term in nu; Bernstein on [0, 2^-k]) | equivalent | exact |
 | `converges_order_p` | order/combined, order/space, order/time | necessary | empirical |
 | | truncation_order (Lax-Richtmyer), only if von_neumann and lax_richtmyer_scope are VERIFIED | sufficient | exact |
 | `correct_shock_speed` | shock_speed | necessary | empirical |
@@ -488,13 +513,13 @@ strictly convex entropy singles out the entropy solution.
 
 Roe with Harten's fix is the case the table exists for. Tadmor's check fails on it exactly (at
 (-1, 1), Q = -1/6), yet its limit on the rarefaction data is the fan. A failed sufficient
-condition proves nothing, so both Roe schemes are `UNKNOWN` on the semi-discrete claim; for Roe
-without a fix the exact refutation shows up on `entropy_stable_tadmor`.
+condition proves nothing, so Harten's fix is `UNKNOWN` on the semi-discrete claim. Roe without a
+fix is refuted exactly on `entropy_stable_tadmor`, and on the semi-discrete claim by its steady step.
 
 | Spec | Tadmor (raw) | Monotonicity (raw) | Rarefaction (raw) | `entropy_stable_tadmor` | `selects_entropy_solution_semidiscrete` | `selects_entropy_solution` |
 |---|---|---|---|---|---|---|
 | Roe + Harten fix | REFUTED | not run | NOT_REFUTED | not claimed | UNKNOWN | NOT_REFUTED (empirical, rarefaction) |
-| Roe, no fix | REFUTED | REFUTED (c = 1) | REFUTED_EMPIRICALLY | REFUTED (exact) | UNKNOWN | REFUTED (exact, steady step at (-1, 1)) |
+| Roe, no fix | REFUTED | REFUTED (c = 1) | REFUTED_EMPIRICALLY | REFUTED (exact) | REFUTED (exact, steady step at (-1, 1)) | REFUTED (exact, steady step at (-1, 1)) |
 | Engquist-Osher, Lax-Friedrichs (c = 1), Rusanov (c = 1/3) | VERIFIED | VERIFIED | NOT_REFUTED | VERIFIED | VERIFIED (exact, under the premises above) | VERIFIED (exact, monotonicity + Crandall-Majda) |
 | Non-conservative upwind | not run | VERIFIED (c = 1/3) | not run | not claimed | not claimed | UNKNOWN (precondition: conservation REFUTED) |
 
@@ -515,11 +540,13 @@ TVD", "our upwind scheme is unconditionally stable", "the minmod MUSCL scheme is
 Each reading of each sentence is formalized into the named claims above, with an expected truth
 and a citation. `uv run python -m physverify.schemes.bench benchmark/scheme-claims/` prints
 expected against actual. It fails on a decisive verdict that contradicts the expectation and lists
-non-decisive results as gaps. Now: 22 of 34 readings decided correctly, 12 gaps, none wrong
+non-decisive results as gaps. Now: 24 of 34 readings decided correctly, 10 gaps, none wrong
 (the monotonicity check settles the Rusanov and Engquist–Osher monotonicity claims, and the exact
 order and von Neumann checks settle the truncation and global orders of Lax–Wendroff and upwind and
 refute "upwind is unconditionally L2-stable"; the steady-step check makes the Roe and Lax–Wendroff
-entropy refutations exact). `GAPS.md` there ranks the gaps. The largest are stencils wider than
+entropy refutations exact, and its semi-discrete form refutes "Roe's method of lines converges to
+the entropy solution"; the small-CFL check refutes "FTCS is stable for sufficiently small time
+steps"). `GAPS.md` there ranks the gaps. The largest are stencils wider than
 three points, order of accuracy outside linear schemes, and TVD and stability of nonlinear schemes.
 
 ### Systems
@@ -615,7 +642,7 @@ Python 3.11+ and [uv](https://docs.astral.sh/uv/):
 
 ```
 uv sync
-uv run pytest tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py tests/test_entropy_steady.py tests/test_systems.py
+uv run pytest tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py tests/test_entropy_steady.py tests/test_systems.py tests/test_steady_smallnu.py
 ```
 
 The Lean checks need [elan](https://github.com/leanprover/elan) and a built Mathlib (Lean
