@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from physverify.schemes import check, checks, claims as C, load, poly as P
+from physverify.schemes import check, checks, claims as C, linear, load, poly as P
 
 ROOT = Path(__file__).resolve().parent.parent
 S = ROOT / "schemes"
@@ -124,3 +124,13 @@ def test_polarity_exact_necessary_failure_refutes():
     # a monotone scheme with a steady non-entropy step would be a checker bug, and the judge says so loudly
     ok = {"monotonicity": "VERIFIED", "conservation": "VERIFIED", "consistency": "VERIFIED"}
     assert judge({**ok, "steady_nonentropy_step": "REFUTED"})["verdict"] == C.INCONSISTENT
+
+
+def test_lax_richtmyer_scope_needs_a_periodic_grid():
+    """Side fix: periodicity is implicit in the studies; an explicit non-periodic boundary is out of scope."""
+    spec = _spec("advection-lax-wendroff")
+    assert linear.lax_richtmyer_scope(spec)["status"] == checks.VERIFIED
+    out = linear.lax_richtmyer_scope({**spec, "test": {**spec["test"], "boundary": "transmissive"}})
+    assert out["status"] == checks.NOT_APPLICABLE and "periodic" in out["detail"]
+    premise = next(r for r in C.CLAIMS["converges_order_p"][1] if r[0] == "truncation_order")[2]
+    assert "l2" in premise and "L-infinity order is not covered" in premise

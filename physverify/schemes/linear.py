@@ -285,7 +285,10 @@ def lax_richtmyer_scope(spec: dict) -> dict:
     """Structural precondition for reading consistency + stability as convergence (Lax-Richtmyer):
     a linear constant-coefficient scheme, a convergence claim that is about refining dx at fixed dt/dx
     (the combined study) at the consistency order claimed, run at a dt/dx inside the claimed von Neumann
-    range, on smooth data. VERIFIED when all hold; NOT_APPLICABLE (never a failure) otherwise."""
+    range, on smooth data, on a periodic grid. VERIFIED when all hold; NOT_APPLICABLE (never a failure)
+    otherwise. Periodicity is implicit in the convergence studies (they step with np.roll on the periodic
+    unit interval, and advection-sine is periodic there), so only an explicit non-periodic
+    `test.boundary` in the spec makes this NOT_APPLICABLE."""
     claim = "Lax-Richtmyer applies: linear constant-coefficient scheme, combined refinement at a stable dt/dx, smooth data"
     got, bad = coefficients(spec, "lax_richtmyer_scope", claim)
     if bad:
@@ -303,6 +306,8 @@ def lax_richtmyer_scope(spec: dict) -> dict:
         why.append(f"the study's nu = {nu} is not inside the claimed von Neumann range {r}")
     if test.get("problem", {}).get("kind") not in SMOOTH_PROBLEMS:
         why.append("the test problem is not one of the smooth ones " + str(SMOOTH_PROBLEMS))
+    if test.get("boundary", "periodic") != "periodic":
+        why.append(f"boundary {test['boundary']!r}: the theorem is applied on periodic grids only")
     if why:
         return result("lax_richtmyer_scope", NOT_APPLICABLE, claim, "; ".join(why))
     return result("lax_richtmyer_scope", VERIFIED, claim, "every precondition holds (structural, exact)",

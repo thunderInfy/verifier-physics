@@ -53,7 +53,9 @@ _STEADY_STEP = ("a scheme with a steady non-entropy step converges, trivially, t
                 "so the limit is not the entropy solution")
 
 _LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable implies convergence of order p for "
-                  "smooth initial data; linear constant-coefficient schemes on periodic grids only. Asymptotic: it "
+                  "smooth initial data; linear constant-coefficient schemes on periodic grids only. The order is "
+                  "in the discrete l2 norm (von Neumann stability is l2 stability), which gives the same order in "
+                  "L1 on the unit periodic grid by Cauchy-Schwarz; the L-infinity order is not covered. Asymptotic: it "
                   "says nothing about the error constant, and gives order at least p; also needs the von Neumann "
                   "check and the structural scope check (linear update, combined refinement at a stable dt/dx, "
                   "consistency order = claimed order, smooth data) to pass")
