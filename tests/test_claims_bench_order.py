@@ -16,7 +16,7 @@ def test_order_and_von_neumann_readings_are_decided_exactly():
             ("C04", "von Neumann (L2) stable for ev"): (C.REFUTED, "match"),
             ("C19", "converges at order 1 to smooth"): (C.VERIFIED, "match"),
             ("C19", "local truncation error O(dx)"): (C.VERIFIED, "match"),
-            ("C19", "converges at order 1 in dx at "): (C.NOT_REFUTED, "gap")}
+            ("C19", "converges at order 1 in dx whe"): (C.NOT_REFUTED, "gap")}
     assert {k: got[k] for k in want} == want
 
     upwind = lambda override: verdicts["../../schemes/advection-upwind.json", json.dumps(override, sort_keys=True)]
