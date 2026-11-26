@@ -34,7 +34,8 @@ FAILURES = (REFUTED, REFUTED_EMPIRICALLY, SUSPICIOUS, INCONSISTENT)
 GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "entropy_stability": EXACT,
              "order/combined": EMPIRICAL, "order/space": EMPIRICAL, "order/time": EMPIRICAL,
              "monotonicity": EXACT, "shock_speed": EMPIRICAL, "entropy_rarefaction": EMPIRICAL,
-             "truncation_order": EXACT, "von_neumann": EXACT, "lax_richtmyer_scope": EXACT}
+             "truncation_order": EXACT, "von_neumann": EXACT, "lax_richtmyer_scope": EXACT,
+             "steady_nonentropy_step": EXACT}
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -45,6 +46,11 @@ _CRANDALL_MAJDA = ("Crandall-Majda (1980): a conservative, consistent, monotone 
                    "solution as dx -> 0 at fixed dt/dx (initial data in L1 and BV, with values in the CFL range; "
                    "a monotone consistent scheme keeps them there by the maximum principle); also needs the "
                    "conservation and consistency checks to pass")
+
+_STEADY_STEP = ("a scheme with a steady non-entropy step converges, trivially, to that step on its Riemann data "
+                "(a non-entropy weak solution if the scheme is conservative and f(uL) = f(uR), otherwise not even "
+                "a weak solution); for convex f with f'(uL) < f'(uR) the entropy solution is the rarefaction fan, "
+                "so the limit is not the entropy solution")
 
 _LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable implies convergence of order p for "
                   "smooth initial data; linear constant-coefficient schemes on periodic grids only. Asymptotic: it "
@@ -73,6 +79,8 @@ CLAIMS = {
     # the fully discrete scheme: Tadmor's inequality says nothing about time stepping; monotonicity does
     "selects_entropy_solution": ("the limit of the scheme is the entropy solution, not another weak solution",
                                  (("entropy_rarefaction", NECESSARY, "on the spec's rarefaction data only"),
+                                  # exact: its failure refutes; finding no steady step gives nothing
+                                  ("steady_nonentropy_step", NECESSARY, _STEADY_STEP),
                                   ("monotonicity", SUFFICIENT, _CRANDALL_MAJDA, ("conservation", "consistency")))),
     "consistent_order_p": ("the local truncation error is O(dx^p) at fixed dt/dx for the claimed p (linear schemes)",
                            (("truncation_order", EQUIVALENT, ""),)),

@@ -762,3 +762,95 @@ def monotonicity(spec: dict) -> dict:
                       f"{hit['by']} at lam = {hit['lam']}, state {hit['state (um1, u0, up1)']}", wit, assumptions)
     return result("monotonicity", UNKNOWN, claim,
                   f"no certificate for {failed} and no decreasing pair of rational states found", wit, assumptions)
+
+
+# ---------------------------------------------------------------- steady non-entropy step (fully discrete)
+
+STEADY_PAIRS = [(Fraction(-1), Fraction(1)), (Fraction(-1, 2), Fraction(1)), (Fraction(0), Fraction(1))]
+STEADY_STENCILS = (("H(uL, uL, uL)", "LLL", "L"), ("H(uR, uR, uR)", "RRR", "R"),
+                   ("H(uL, uL, uR)", "LLR", "L"), ("H(uL, uR, uR)", "LRR", "R"))
+
+
+def steady_identities(H: P.Poly, uL: Fraction, uR: Fraction) -> dict:
+    """{stencil: normal form in lam of H(stencil) - target} for the four stencils of the step uL | uR."""
+    v = {"L": uL, "R": uR}
+    return {name: P.add(P.subst(H, {x: P.const(v[c]) for x, c in zip(STENCIL, s)}), P.const(v[t]), -1)
+            for name, s, t in STEADY_STENCILS}
+
+
+def steady_nonentropy_step(spec: dict) -> dict:
+    """Exact refutation of entropy selection: Riemann data uL < uR that the update never changes.
+
+    The argument. Let u_i^0 = uL for i < j and uR for i >= j, with uL < uR and the jump at a cell
+    interface (x0 = 0), so the same step is represented exactly on every grid. Only four stencils
+    occur. If H(uL, uL, uL) = uL, H(uR, uR, uR) = uR, H(uL, uL, uR) = uL and H(uL, uR, uR) = uR (the
+    first two hold for any consistent conservative scheme; the last two straddle the jump), then
+    u^1 = u^0, so u^n = u^0 for every n and every dx at fixed dt/dx (on the infinite grid, or with
+    transmissive boundaries, which only see constant states). The discrete solutions converge,
+    trivially, to the stationary step. For convex f (f'' >= 0 by form) with f'(uL) < f'(uR), f is not
+    affine on [uL, uR], so the entropy solution of this Riemann problem (unique, by Kruzkov) is the
+    rarefaction fan, which differs from the step on a set of positive measure at every t > 0. So the
+    scheme does not select the entropy solution. The step is a weak solution (an expansion shock)
+    only if f(uL) = f(uR) and the scheme is conservative; the refutation needs neither.
+
+    The identities are normal forms in lam = dt/dx, so they hold for every lam > 0, in particular at
+    every claimed CFL number. Candidate pairs: the spec's rarefaction cases, then STEADY_PAIRS, then
+    a search over pairs of small rationals. REFUTED needs one pair where all four normal forms are 0.
+    If none is found the check is UNKNOWN: a failed search proves nothing, and it never verifies."""
+    claim = ("no steady non-entropy step: no Riemann data uL < uR with f'(uL) < f'(uR) is an exact fixed point "
+             "of the update at every lam = dt/dx > 0 (necessary for selecting the entropy solution)")
+    try:
+        H = P.from_expr(update(spec))
+        f = P.from_expr(pde_flux(spec))
+    except P.Undecided as ex:
+        return result("steady_nonentropy_step", UNKNOWN, claim, str(ex))
+    if P.variables(f) - {"u"} or P.variables(H) - set(STENCIL) - {"lam"}:
+        return result("steady_nonentropy_step", UNKNOWN, claim, "the flux or the update has free parameters")
+    fp = P.derivative(f, "u")
+    fpp = P.derivative(fp, "u")
+    if not P.nonneg_by_form(fpp):
+        return result("steady_nonentropy_step", NOT_APPLICABLE, claim,
+                      f"f'' = {P.show(fpp)} is not >= 0 by form, so the entropy solution of uL < uR need not be a fan")
+    if "u" not in P.variables(fp):
+        return result("steady_nonentropy_step", NOT_APPLICABLE, claim, "linear flux: f' is constant, so no data "
+                      "has f'(uL) < f'(uR) and every weak solution of a Riemann problem is the entropy solution")
+    fp_at = lambda x: P.evaluate(fp, {"u": x})
+    cases = spec.get("claims", {}).get("entropy_rarefaction", {}).get("cases", [])
+    given = [(Fraction(k["uL"]), Fraction(k["uR"])) for k in cases]
+    search = [(a, b) for a in _VALUES for b in _VALUES if a < b]
+    tried, undecided = 0, 0
+    for found_by, pairs in (("candidate pair", given + STEADY_PAIRS), ("search over small rationals", search)):
+        for uL, uR in pairs:
+            if not (uL < uR and fp_at(uL) < fp_at(uR)):
+                continue
+            tried += 1
+            try:
+                res = steady_identities(H, uL, uR)
+            except P.Undecided:
+                undecided += 1
+                continue
+            if any(res.values()):
+                continue
+            fL, fR = P.evaluate(f, {"u": uL}), P.evaluate(f, {"u": uR})
+            info = (f"information: f(uL) = f(uR) = {fL} and conservation is verified, so the frozen step is an "
+                    "expansion-shock weak solution" if fL == fR and conservation(spec)["status"] == VERIFIED else
+                    "information: conservation is not verified or f(uL) != f(uR), so the frozen step may not even "
+                    "be a weak solution")
+            name = {"L": str(uL), "R": str(uR)}
+            wit = {"uL": str(uL), "uR": str(uR), "found_by": found_by,
+                   "identities": {k: f"H({', '.join(name[c] for c in s)}) - {name[t]} = 0 in lam"
+                                  for k, s, t in STEADY_STENCILS},
+                   "f''(u)": P.show(fpp), "f'(uL)": str(fp_at(uL)), "f'(uR)": str(fp_at(uR)),
+                   "f(uL)": str(fL), "f(uR)": str(fR)}
+            return result("steady_nonentropy_step", REFUTED, claim,
+                          f"the step uL = {uL} | uR = {uR} is an exact fixed point of the update at every dt/dx "
+                          f"({found_by}); f'(uL) = {fp_at(uL)} < f'(uR) = {fp_at(uR)}, so the entropy solution is "
+                          "the rarefaction fan, not this step", wit,
+                          [f"f is convex (f'' = {P.show(fpp)} >= 0 by form) and f'(uL) < f'(uR): for this data the "
+                           "entropy solution is the rarefaction fan, not the stationary step",
+                           "the jump sits at a cell interface (x0 = 0) on every grid, so the step is represented "
+                           "exactly for every dx; the grid is infinite or its boundaries are transmissive",
+                           info])
+    return result("steady_nonentropy_step", UNKNOWN, claim,
+                  f"no steady step among {tried} rational pairs uL < uR with f'(uL) < f'(uR) (candidates, then a "
+                  f"search over a small grid; {undecided} not decided); a failed search proves nothing")

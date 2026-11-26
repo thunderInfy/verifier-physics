@@ -7,4 +7,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv sync
-      - run: uv run pytest -q tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py
+      - run: uv run pytest -q tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py tests/test_entropy_steady.py

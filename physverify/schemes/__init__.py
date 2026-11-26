@@ -34,6 +34,8 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
         out.append(checks.entropy_stability({**spec, "claims": {"entropy_stability": {}, **params}}))
     if "monotone_cfl" in params or "monotone_under_cfl" in names:
         out.append(checks.monotonicity(spec))
+    if "steady_nonentropy_step" in wanted:
+        out.append(checks.steady_nonentropy_step(spec))
     if "entropy_rarefaction" in params:
         out.append(entropy.study(spec, rarefaction_grids))
     if "consistent_order" in params or "consistent_order_p" in names:
