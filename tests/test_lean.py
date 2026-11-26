@@ -51,7 +51,7 @@ def test_statistically_excluded(name):
 DERIV_FACTS = [
     # symbolic derivatives evaluate to the textbook ones
     ("∀ env : ℕ → ℝ, (Expr.deriv 0 (.powi (.var 0) 3)).eval env = 3 * env 0 ^ 2",
-     "intro env; simp [Expr.deriv, Expr.dir, Expr.basis, Expr.eval]; ring"),
+     "intro env; simp [Expr.deriv, Expr.dir, Expr.basis, Expr.eval, zpow_two]; ring"),
     ("(Expr.deriv 0 (.app .sin (.var 0))).eval (fun _ => 0) = 1",
      "simp [Expr.deriv, Expr.dir, Expr.basis, Expr.eval, Fn.eval]"),
     # the correctness theorem, with its side condition discharged from the hypothesis

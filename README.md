@@ -113,19 +113,34 @@ counterexample, and `UNKNOWN` otherwise (failed search, timeout, no Lean).
 $ uv run python -m physverify.claims claims/
 | double-pendulum            | true  | VERIFIED | VERIFIED | ok       |    10s |
 | kepler-missing-factor-2    | false | REFUTED  | REFUTED  | ok       |    10s |
+| pendulum-empty-domain      | ill   | UNKNOWN  | UNKNOWN  | ok       |     0s |
 ...
-18 claims: 9 VERIFIED, 8 REFUTED, 1 UNKNOWN, 0 wrong
+22 claims: 10 VERIFIED, 8 REFUTED, 4 UNKNOWN, 0 wrong
 ```
 
 A claim file (`claims/*.json`, format in `physverify/derivation.py`) gives coordinates, symbols
 with dimensions, a Lagrangian, a domain such as `l > 0`, and one equation per coordinate,
-either `qddot = rhs` or any `lhs = rhs`. The judge writes two Lean statements:
+either `qddot = rhs` or any `lhs = rhs`. The domain is a list of atoms `a > b`, `a < b` or
+`a != b`. The parser rejects atoms that mention an acceleration, and atoms whose sides are
+not continuous everywhere (division other than by a constant, negative powers, `sqrt`,
+`log`, real powers). So `D` is an open set of `(q, q̇, parameters)`, cut out by strict
+inequalities of continuous functions, and puts no condition on `q̈`. The judge writes two
+Lean statements:
 
-* `Verified n L D cs`: on the domain `D`, the Euler–Lagrange system holds at a jet
+* `Verified n L D cs`: `D` has a point, and on `D` the Euler–Lagrange system holds at a jet
   `(q, q̇, q̈)` iff the claimed equations do. The statement also asserts `dimsOK` (both sides
-  of each equation have one dimension; `0` has every dimension) and the side conditions
-  of differentiation on `D`.
-* `Refuted n L D cs`: a jet in `D` where the two disagree.
+  of each equation have one dimension; `0` has every dimension), the side conditions of
+  differentiation on `D`, and `PhysOK` on `D`: every `sqrt` and `log` argument, and the base
+  of every non-integer power, in `L` and in the claimed equations is positive. Lean's
+  functions are total (`Real.sqrt x = 0` and `Real.log x = log |x|` for `x < 0`, and a real
+  power of a negative base is not the real power), so without `PhysOK` an identity could
+  hold in Lean only through these junk values.
+* `Refuted n L D cs`: a jet in `D`, with `PhysOK`, where the two disagree.
+
+The point of `D` in `Verified` comes from the judge, not the planner: it searches for a
+rational point that satisfies every atom exactly, and Lean checks it with `norm_num`. If it
+finds none, the verdict is `UNKNOWN` without calling Lean. Before this, `r > 0, r < 0` would
+have made any equations `VERIFIED`, because the statement was a `∀` over an empty set.
 
 The untrusted planner (`physverify/tools/eulerlagrange.py`) proposes tactics. For a
 plausible claim it uses the certificate `EL = C · (lhs − rhs)` with `det C ≠ 0`, which
@@ -143,7 +158,14 @@ What is proven in Lean (`lean/PhysVerify/Deriv.lean`, `EulerLagrange.lean`):
   `d/dt (∂L/∂q̇_k) − ∂L/∂q_k`, computed with Mathlib derivatives.
 * `verified_meaning`: from a `Verified` certificate, every such trajectory whose jet stays
   in `D` near `t` satisfies the real Euler–Lagrange equations at `t` iff it satisfies the
-  claimed equations at `t`.
+  claimed equations at `t`. "Stays in `D` near `t`" costs nothing in practice: `D` does not
+  mention `q̈`, and `q` and `q̇` are continuous at `t` for a trajectory twice differentiable
+  at `t`, so since `D` is open, a jet in `D` at `t` stays in `D` near `t`. (We argue this
+  from the parser's restrictions; it is not a Lean theorem, since Lean sees `D` only as a
+  predicate.) This is also why the domain may not mention accelerations: `q̈` need not be
+  continuous, and a condition on it could fail at every `s ≠ t`, which would make the
+  theorem's hypothesis false for real trajectories.
+* `verified_nonempty`: a `Verified` certificate gives a point of `D` where `PhysOK` holds.
 * `refuted_meaning`: from a `Refuted` certificate, on the quadratic trajectory through the
   counterexample jet, at `t = 0`, the real Euler–Lagrange equations and the claimed
   equations disagree.
@@ -168,21 +190,32 @@ double pendulum. The false ones are a centrifugal sign error, a missing factor 2
 dimensionally consistent), the small-angle law claimed for all angles, and a
 dimensionally wrong pendulum. The textbook double-pendulum form with double angles is true
 but comes out `UNKNOWN`, because our tactics don't try double-angle identities. A
-verdict is wrong only if a true claim is `REFUTED` or a false one `VERIFIED`. The runner
-exits non-zero if that happens.
+particle in the potential `k x^(1/2)` on `x > 0` is true. Three claims are ill-posed and
+must come out `UNKNOWN`: the small-angle law on an empty domain (`θ > 1/2` and
+`θ < −1/2`), the same `k x^(1/2)` potential on `x ≠ 0`, where Lean's `x^(1/2) = 0` for
+`x < 0` let the planner's certificate prove the old statement, and an oscillator written
+with `ω = sqrt(k/m)` without `k > 0`, where Lean's `sqrt(k/m) = 0` for `k < 0` gave a
+counterexample to the old `Refuted`. A verdict is wrong if a true claim is `REFUTED`, a
+false one `VERIFIED`, or an ill-posed one anything but `UNKNOWN`. The runner exits non-zero
+if that happens.
 
-Measured on our 2-CPU / 8 GB VM:
+Measured on our 2-CPU / 7–8 GB VMs, with other jobs running alongside:
 
 | Step | Time |
 |---|---|
 | `import Mathlib`, cold (about 5 GB of `.olean` and `.olean.private`) | did not finish in 20 min, twice |
 | build `PhysVerify.EulerLagrange` from the Mathlib cache (narrow imports) | 3 min 10 s first time; 56 s to rebuild `EulerLagrange` alone |
-| one derivation certificate (`import PhysVerify.EulerLagrange`), warm | 6–22 s, typically about 10 s |
+| full `lake build` (all of `PhysVerify`, no `import Mathlib` left), cold: fresh Mathlib cache, nothing in the page cache | 7 min 32 s (5 min 16 s of it in `Expr`, the first module to map Mathlib) |
+| same, warm: our build outputs deleted, Mathlib in the page cache | 1 min 29 s |
+| `lake build` with nothing to rebuild (hashes 2679 jobs) | 1 min 3 s |
+| one derivation certificate (`import PhysVerify.EulerLagrange`), warm | 6–28 s, typically about 10 s |
 | same, after the page cache was evicted | 80–103 s |
-| whole benchmark (18 claims, 19 Lean checks) | 6 min 11 s |
+| whole benchmark (22 claims), warm | 4 min 24 s |
+| `pytest tests/test_lean.py` (47 tests), warm | 20 min |
 
-The difference between the first two rows is why `Expr.lean` now imports three Mathlib
-analysis modules instead of all of Mathlib, and why certificates import a single module.
+The difference between the first two rows is why no module imports all of Mathlib any more
+(`Expr`, `Deriv`, `Interval`, `Orbit` and `WellPosed` import only the modules they use),
+and why certificates import a single module.
 
 ## Discrete schemes
 
