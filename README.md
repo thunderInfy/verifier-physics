@@ -745,6 +745,7 @@ to refute.
 | `selects_entropy_solution` | entropy_rarefaction | necessary | empirical |
 | | steady_nonentropy_step (a steady step uL < uR with f'(uL) < f'(uR), f convex) | necessary | exact |
 | | monotonicity (Crandall-Majda), only if conservation and consistency are VERIFIED | sufficient | exact |
+| | stationary_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR), shock or expansion) | necessary | exact |
 | `consistent_order_p` | truncation_order | equivalent | exact |
 | `von_neumann_stable_under_cfl` | von_neumann | equivalent | exact |
 | `stable_for_small_cfl` | von_neumann_small_cfl (lowest term in nu; Bernstein on [0, 2^-k]) | equivalent | exact |
@@ -753,7 +754,7 @@ to refute.
 | `correct_shock_speed` | shock_speed | necessary | empirical |
 | | monotonicity (Crandall-Majda), only if conservation, consistency, flux_lipschitz and shock_scope_monotone are VERIFIED | sufficient | exact |
 | | tvd_harten (Helly + Lax-Wendroff, a subsequence), only if conservation, consistency, flux_lipschitz and shock_scope_tvd are VERIFIED | sufficient | exact |
-| | stationary_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR)) | necessary | exact |
+| | stationary_shock_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR) that is a Lax shock: f'' >= 0 on [uR, uL], f'(uL) > f'(uR)) | necessary | exact |
 | `limit_is_weak_solution` | conservation (Lax-Wendroff theorem), only if consistency and flux_lipschitz are VERIFIED | sufficient | exact |
 | | stationary_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR)) | necessary | exact |
 | `tvd_under_cfl` | tvd_harten (Harten's incremental form on sign cells) | sufficient | exact |
@@ -777,8 +778,9 @@ entropy inequality for every Kruzkov entropy, the maximum principle and TVD. The
 all three properties, so the row carries a precondition in the table: it counts only when the
 conservation and consistency checks are exactly `VERIFIED` on the same spec, and otherwise it
 gives `UNKNOWN`. `broken-burgers-nonconservative` shows why the precondition is there. That update
-is monotone for lam*|u| <= 1/3 (`VERIFIED`), yet it moves shocks at the wrong speed, and its
-`selects_entropy_solution` stays `UNKNOWN` ("requires conservation: REFUTED"). The CFL bound is part
+is monotone for lam*|u| <= 1/3 (`VERIFIED`), yet it moves shocks at the wrong speed, and the
+Crandall–Majda row gives `UNKNOWN` ("requires conservation: REFUTED"). Its `selects_entropy_solution`
+is `REFUTED` instead, by the frozen jump 1 | 0 (see the stationary-jump rows below). The CFL bound is part
 of the result. The maximum principle keeps the states inside it if the initial data start there.
 
 The cost is order. By Godunov's theorem a monotone scheme is at most first order, so this route
@@ -808,7 +810,7 @@ fix is refuted exactly on `entropy_stable_tadmor`, and on the semi-discrete clai
 | Roe + Harten fix | REFUTED | not run | NOT_REFUTED | not claimed | UNKNOWN | NOT_REFUTED (empirical, rarefaction) |
 | Roe, no fix | REFUTED | REFUTED (c = 1) | REFUTED_EMPIRICALLY | REFUTED (exact) | REFUTED (exact, steady step at (-1, 1)) | REFUTED (exact, steady step at (-1, 1)) |
 | Engquist-Osher, Lax-Friedrichs (c = 1), Rusanov (c = 1/3) | VERIFIED | VERIFIED | NOT_REFUTED | VERIFIED | VERIFIED (exact, under the premises above) | VERIFIED (exact, monotonicity + Crandall-Majda) |
-| Non-conservative upwind | not run | VERIFIED (c = 1/3) | not run | not claimed | not claimed | UNKNOWN (precondition: conservation REFUTED) |
+| Non-conservative upwind | not run | VERIFIED (c = 1/3) | not run | not claimed | not claimed | REFUTED (exact, frozen jump 1 \| 0; Crandall-Majda UNKNOWN: conservation REFUTED) |
 
 Roe without a fix is the cross-check. If the monotonicity check had certified it while the
 rarefaction study refutes it, the judge would report `INCONSISTENT`. It doesn't: monotonicity fails
@@ -839,19 +841,27 @@ TVD bounds the states. A square root of anything other than an even power, a div
 or sin, exp and so on give `UNKNOWN`. Without a declared flux it checks a three-point update H, whose
 flux (if it is conservative and consistent) is F(a, b) = f(a) + (a - H(a, a, b))/lam.
 
-Both claims also have an exact necessary row, `stationary_rh_violation` (`fixedjump.py`), which works
-on the update as written and so covers non-conservative schemes. It looks for Riemann data uL | uR,
-jump at a cell interface, that the update returns unchanged at every stencil position (the far-field
-constants and every window across the jump, three- or five-point) as an identity in dt/dx, with
-f(uL) != f(uR). Then the numerical solution is that jump at every dx, its limit is the stationary
-jump, and a stationary jump is a weak solution only if f(uL) = f(uR): the limit is not a weak
-solution, and its discontinuity stays put while the RH speed is not 0. The candidates are the spec's
+Both claims, and `selects_entropy_solution`, also have an exact necessary row from `fixedjump.py`,
+which works on the update as written and so covers non-conservative schemes. It looks for Riemann
+data uL | uR, jump at a cell interface, that the update returns unchanged at every stencil position
+(the far-field constants and every window across the jump, three- or five-point) as an identity in
+dt/dx, with f(uL) != f(uR). Then the numerical solution is that jump at every dx, its limit is the
+stationary jump, and a stationary jump is a weak solution only if f(uL) = f(uR). So the limit is
+not a weak solution, and not the entropy solution either (`stationary_rh_violation`, any such pair).
+For `correct_shock_speed` that is not enough: if uL | uR is an expansion, the exact solution is a
+rarefaction with no shock in it, and a frozen expansion shows a wrong limit, not a shock at a wrong
+speed. That row uses `stationary_shock_rh_violation`, the same search restricted to Lax shocks:
+f'' >= 0 on [uR, uL] (non-negative Bernstein coefficients) and f'(uL) > f'(uR). Then the entropy
+solution is the single shock uL | uR at the RH speed, which is not 0, while the scheme's jump stays
+put. Without such a certificate the row is `NOT_APPLICABLE`. The candidates are the spec's
 shock-study pairs and a small grid; each hit is replayed by evaluating H and f in exact rationals.
 For the quasilinear upwind scheme on Burgers, 1 | 0 is such a jump (H(1, 1, 0) = 1, H(1, 0, 0) = 0,
-f(1) = 1/2), so both claims are `REFUTED` exactly. A conservative consistent scheme is never refuted
+f(1) = 1/2) and a Lax shock, so all three claims are `REFUTED` exactly. A test scheme that freezes
+exactly the expansions (0 | 1 among them) is refuted on the weak-limit and entropy claims and not on
+the shock speed. A conservative consistent scheme is never refuted
 this way: a fixed jump there forces F(uL, uL) = F(uL, uR) = F(uR, uR), so f(uL) = f(uR). Roe without a
-fix freezes -1 | 1, but f(-1) = f(1), so that frozen step is a (non-entropy) weak solution and this
-row says nothing; the entropy row's steady-step check catches it. No pair found gives
+fix freezes -1 | 1, but f(-1) = f(1), so that frozen step is a (non-entropy) weak solution and these
+rows say nothing; the entropy row's steady-step check catches it. No pair found gives
 `NOT_APPLICABLE`, which decides nothing.
 
 Reported as the verdict on "the claim", the raw `REFUTED` would have said Harten's fix picks the

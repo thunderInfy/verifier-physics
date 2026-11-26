@@ -34,9 +34,10 @@ conditional reading for the non-conservative scheme, expected false) is a new ga
 reading 4 was reworded (the CFL condition must hold at the finest dx); its verdict is unchanged.
 Result: 32 match, 10 gaps, 1 unscored. Monotonicity on five-point stencils then added C23 (minmod
 is monotone under ν ≤ 1: REFUTED, exact): 33 match, 10 gaps, 1 unscored over 44 readings. The
-stationary-jump row (`stationary_rh_violation`, gap 5) then closed C13 reading 2 (UNKNOWN to REFUTED,
-exact) and made C13 reading 1 exact (REFUTED_EMPIRICALLY to REFUTED). Result: 34 match, 9 gaps,
-1 unscored over 44 readings.
+stationary-jump rows (`stationary_rh_violation` and, for the shock speed, its Lax-shock restriction
+`stationary_shock_rh_violation`, gap 5) then closed C13 reading 2 (UNKNOWN to REFUTED, exact) and
+made C13 reading 1 exact (REFUTED_EMPIRICALLY to REFUTED). Result: 34 match, 9 gaps, 1 unscored over
+44 readings.
 
 | | expected true | expected false | total |
 |---|---|---|---|
@@ -290,15 +291,18 @@ is the steady-step identity check without its uL < uR condition. **Cost:** a few
 of the row.
 
 **Closed** for C13 reading 2. `stationary_rh_violation` (`physverify/schemes/fixedjump.py`) is that
-check, and it is a NECESSARY row for both `limit_is_weak_solution` and `correct_shock_speed`. It
-needs no flux form. It searches the shock-study pairs, then a small grid {-1, 0, 1/2, 1, 2}, for a step
+check, and it is a NECESSARY row for `limit_is_weak_solution` and `selects_entropy_solution` (a
+limit that is not a weak solution is not the entropy solution). `correct_shock_speed` has its own
+row, `stationary_shock_rh_violation`, which counts a frozen pair only if it is a Lax shock: f'' >= 0
+on [uR, uL] (Bernstein) and f'(uL) > f'(uR). A frozen expansion has a rarefaction as exact solution,
+so it shows a wrong limit but no shock at a wrong speed. Both need no flux form. It searches the shock-study pairs, then a small grid {-1, 0, 1/2, 1, 2}, for a step
 uL | uR whose every stencil window (the far-field constants and the 2 (three-point) or 4 (five-point)
 windows across the jump) H returns unchanged, as an identity in dt/dx, with f(uL) != f(uR). It
 replays each hit by evaluating H and f in exact rationals. The quasilinear upwind scheme gives 1 | 0:
 H(1, 1, 1) = H(1, 1, 0) = 1 and H(1, 0, 0) = H(0, 0, 0) = 0 at every dt/dx, f(1) = 1/2, f(0) = 0, so the
-RH speed is 1/2 while the computed jump never moves. C13 reading 2 is REFUTED (a match), and
-reading 1 (the same scheme on `correct_shock_speed`) moved from REFUTED_EMPIRICALLY to REFUTED. No
-other spec in the repo is refuted by it. A conservative consistent scheme cannot be: a fixed jump forces
+RH speed is 1/2 while the computed jump never moves; 1 | 0 is a Lax shock of Burgers, so both rows
+fire. C13 reading 2 is REFUTED (a match), and reading 1 (the same scheme on `correct_shock_speed`)
+moved from REFUTED_EMPIRICALLY to REFUTED. No other spec in the repo is refuted by either. A conservative consistent scheme cannot be: a fixed jump forces
 equal interface fluxes, so f(uL) = f(uR). With no pair found the check is NOT_APPLICABLE and the row
 decides nothing.
 
