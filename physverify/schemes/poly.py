@@ -192,6 +192,20 @@ def divide_difference(p: Poly, x: str, y: str, k: int) -> Poly | None:
     return q if not add(p, mul(power(add(var(y), var(x), -1), k), q), -1) else None
 
 
+def derivative(p: Poly, x: str) -> Poly:
+    """dp/dx by the power rule, for p whose square-root atoms do not involve x (on a sign cell
+    every |.| has already been replaced by +-(.), so the cell polynomial qualifies)."""
+    out: Poly = {}
+    for m, c in p.items():
+        d = dict(m)
+        if any(a[0] == "s" and x in variables(dict(a[1])) for a in d):
+            raise Undecided(f"derivative in {x} of a square root of an expression in {x}")
+        k = d.pop(("v", x), 0)
+        if k:
+            out = add(out, {_mono({**d, ("v", x): k - 1}): c * k})
+    return out
+
+
 def nonneg_by_form(p: Poly, nonneg=(), positive=()) -> bool:
     """p >= 0 because every coefficient is positive and every factor of every monomial is >= 0:
     variables in `nonneg` (any exponent >= 0), in `positive` (any exponent), the rest only to

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import random
 from fractions import Fraction
+from itertools import combinations
 from math import comb
 
 from ..expr import E, diff, lit, parse, substitute, to_str, var
@@ -458,3 +459,287 @@ def positivity(spec: dict) -> dict:
     return result("positivity", VERIFIED, claim,
                   "u_i^{n+1} = sum_k c_k(nu) u_{i+k}^n with all Bernstein coefficients of each c_k on the "
                   "interval >= 0 (for affine c_k these are the endpoint values)", wit)
+
+
+# ---------------------------------------------------------------- monotonicity (fully discrete, Crandall-Majda)
+
+SCALED = {"um1": "w_m1", "u0": "w_0", "up1": "w_p1"}    # w_k = lam*u_k
+
+
+def _monotone_cfl_atoms(spec: dict, c: Fraction) -> list:
+    """The CFL region lam*|f'(x)| <= c for x in um1, u0, up1, as atoms c - lam*f'(x), c + lam*f'(x) >= 0.
+    f' must be affine, so that for fixed lam the region is a box in (um1, u0, up1)."""
+    fp = P.derivative(P.from_expr(pde_flux(spec)), "u")
+    if P.variables(fp) - {"u"} or any(a[0] != "v" or k > 1 for m in fp for a, k in m):
+        raise P.Undecided(f"f' = {P.show(fp)} is not affine in u, so the CFL region is not a box")
+    return [P.add(P.const(c), P.mul(P.var("lam"), P.subst(fp, {"u": P.var(x)})), s) for x in STENCIL for s in (-1, 1)]
+
+
+def _scaled(p: P.Poly) -> tuple[P.Poly, int]:
+    """(lam^k * p with u_k = w_k/lam, k): the substitution and the factor lam^k > 0 keep the sign of p,
+    and k is chosen so that no negative power of lam is left."""
+    q = P.subst(p, {x: P.mul(P.var(w), P.inverse(P.var("lam"))) for x, w in SCALED.items()})
+    k = -min((dict(m).get(("v", "lam"), 0) for m in q), default=0)
+    return P.mul(q, P.power(P.var("lam"), k)), k
+
+
+def _linear(p: P.Poly, names) -> tuple[Fraction, dict] | None:
+    """(c0, {x: c}) with p = c0 + sum c*x over plain variables in names, or None if p is not affine."""
+    c0, lin = Fraction(0), {}
+    for m, c in p.items():
+        if not m:
+            c0 += c
+            continue
+        if len(m) != 1 or m[0][0][0] != "v" or m[0][0][1] not in names or m[0][1] != 1:
+            return None
+        lin[m[0][0][1]] = c
+    return c0, lin
+
+
+def _solve(cols: list, rhs: dict, names: list) -> list | None:
+    """The unique mu with sum_j mu_j cols[j] = rhs (vectors as dicts over names), or None."""
+    rows = [[col.get(v, Fraction(0)) for col in cols] + [rhs.get(v, Fraction(0))] for v in names]
+    for j in range(len(cols)):
+        i = next((i for i in range(j, len(rows)) if rows[i][j]), None)
+        if i is None:
+            return None
+        rows[j], rows[i] = rows[i], rows[j]
+        rows[j] = [x / rows[j][j] for x in rows[j]]
+        for i2 in range(len(rows)):
+            if i2 != j and rows[i2][j]:
+                rows[i2] = [a - rows[i2][j] * b for a, b in zip(rows[i2], rows[j])]
+    if any(row[-1] for row in rows[len(cols):]):
+        return None
+    return [rows[j][-1] for j in range(len(cols))]
+
+
+def certify_farkas(p: P.Poly, atoms: list) -> dict | None:
+    """A certificate that the affine p is >= 0 on {a >= 0 for a in atoms}: multipliers mu_j >= 0 and a
+    constant r >= 0 with p - sum_j mu_j a_j = r, an identity replayed in the normal form. This is the
+    affine Farkas lemma, so on a non-empty polyhedron such a certificate exists whenever p >= 0 there;
+    an optimal one is basic (its atoms have independent linear parts), so trying subsets of at most
+    as many atoms as there are variables is complete."""
+    names = sorted(P.variables(p).union(*(P.variables(a) for a in atoms)))
+    lp = _linear(p, names)
+    if lp is None:
+        return None
+    usable = [(a, la) for a in atoms if (la := _linear(a, names)) is not None]
+    for size in range(len(names) + 1):
+        for combo in combinations(usable, size):
+            mu = _solve([la[1] for _, la in combo], lp[1], names)
+            if mu is None or any(m < 0 for m in mu):
+                continue
+            r = lp[0] - sum((m * la[0] for m, (_, la) in zip(mu, combo)), Fraction(0))
+            rest = p
+            for m, (a, _) in zip(mu, combo):
+                rest = P.add(rest, P.scale(a, m), -1)
+            if r < 0 or rest != P.const(r):
+                continue
+            return {"farkas": f"{P.show(p)} = {r}" + "".join(f" + {m}*({P.show(a)})" for m, (a, _) in zip(mu, combo) if m),
+                    "multipliers": {P.show(a): str(m) for m, (a, _) in zip(mu, combo) if m}, "remainder": str(r)}
+    return None
+
+
+def _certify_in_lam(p: P.Poly, atoms: list) -> dict | None:
+    """p(lam) >= 0 by Bernstein coefficients on the lam-interval cut out by the atoms affine in lam alone
+    (a superset of the region, so this is sound)."""
+    if P.variables(p) - {"lam"} or any(a[0] != "v" or k < 0 for m in p for a, k in m):
+        return None
+    lo, hi = Fraction(0), None
+    for a in atoms:
+        la = _linear(a, ["lam"])
+        if la is None or not la[1]:
+            continue
+        b = -la[0] / la[1]["lam"]
+        if la[1]["lam"] > 0:
+            lo = max(lo, b)
+        else:
+            hi = b if hi is None else min(hi, b)
+    if hi is None or hi < lo:
+        return None
+    c = [Fraction(0)] * (1 + max((k for m in p for _, k in m), default=0))
+    for m, v in p.items():
+        c[m[0][1] if m else 0] += v
+    b = bernstein(c, lo, hi)
+    return {"bernstein_on_lam": [str(lo), str(hi)], "coefficients": [str(x) for x in b]} if min(b) >= 0 else None
+
+
+def _certify_partial(p: P.Poly, atoms: list) -> dict | None:
+    """certify_nonneg (by form; its change of variables is for uL, uR only and finds nothing here), then
+    the affine Farkas certificate, then Bernstein in lam. Each is a sufficient condition for p >= 0."""
+    return certify_nonneg(p, atoms) or certify_farkas(p, atoms) or _certify_in_lam(p, atoms)
+
+
+def _box(atoms: list, lam: Fraction, x: str) -> tuple[Fraction, Fraction] | None:
+    """The interval of x allowed by the CFL atoms at this lam ([-1, 1] if they do not bound x)."""
+    lo, hi = None, None
+    for a in atoms:
+        la = _linear(P.subst(a, {"lam": P.const(lam)}), [x])
+        if la is None:
+            return None
+        if not la[1]:
+            if la[0] < 0:
+                return None
+            continue
+        b = -la[0] / la[1][x]
+        if la[1][x] > 0:
+            lo = b if lo is None else max(lo, b)
+        else:
+            hi = b if hi is None else min(hi, b)
+    lo, hi = (Fraction(-1) if lo is None else lo), (Fraction(1) if hi is None else hi)
+    return (lo, hi) if lo < hi else None
+
+
+def _vertices(atoms: list, names: list) -> list[dict]:
+    """The vertices of the polytope {a >= 0 for a in atoms} (all affine in names), exactly."""
+    lins = [_linear(a, names) for a in atoms]
+    if None in lins:
+        return []
+    out = []
+    for combo in combinations(range(len(lins)), len(names)):
+        cols = [{i: lins[i][1].get(v, Fraction(0)) for i in combo} for v in names]
+        x = _solve(cols, {i: -lins[i][0] for i in combo}, list(combo))
+        if x is None:
+            continue
+        pt = dict(zip(names, x))
+        if pt not in out and all(c0 + sum(c * pt[v] for v, c in lin.items()) >= 0 for c0, lin in lins):
+            out.append(pt)
+    return out
+
+
+def _probe_cell(H: P.Poly, p: P.Poly, reg: list, cfl: list, x: str) -> dict | None:
+    """Guided search on a cell where the scaled partial p (in w) was not certified: at lam = 1 (so
+    w = u), take the vertex of the cell where p is least and step towards the centroid, so the state
+    is inside the cell, then look for an exact decreasing pair."""
+    one = {"lam": P.const(1)}
+    p1, reg1 = P.subst(p, one), [P.subst(a, one) for a in reg]
+    names = sorted(SCALED.values())
+    if P.variables(p1) - set(names):
+        return None
+    vs = _vertices(reg1, names)
+    if not vs or _linear(p1, names) is None:
+        return None
+    val = lambda pt: P.evaluate(p1, pt)
+    v = min(vs, key=val)
+    if val(v) >= 0:
+        return None
+    g = {n: sum(pt[n] for pt in vs) / len(vs) for n in names}
+    box = _box([a for a in cfl if x in P.variables(a)], Fraction(1), x)
+    for eps in (Fraction(1, 10), Fraction(1, 100), Fraction(1, 1000)):
+        s = {u: v[w] + eps * (g[w] - v[w]) for u, w in SCALED.items()}
+        s["lam"] = Fraction(1)
+        h0 = P.evaluate(H, s)
+        for h in (eps / 10, eps / 100):
+            if h0 is None or box is None or s[x] + h > box[1]:
+                continue
+            h1 = P.evaluate(H, {**s, x: s[x] + h})
+            if h1 is not None and h1 < h0:
+                return {"lam": "1", "state (um1, u0, up1)": [str(s[k]) for k in STENCIL],
+                        "increased": x, "by": str(h), "H before": str(h0), "H after": str(h1)}
+    return None
+
+
+def _decrease(H: P.Poly, cfl: list) -> dict | None:
+    """Exact states s <= s' (differing in one argument) in the CFL region with H(s') < H(s), or None."""
+    lams = [Fraction(1), Fraction(1, 2), Fraction(2), Fraction(1, 3)]
+    if not any(P.variables(a) & set(STENCIL) for a in cfl):           # f' constant: the CFL bounds lam
+        hi = min((-la[0] / la[1]["lam"] for a in cfl if (la := _linear(a, ["lam"])) and la[1].get("lam", 0) < 0),
+                 default=Fraction(1))
+        lams = [hi * Fraction(t) for t in (1, "99/100", "3/4", "1/2", "1/4", "1/10")]
+    ts = [Fraction(t) for t in (0, "1/6", "1/4", "1/3", "1/2", "2/3", "3/4", "5/6", 1)]
+    for lam in lams:
+        box = {x: _box([a for a in cfl if x in P.variables(a) or not P.variables(a) & set(STENCIL)], lam, x)
+               for x in STENCIL}
+        if None in box.values():
+            continue
+        vals = {x: [lo + (hi - lo) * t for t in ts] for x, (lo, hi) in box.items()}
+        for um1 in vals["um1"]:
+            for u0 in vals["u0"]:
+                for up1 in vals["up1"]:
+                    s = {"um1": um1, "u0": u0, "up1": up1, "lam": lam}
+                    h0 = P.evaluate(H, s)
+                    for x in STENCIL:
+                        lo, hi = box[x]
+                        h = (hi - lo) / 120
+                        if h0 is None or s[x] + h > hi:
+                            continue
+                        h1 = P.evaluate(H, {**s, x: s[x] + h})
+                        if h1 is not None and h1 < h0:
+                            return {"lam": str(lam), "state (um1, u0, up1)": [str(s[k]) for k in STENCIL],
+                                    "increased": x, "by": str(h), "H before": str(h0), "H after": str(h1)}
+    return None
+
+
+def monotonicity(spec: dict) -> dict:
+    """Monotonicity of the fully discrete update u_i^{n+1} = H(u_{i-1}, u_i, u_{i+1}) under a CFL bound.
+
+    The claim: H is non-decreasing in each argument for lam = dt/dx > 0 and states with
+    lam*|f'(u)| <= c (c = claims.monotone_cfl), f' affine, so that for fixed lam the region is a box.
+
+    Method. Every |x| = sqrt(x^2) in H is split into sign cases (`sign_cells`); on each closed cell
+    H equals a polynomial H_c. We differentiate H_c in um1, u0 and up1 and certify each partial >= 0
+    on the cell intersected with the CFL region. To make the certificates affine we substitute
+    u_k = w_k/lam and multiply by a power of lam (both keep signs, as lam > 0); then each partial and
+    each atom is affine in (w_m1, w_0, w_p1, lam) for the three-point Burgers and advection fluxes.
+    Certificates: by form (`certify_nonneg`), an affine Farkas identity p = r + sum mu_j a_j with
+    mu_j, r >= 0, or Bernstein coefficients in lam. A cell whose atoms are contradictory (a Farkas
+    certificate that -1 >= 0 on it) is empty and skipped.
+
+    Why non-negative partials on every cell imply H is non-decreasing, boundaries included: H is
+    built from polynomials and |.|, so it is continuous and locally Lipschitz. Fix lam and two
+    arguments and let g(t) = H with the third argument t, on an interval of the box. The closed
+    cells cover it, and each meets the line in finitely many closed intervals and points (the cells
+    are semi-algebraic). Away from the finitely many endpoints, t is interior to some cell's piece,
+    where g' = dH_c/dt >= 0. g is Lipschitz, so g(b) - g(a) is the integral of g', which is >= 0: a
+    finite set of kinks has measure zero, and a one-sided derivative there is never needed.
+
+    REFUTED needs exact rational states s <= s', differing in one argument, both in the CFL region,
+    with H(s') < H(s) in Fraction arithmetic: a direct violation of the claim, not of a derivative."""
+    c = spec.get("claims", {}).get("monotone_cfl")
+    claim = (f"monotone: H(um1, u0, up1) is non-decreasing in each argument for lam > 0 and states with "
+             f"lam*|f'(u)| <= {c}")
+    if c is None:
+        return result("monotonicity", NOT_APPLICABLE, "monotonicity", "no CFL bound claimed (claims.monotone_cfl)")
+    assumptions = ["lam = dt/dx > 0", f"every state u in the stencil has lam*|f'(u)| <= {c}"]
+    try:
+        e = update(spec)
+        H = P.from_expr(e)
+        cfl = _monotone_cfl_atoms(spec, Fraction(c))
+        region = [_scaled(a)[0] for a in cfl] + [P.var("lam")]
+        cells = sign_cells(e)
+        rows, failed, probes = [], [], []
+        for Hc, atoms in cells:
+            reg = [_scaled(a)[0] for a in atoms] + region
+            row = {"cell": [_show_atom(a) for a in atoms], "H": P.show(Hc), "partials": {}}
+            bad = []
+            for x in STENCIL:
+                d = P.derivative(Hc, x)
+                s, k = _scaled(d)
+                cert = _certify_partial(s, reg)
+                row["partials"][x] = {f"dH/d{x}": P.show(d), f"lam^{k}*dH/d{x} in w": P.show(s),
+                                      "certificate": cert or "none found"}
+                if cert is None:
+                    bad.append(x)
+                    probes.append((s, reg, x))
+            if bad and (empty := certify_farkas(P.const(-1), reg)):
+                row["empty"], bad = empty, []
+            failed += [(len(rows), x) for x in bad]
+            rows.append(row)
+    except P.Undecided as ex:
+        return result("monotonicity", UNKNOWN, claim, str(ex), assumptions=assumptions)
+    wit = {"H": P.show(H), "region": [_show_atom(a) for a in cfl] + ["lam > 0"],
+           "scaling": "w_m1 = lam*um1, w_0 = lam*u0, w_p1 = lam*up1", "cells": rows}
+    if any(atoms for _, atoms in cells):
+        assumptions.append("|x| = sqrt(x^2) is split into the cases x >= 0 and x <= 0")
+    if not failed:
+        return result("monotonicity", VERIFIED, claim,
+                      f"every partial of H is >= 0 on each of {len(rows)} closed sign cells within the CFL region "
+                      "(certificates below); H is continuous, so it is non-decreasing", wit, assumptions)
+    hit = next((h for s, reg, x in probes if (h := _probe_cell(H, s, reg, cfl, x))), None) or _decrease(H, cfl)
+    if hit:
+        wit["counterexample"] = hit
+        return result("monotonicity", REFUTED, claim,
+                      f"H decreases from {hit['H before']} to {hit['H after']} when {hit['increased']} increases by "
+                      f"{hit['by']} at lam = {hit['lam']}, state {hit['state (um1, u0, up1)']}", wit, assumptions)
+    return result("monotonicity", UNKNOWN, claim,
+                  f"no certificate for {failed} and no decreasing pair of rational states found", wit, assumptions)
