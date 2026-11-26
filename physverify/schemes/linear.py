@@ -223,6 +223,19 @@ def _certify_box(g: list, nu: tuple, z: tuple) -> tuple[list | None, list]:
     return done, []
 
 
+def _strip(grid: list) -> tuple[list, str, P.Poly]:
+    """(q, 'factored' text, Q as a Poly) with grid = (1 - z)^a (1 + z)^b q; the factors are >= 0 on [-1, 1]."""
+    q, factors = grid, {"1 - z": 0, "1 + z": 0}
+    for name, root, sign in (("1 - z", 1, -1), ("1 + z", -1, 1)):    # 1 - z = -(z - 1), 1 + z = (z + 1)
+        while (d := _divide_z(q, root)) is not None:
+            q, factors[name] = [[sign * x for x in row] for row in d], factors[name] + 1
+    Q = {}
+    for j, row in enumerate(q):
+        for i, v in enumerate(row):
+            Q = P.add(Q, P.scale(P.mul(P.power(NU, i), P.power(Z, j)), v))
+    return q, (" * ".join(f"({f})^{k}" for f, k in factors.items() if k) + " * Q").lstrip(" *"), Q
+
+
 def von_neumann(spec: dict) -> dict:
     r = spec.get("claims", {}).get("von_neumann_cfl")
     if r is None:
@@ -244,16 +257,8 @@ def von_neumann(spec: dict) -> dict:
     grid = _grid(G)
     if grid is None:
         return result("von_neumann", UNKNOWN, claim, "1 - |g|^2 is not a polynomial in nu and z", wit, assumptions)
-    q, factors = grid, {"1 - z": 0, "1 + z": 0}
-    for name, root, sign in (("1 - z", 1, -1), ("1 + z", -1, 1)):    # 1 - z = -(z - 1), 1 + z = (z + 1)
-        while (d := _divide_z(q, root)) is not None:
-            q, factors[name] = [[sign * x for x in row] for row in d], factors[name] + 1
-    Q = {}
-    for j, row in enumerate(q):
-        for i, v in enumerate(row):
-            Q = P.add(Q, P.scale(P.mul(P.power(NU, i), P.power(Z, j)), v))
-    wit["factored"] = (" * ".join(f"({f})^{k}" for f, k in factors.items() if k) + " * Q").lstrip(" *")
-    wit["Q"] = P.show(Q)
+    q, factored, Q = _strip(grid)
+    wit["factored"], wit["Q"] = factored, P.show(Q)
     boxes, failing = _certify_box(q, (lo, hi), (Fraction(-1), Fraction(1)))
     if boxes is not None:
         wit["certificate"] = {"boxes": boxes, "rule": "every tensor Bernstein coefficient of Q on each box is >= 0, "
@@ -274,6 +279,98 @@ def von_neumann(spec: dict) -> dict:
     return result("von_neumann", UNKNOWN, claim,
                   f"no Bernstein certificate within {MAX_BOXES} boxes and no rational point with |g|^2 > 1 found",
                   wit, assumptions)
+
+
+# ---------------------------------------------------------------- stability for all small CFL numbers
+
+SMALL_NU = [Fraction(1, 2 ** k) for k in range(11)]            # 1, 1/2, ..., 2^-10
+Z_TRIES = list(dict.fromkeys([Fraction(0), Fraction(1, 2), Fraction(-1, 2), Fraction(1), Fraction(-1)]
+                             + [Fraction(t, 256) for t in range(-256, 257)]))
+
+
+def von_neumann_small_cfl(spec: dict) -> dict:
+    """Stability for every small enough CFL number: is there nu0 > 0 with 1 - |g|^2 >= 0 for every theta
+    and every nu in (0, nu0]? Here s = |nu| = |a|*dt/dx with dt > 0, so for a < 0 the check works with
+    nu = -s; below, nu means s.
+
+    Refute. Write G(nu, z) = 1 - |g|^2 = sum_k q_k(z) nu^k (z = cos theta) and take the lowest k with
+    q_k not identically 0. If q_k(z0) < 0 at an exact rational z0 in [-1, 1], let c = -q_k(z0) and
+    M = max_{j > k} |q_j(z0)|, and nu1 = c/(c + 2M) (nu1 = 1 if M = 0). For 0 < nu <= nu1 < 1,
+    sum_{j > k} |q_j(z0)| nu^(j-k) <= M nu/(1 - nu) <= M nu1/(1 - nu1) = c/2, so
+    G(nu, z0) <= nu^k (-c + c/2) < 0. Every nu0 > 0 has some nu in (0, min(nu0, nu1)], so no nu0 works:
+    REFUTED, with the witness (k, q_k, z0, q_k(z0), nu1) and exact spot values of G at rational nu in
+    (0, nu1], so it can be checked without asymptotics. G is continuous, so G < 0 on an open set of
+    theta around arccos(z0); on a periodic grid the Fourier modes are eigenvectors of the update, so
+    once N is large enough for a grid mode 2 pi j/N to land there, that mode grows like |g|^n in every
+    norm, the max norm included. So this also refutes max-norm stability.
+
+    Verify. The von Neumann Bernstein certificate on [0, nu1] x [-1, 1] for nu1 = 1, 1/2, ..., 2^-10;
+    the first that succeeds gives nu0 = nu1: VERIFIED, with the certificate as witness.
+
+    Neither: UNKNOWN. In particular q_k >= 0 on [-1, 1] does not settle the claim when q_k has zeros
+    in z, where higher terms decide, so the check does not read anything into it."""
+    claim = ("stable for small CFL numbers: there is nu0 > 0 with |g(theta)| <= 1 for every theta and every "
+             "nu = a*dt/dx, dt > 0, with 0 < |nu| <= nu0")
+    got, bad = coefficients(spec, "von_neumann_small_cfl", claim)
+    if bad:
+        return bad
+    a, c = got
+    G = P.add(P.const(1), amplification_squared(c), -1)
+    sign = 1 if a > 0 else -1
+    Gs = P.subst(G, {"nu": P.scale(NU, sign)})                     # in s = |nu| >= 0
+    wit = {"nu": f"{a}*lam (a = {a})", "coefficients": _show_coefficients(c), "z": "cos(theta)",
+           "1 - |g|^2": P.show(G)}
+    if sign < 0:
+        wit["s = |nu| = -nu"] = "a < 0, so dt > 0 means nu < 0; below, nu stands for s and G(s, z) = 1 - |g|^2 at nu = -s"
+        wit["G(s, z)"] = P.show(Gs)
+    assumptions = ["periodic grid, constant coefficients: Fourier modes decouple, so |g| <= 1 is l2 stability",
+                   "g depends on theta and nu only (not on dt), so the claim is about nu alone"]
+    grid = _grid(Gs)
+    if grid is None:
+        return result("von_neumann_small_cfl", UNKNOWN, claim, "1 - |g|^2 is not a polynomial in nu and z", wit, assumptions)
+    cols = [[row[i] for row in grid] for i in range(len(grid[0]))]     # cols[k][j]: coefficient of nu^k z^j
+    at = lambda col, z: sum((v * z ** j for j, v in enumerate(col)), Fraction(0))
+    def show_z(col):
+        out = {}
+        for j, v in enumerate(col):
+            out = P.add(out, P.scale(P.power(Z, j), v))
+        return P.show(out)
+    k = next((i for i, col in enumerate(cols) if any(col)), None)
+    if k is not None:
+        z0 = next((z for z in Z_TRIES if at(cols[k], z) < 0), None)
+        if z0 is not None:
+            cneg = -at(cols[k], z0)
+            M = max((abs(at(col, z0)) for col in cols[k + 1:]), default=Fraction(0))
+            nu1 = Fraction(1) if M == 0 else cneg / (cneg + 2 * M)
+            spots = {str(n): str(_value(grid, n, z0)) for n in (nu1, nu1 / 2, nu1 / 10)}
+            if any(Fraction(v) >= 0 for v in spots.values()):           # the bound above says this cannot happen
+                return result("von_neumann_small_cfl", UNKNOWN, claim, f"bound check failed at z0 = {z0}: {spots}",
+                              wit, assumptions)
+            wit["refutation"] = {"k (lowest power of nu)": k, "q_k(z)": show_z(cols[k]), "z0 = cos(theta)": str(z0),
+                                 "q_k(z0)": str(-cneg), "M = max_{j>k} |q_j(z0)|": str(M), "nu1": str(nu1),
+                                 "bound": "G(nu, z0) <= -|q_k(z0)| nu^k / 2 < 0 for 0 < nu <= nu1",
+                                 "G(nu, z0) at nu": spots}
+            return result("von_neumann_small_cfl", REFUTED, claim,
+                          f"G = 1 - |g|^2 has lowest term ({show_z(cols[k])})*nu^{k}, which is {-cneg} < 0 at "
+                          f"cos(theta) = {z0}; so |g|^2 > 1 there for every nu in (0, {nu1}], and no nu0 works",
+                          wit, assumptions + ["|g| > 1 on an open theta-set gives growth in every norm on a fine "
+                                              "enough periodic grid, so max-norm stability is refuted too"])
+    q, factored, Q = _strip(grid)
+    wit["factored"], wit["Q"] = factored, P.show(Q)
+    for nu1 in SMALL_NU:
+        boxes, _ = _certify_box(q, (Fraction(0), nu1), (Fraction(-1), Fraction(1)))
+        if boxes is not None:
+            wit["nu0"] = str(nu1)
+            wit["certificate"] = {"boxes": boxes, "rule": "every tensor Bernstein coefficient of Q on each box is >= 0, "
+                                  f"and the boxes cover [0, {nu1}] x [-1, 1]; the stripped factors are >= 0 for z in [-1, 1]"}
+            return result("von_neumann_small_cfl", VERIFIED, claim,
+                          f"nu0 = {nu1}: 1 - |g|^2 = {factored} with Q >= 0 certified on [0, {nu1}] x [-1, 1] "
+                          f"({len(boxes)} box(es))", wit, assumptions)
+    if k is not None:
+        wit["lowest term"] = {"k": k, "q_k(z)": show_z(cols[k])}
+    return result("von_neumann_small_cfl", UNKNOWN, claim,
+                  f"no rational z with q_k(z) < 0 and no Bernstein certificate on [0, nu1] for nu1 down to "
+                  f"{SMALL_NU[-1]}", wit, assumptions)
 
 
 # ---------------------------------------------------------------- scope of Lax-Richtmyer
