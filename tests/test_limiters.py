@@ -249,6 +249,18 @@ def test_harten_certificates_replay():
     assert n >= 36
 
 
+def test_local_maximum_principle(reports):
+    """Minmod: VERIFIED through the Harten certificate (a convex combination of u_{i-1} and u_i).
+    Lax-Wendroff in flux form: REFUTED by a state replayed here with the textbook formula."""
+    assert verdicts(reports["advection-minmod"])["local_max_principle_under_cfl"] == C.VERIFIED
+    assert verdicts(reports["broken-advection-lw-flux-form-tvd"])["local_max_principle_under_cfl"] == C.REFUTED
+    w = raw(reports["broken-advection-lw-flux-form-tvd"], "max_principle_violation")["witness"]
+    u, nu, i = [Fr(x) for x in w["periodic state u^n"]], Fr(w["nu"]), w["i"]
+    v = sweby_step(u, nu, lambda r: Fr(1))
+    st = [u[(i + k) % len(u)] for k in (-1, 0, 1)]                 # Lax-Wendroff's stencil
+    assert v[i] == Fr(w["u_i^{n+1}"]) and not min(st) <= v[i] <= max(st)
+
+
 def test_superbee_wide_cfl_is_tvd_up_to_one_and_not_beyond():
     """The exact checks agree with the literature range: Harten certifies [0, 1], a TV increase exists
     just above 1 (nu = 9/8, inside the broken claim's range)."""

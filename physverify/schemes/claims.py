@@ -39,6 +39,7 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "von_neumann_small_cfl": EXACT, "hyperbolicity": EXACT,
              "depth_positivity": EMPIRICAL, "riemann_l1": EMPIRICAL,
              "tvd_harten": EXACT, "tv_increase": EXACT, "truncation_branches": EXACT, "truncation_smooth_data": EXACT,
+             "max_principle_violation": EXACT,
              "order_l1/combined": EMPIRICAL, "order_linf/combined": EMPIRICAL}
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
@@ -77,6 +78,8 @@ _LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable 
 _HARTEN = ("Harten's lemma (1983): an update u_i - C_{i-1/2} Delta_{i-1/2} + D_{i+1/2} Delta_{i+1/2} with C, D >= 0 "
            "and C_{i+1/2} + D_{i+1/2} <= 1 for every state is TVD; here with the upwind split (D = 0 for a > 0), "
            "certified on sign cells that cover the state space. The form is not unique, so a failure says nothing")
+_HARTEN_MP = ("the Harten certificate (upwind split) shows u_i^{n+1} = (1 - C) u_i + C u_{i-1} (or (1 - D) u_i + D u_{i+1}) "
+              "with C, D in [0, 1] for every state: a convex combination of two stencil values")
 _TV_INCREASE = "one explicit periodic rational state whose total variation grows in one step at a nu in the claimed range"
 _BRANCHES = ("on each sign cell (the cells cover the state space) the update is a linear scheme; if each has "
              "truncation order >= p, every stencil sampled from smooth data lies in a cell whose linear scheme has "
@@ -133,6 +136,11 @@ CLAIMS = {
                       "state and every nu = a*dt/dx in the claimed range",
                       (("tvd_harten", SUFFICIENT, _HARTEN),
                        ("tv_increase", NECESSARY, _TV_INCREASE))),
+    "local_max_principle_under_cfl": ("local maximum principle: u_i^{n+1} lies between the smallest and largest "
+                                      "values of its stencil, for every state and every nu = a*dt/dx in the claimed range",
+                                      (("tvd_harten", SUFFICIENT, _HARTEN_MP),
+                                       ("max_principle_violation", NECESSARY, "one explicit periodic rational state "
+                                        "and a nu in the claimed range with u_i^{n+1} outside its stencil's range"))),
     "truncation_order_smooth_data": ("pointwise local truncation order p: the local truncation error is O(dx^p) at "
                                      "fixed dt/dx at every grid point of every smooth solution, extrema included "
                                      "(a statement about the truncation error, not the global error)",

@@ -13,6 +13,7 @@
   "consistent",
   "conservative",
   "tvd_under_cfl",
+  "local_max_principle_under_cfl",
   "converges_order_p_l1"
  ],
  "claims": {

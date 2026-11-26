@@ -665,6 +665,46 @@ def tv_increase(spec: dict) -> dict:
                   f"no TV increase among {tried} (state, nu) pairs; a failed search proves nothing")
 
 
+def max_principle_violation(spec: dict) -> dict:
+    """An exact refutation of the local maximum principle min_k u_{i+k} <= u_i^{n+1} <= max_k u_{i+k}
+    (k over the scheme's stencil, -2..2 at most): a periodic rational state and a nu in the claimed
+    range (claims.tvd_cfl) with some u_i^{n+1} outside its stencil's range. The verifying side is
+    `tvd_harten`: its certificate gives u_i^{n+1} = (1 - C) u_i + C u_{i-1} (or (1 - D) u_i + D u_{i+1})
+    with C, D in [0, 1], a convex combination of two stencil values. A failed search proves nothing."""
+    r = _tvd_range(spec)
+    claim = (f"local maximum principle: u_i^{{n+1}} lies between the smallest and largest of u_{{i-2}}..u_{{i+2}} "
+             f"for every state and every nu = a*dt/dx in [{r[0]}, {r[1]}]") if r else "local maximum principle"
+    if r is None:
+        return result("max_principle_violation", NOT_APPLICABLE, claim, "no CFL range claimed (claims.tvd_cfl)")
+    lo, hi = r
+    try:
+        a = _advection(spec)
+        H = checks.update(spec)
+        ks = [checks.OFFSET5[x] for x in checks.STENCIL5 if x in P.variables(P.from_expr(H))]
+        H = intern(H)
+        flux = checks.numerical_flux(spec)
+        flux = None if flux is None else intern(flux)
+    except (checks.NonlinearFlux, P.Undecided) as ex:
+        return result("max_principle_violation", UNKNOWN, claim, str(ex))
+    nus = [x for x in dict.fromkeys([lo + (hi - lo) * Fraction(t, 8) for t in (4, 8, 6, 2, 7, 1, 5, 3)]) if x / a > 0]
+    for data in _candidates():
+        u = [Fraction(x) for x in data]
+        for nu in nus:
+            v = _step(H, u, nu / a, flux)
+            if v is None:
+                continue
+            n = len(u)
+            for i in range(n):
+                st = [u[(i + k) % n] for k in range(min(ks), max(ks) + 1)]
+                if not min(st) <= v[i] <= max(st):
+                    wit = {"periodic state u^n": [str(x) for x in u], "nu": str(nu), "lam": str(nu / a), "i": i,
+                           "u_i^{n+1}": str(v[i]), "stencil values": [str(x) for x in st]}
+                    return result("max_principle_violation", REFUTED, claim,
+                                  f"u_{i}^{{n+1}} = {v[i]} is outside [{min(st)}, {max(st)}], the range of its stencil, "
+                                  f"at nu = {nu} on the periodic state {[str(x) for x in u]}", wit, ["periodic grid"])
+    return result("max_principle_violation", UNKNOWN, claim, "no violation found; a failed search proves nothing")
+
+
 # ---------------------------------------------------------------- truncation order per branch
 
 def _linear_on_cell(p: P.Poly, a: Fraction) -> dict | None:
