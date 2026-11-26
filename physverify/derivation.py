@@ -12,6 +12,7 @@ Claim JSON:
   "symbols": {"r": {"dim": "L"}, "th": {"dim": "1"}, "m": {"dim": "M"}, ...},
   "lagrangian": "m/2*(r_dot^2 + r^2*th_dot^2) + G*M*m/r",
   "domain": ["r > 0", "m > 0"],                     # atoms `a > b`, `a < b`, `a != b`
+                                                    # a, b continuous, no accelerations
   "eom": [{"lhs": "r_ddot", "rhs": "r*th_dot^2 - G*M/r^2"}, ...]   # one per coordinate
 }
 
@@ -26,6 +27,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from fractions import Fraction
 from pathlib import Path
 
 from . import units
@@ -99,11 +101,89 @@ def load_claim(spec: dict | str | Path) -> Claim:
         used |= variables(l) | variables(r)
     if used - set(c.dims):
         raise Malformed(f"claim {c.name!r}: undeclared symbols {sorted(used - set(c.dims))}")
-    if variables(c.lagrangian) & {f"{q}_ddot" for q in coords}:
+    accel = {f"{q}_ddot" for q in coords}
+    if variables(c.lagrangian) & accel:
         raise Malformed(f"claim {c.name!r}: the Lagrangian may not depend on accelerations")
+    for op, a, b in c.domain:
+        # the domain may only constrain (q, qdot, parameters): `verified_meaning` needs the
+        # jet of a trajectory to stay in D near t, and q'' need not be continuous
+        if (variables(a) | variables(b)) & accel:
+            raise Malformed(f"claim {c.name!r}: domain atoms may not mention accelerations")
+        # strict inequalities of continuous expressions, so D is open
+        bad = _discontinuous(a) or _discontinuous(b)
+        if bad:
+            raise Malformed(f"claim {c.name!r}: domain atoms must be continuous everywhere "
+                            f"(polynomials, sin, cos, exp); found {bad}")
     if len(c.eom) != c.n:
         raise Malformed(f"claim {c.name!r}: {len(c.eom)} equations for {c.n} coordinates")
     return c
+
+
+def _discontinuous(e: E) -> str:
+    """The first node that makes `Expr.eval` discontinuous somewhere, or ''."""
+    if e.kind == "div" and e.args[1].kind == "lit" and e.args[1].q != 0:
+        return _discontinuous(e.args[0])                  # division by a non-zero constant
+    if e.kind in ("div", "sqrt", "rpow") or (e.kind == "powi" and e.q < 0) or \
+            (e.kind == "app" and e.name == "log"):
+        return e.kind if e.kind != "app" else "log"
+    return next((d for d in map(_discontinuous, e.args) if d), "")
+
+
+# ---------------------------------------------------------------- domain witness
+
+def _qeval(e: E, env: dict[str, Fraction]) -> Fraction | None:
+    """Exact value of a domain expression (continuous nodes only), None if irrational."""
+    k, a = e.kind, e.args
+    if k == "var": return env[e.name]
+    if k == "lit": return Fraction(e.q)
+    xs = [_qeval(x, env) for x in a]
+    if k == "pi" or None in xs: return None
+    if k == "neg": return -xs[0]
+    if k == "add": return xs[0] + xs[1]
+    if k == "sub": return xs[0] - xs[1]
+    if k == "mul": return xs[0] * xs[1]
+    if k == "div" and xs[1] != 0: return xs[0] / xs[1]
+    if k == "powi" and e.q >= 0: return xs[0] ** int(e.q)
+    if k == "app" and xs[0] == 0: return {"sin": Fraction(0), "cos": Fraction(1), "exp": Fraction(1)}.get(e.name)
+    return None
+
+
+_WITNESS_VALUES = [Fraction(v) for v in ("1", "2", "1/2", "-1", "3", "-2", "-1/2", "1/4", "0", "5", "-3", "1/10")]
+
+
+def find_witness(c: Claim, tries: int = 4000, seed: int = 0) -> dict[str, Fraction] | None:
+    """A rational point of the domain, every atom checked exactly (the kernel re-checks it)."""
+    import random
+    rng = random.Random(seed)
+    names = sorted(set(c.index()))
+    for t in range(tries):
+        env = {s: (Fraction(1) if t == 0 else rng.choice(_WITNESS_VALUES)) for s in names}
+        ok = True
+        for op, a, b in c.domain:
+            x, y = _qeval(a, env), _qeval(b, env)
+            if x is None or y is None or not {">": x > y, "<": x < y, "!=": x != y}[op]:
+                ok = False
+                break
+        if ok:
+            return env
+    return None
+
+
+def lean_point(c: Claim, env: dict[str, Fraction]) -> str:
+    idx = c.index()
+    items = []
+    for s in sorted(idx, key=idx.get):
+        q = Fraction(env.get(s, 0))
+        items.append(f"({q.numerator} : ℝ)" if q.denominator == 1
+                     else f"(({q.numerator} : ℝ) / {q.denominator})")
+    return "(fun j : ℕ => [" + ", ".join(items) + "].getD j 0)"
+
+
+def witness_proof(c: Claim, env: dict[str, Fraction]) -> str:
+    """Judge-written start of every `verified` proof: the domain is not empty. The planner's
+    tactic then proves the `∀ env, D env → …` part."""
+    return (f"refine ⟨by decide, by decide, ⟨{lean_point(c, env)}, ?_⟩, ?_⟩\n"
+            "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
 
 
 # ---------------------------------------------------------------- Lean statements
@@ -153,7 +233,8 @@ def statement(kind: str, c: Claim) -> str:
 MEANING = {
     VERIFIED: ("PhysVerify.verified_meaning: for every trajectory twice differentiable at t "
                "whose jet stays in the domain near t, the real Euler–Lagrange equations hold "
-               "at t iff the claimed equations hold at t"),
+               "at t iff the claimed equations hold at t; the domain is non-empty and has no "
+               "junk sqrt/log/rpow values (verified_nonempty)"),
     REFUTED: ("PhysVerify.refuted_meaning: on the quadratic trajectory through the "
               "counterexample jet, at t = 0, the real Euler–Lagrange equations and the claimed "
               "equations disagree"),
@@ -177,6 +258,8 @@ def judge(c: Claim, candidates: list[tuple[str, str]], check=None) -> Result:
     """Candidates are (kind, tactic) pairs from the untrusted planner; kind ∈ verified/refuted.
 
     A verdict other than UNKNOWN needs the Lean kernel to accept the judge's own statement.
+    A `verified` tactic proves only `∀ env, D env → …`: the judge first needs its own
+    rational point of D, and proves `∃ env, D env` with it.
     """
     import time
 
@@ -185,7 +268,14 @@ def judge(c: Claim, candidates: list[tuple[str, str]], check=None) -> Result:
     ok, why = dims_ok(c)
     res = Result(c.name, UNKNOWN, "ok" if ok else f"mismatch: {why}")
     t0 = time.monotonic()
+    witness = find_witness(c)
     for kind, proof in candidates:
+        if kind == "verified":
+            if witness is None:  # an empty domain would make any claim VERIFIED
+                res.attempts.append("verified: no witness point in the domain")
+                res.detail = "no rational point found in the domain; not attempting VERIFIED"
+                continue
+            proof = witness_proof(c, witness) + proof
         r = check(statement(kind, c), proof, module="PhysVerify.EulerLagrange")
         res.attempts.append(f"{kind}: {'ok' if r.ok else 'failed'}")
         if r.ok:

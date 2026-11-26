@@ -120,12 +120,23 @@ def qeval(e: E, env: dict[str, Fraction]) -> Fraction | None:
     return None
 
 
+def phys_ok(e: E, env: dict) -> bool:
+    """Mirror of Lean's `Expr.physOK`: no junk sqrt/log/rpow values."""
+    if not all(phys_ok(a, env) for a in e.args):
+        return False
+    if e.kind == "sqrt" or e.kind == "app" and e.name == "log" or \
+            e.kind == "rpow" and Fraction(e.q).denominator != 1:
+        return neval(e.args[0], env) > 0
+    return True
+
+
 def in_domain(c: Claim, env: dict) -> bool:
     for op, a, b in c.domain:
         x, y = neval(a, env), neval(b, env)
         if not {">": x > y, "<": x < y, "!=": x != y}[op]:
             return False
-    return True
+    # points with junk values are no use: Verified and Refuted both require PhysOK
+    return all(phys_ok(e, env) for e in [c.lagrangian, *(x for eq in c.eom for x in eq)])
 
 
 def _points(c: Claim, rng: random.Random, count: int):
@@ -152,6 +163,9 @@ def _points(c: Claim, rng: random.Random, count: int):
 
 UNFOLD = ("EL, dt, timeDir, Expr.deriv, Expr.dir, Expr.basis, Expr.eval, Fn.eval, "
           "Expr.diffOK, Claims, Law.Holds")
+# PhysOK (no junk sqrt/log/rpow values): unfold, leaving `0 < arg` goals
+PHYS = ("simp [PhysOK, Expr.physOK, Expr.eval, Fn.eval, List.mem_cons, List.not_mem_nil, "
+        "forall_eq_or_imp]")
 NONZERO = "mul_eq_zero, div_eq_zero_iff, pow_eq_zero_iff, zpow_eq_zero_iff, not_or, ne_eq"
 # det ≠ 0 when it is not a plain product: clear denominators, then sum-of-positive-terms
 DET_CLOSE = ("first | (norm_num) | (field_simp; nlinarith [Real.sin_sq_add_cos_sq (env 0 - env 1), "
@@ -330,12 +344,15 @@ def verified_tactic(c: Claim, C: list[list[E]]) -> str:
                        f"exact mul_ne_zero (by simp [{NONZERO}{facts}]) hFn{i})")
             break
     have_block = ("\n" + "\n".join(hyps)) if hyps else ""
-    return f"""refine ⟨by decide, by decide, ?_⟩
-{intro}{have_block}
-refine ⟨⟨?_, ?_⟩, ?_⟩
+    # the domain facts themselves (`0 < env i`), so `0 < x` and `q.den = 1 ∨ 0 < x` close
+    hyps_simp = "".join(f", hd{i}" for i in range(len(c.domain)))
+    # the judge has already proved `dimsOK`, `NoAccel` and `∃ env, D env`
+    return f"""{intro}{have_block}
+refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
 · simp [{UNFOLD}{facts}] <;> norm_num [{NONZERO}{facts}]
 · intro k hk
   interval_cases k <;> simp [{UNFOLD}{facts}] <;> norm_num [{NONZERO}{facts}]
+· {PHYS[:-1]}{hyps_simp}] <;> first | assumption | positivity | linarith | (apply div_pos <;> assumption)
 · refine ELSystem_iff_of_cert rfl !![{rows}] ?_ ?_
   · first
      | (simp [{det}, Expr.eval, Fn.eval, {NONZERO}{facts}] <;> ({DET_CLOSE}) <;> done){det_alt}
@@ -344,18 +361,19 @@ refine ⟨⟨?_, ?_⟩, ?_⟩
 
 
 def refuted_tactic_rational(c: Claim, env: dict) -> str:
-    return f"""refine ⟨by decide, {_env_lean(c, env)}, ?_, ?_, ?_⟩
+    return f"""refine ⟨by decide, {_env_lean(c, env)}, ?_, ?_, ?_, ?_⟩
 {_POINT_DOMAIN}
 · intro h
   have hc := h.1 (by intro k hk; interval_cases k <;> simp [{UNFOLD}] <;> norm_num)
   simp [{UNFOLD}] at hc <;> norm_num at hc"""
 
 
-# D and DomainOK at a concrete point
+# D, DomainOK and PhysOK at a concrete point
 _POINT_DOMAIN = f"""· simp [Expr.eval] <;> norm_num
 · refine ⟨?_, ?_⟩
   · simp [{UNFOLD}] <;> norm_num [{NONZERO}]
-  · intro k hk; interval_cases k <;> simp [{UNFOLD}] <;> norm_num [{NONZERO}]"""
+  · intro k hk; interval_cases k <;> simp [{UNFOLD}] <;> norm_num [{NONZERO}]
+· {PHYS} <;> norm_num"""
 
 
 def refuted_tactic_claims(c: Claim, env: dict, k: int, hints: list[str]) -> str:
@@ -366,7 +384,7 @@ def refuted_tactic_claims(c: Claim, env: dict, k: int, hints: list[str]) -> str:
             for q, (l, r) in zip(c.coords, c.eom)}
     hint = "\n".join(f"  have hb{i} := {h}" for i, h in enumerate(hints))
     names = " ".join(f"hb{i}" for i in range(len(hints)))
-    return f"""refine ⟨by decide, {_env_lean(c, env, over)}, ?_, ?_, ?_⟩
+    return f"""refine ⟨by decide, {_env_lean(c, env, over)}, ?_, ?_, ?_, ?_⟩
 {_POINT_DOMAIN}
 · intro h
   have hk := h.2 (by simp [{UNFOLD}]) {k} (by norm_num)

@@ -1,8 +1,9 @@
 """Usage: python -m physverify.claims DIR_OR_FILES... [--json]
 
 Checks derivation claims (see `physverify/derivation.py`), prints a verdict table and
-exits 1 if any verdict is wrong: VERIFIED for a claim labelled false, or REFUTED for a
-claim labelled true. A verdict that differs from `expect` but is still sound (for example
+exits 1 if any verdict is wrong: VERIFIED for a claim labelled false, REFUTED for a
+claim labelled true, or anything but UNKNOWN for a claim labelled ill-posed (`"true": null`,
+e.g. an empty domain or one where a sqrt argument is negative). A verdict that differs from `expect` but is still sound (for example
 UNKNOWN where VERIFIED was hoped for) is flagged but is not a failure.
 """
 
@@ -18,7 +19,10 @@ from .theory import Malformed
 from .tools import eulerlagrange
 
 
-def wrong(verdict: str, true: bool) -> bool:
+def wrong(verdict: str, true: bool | None) -> bool:
+    """`true` is None for an ill-posed claim (empty domain, junk values): only UNKNOWN is right."""
+    if true is None:
+        return verdict != UNKNOWN
     return (verdict == VERIFIED and not true) or (verdict == REFUTED and true)
 
 
@@ -54,7 +58,7 @@ def main(argv: list[str]) -> int:
         for f, e, r, t, w in rows:
             note = "WRONG" if w else ("" if r.verdict == e else "differs from expected (sound)")
             dims = "ok" if r.dims == "ok" else "mismatch"
-            print(f"| {f:38s} | {str(t).lower():5s} | {e:8s} | {r.verdict:8s} | {dims:8s} | "
+            print(f"| {f:38s} | {'ill' if t is None else str(t).lower():5s} | {e:8s} | {r.verdict:8s} | {dims:8s} | "
                   f"{r.seconds:5.0f}s | {note}")
         n = len(rows)
         counts = {v: sum(r.verdict == v for _, _, r, _, _ in rows) for v in (VERIFIED, REFUTED, UNKNOWN)}

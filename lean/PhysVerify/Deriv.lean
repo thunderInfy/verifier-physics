@@ -18,6 +18,9 @@ denominator, `log` argument and `sqrt` argument is non-zero, and every negative 
 (`powi` with `n < 0`, `rpow` with `q < 1`) has a non-zero base. It is a `Prop` built
 structurally from `e`, so it always appears as an explicit hypothesis.
 
+`Expr.physOK env e` is the stronger condition that `e` takes no junk value: `sqrt` and
+`log` arguments, and bases of non-integer powers, are positive.
+
 Main results:
 
 * `Expr.hasDerivAt_dir` (chain rule): along any curve `γ` whose coordinates have the
@@ -68,6 +71,21 @@ def diffOK (env : ℕ → ℝ) : Expr → Prop
   | .rpow a q => a.diffOK env ∧ (1 ≤ q ∨ a.eval env ≠ 0)
   | .app .log a => a.diffOK env ∧ a.eval env ≠ 0
   | .app _ a => a.diffOK env
+
+/-- No junk values: every `sqrt` and `log` argument is positive, and so is the base of
+every power with a non-integer exponent. Lean totalises these functions
+(`Real.sqrt x = 0` and `Real.log x = Real.log |x|` for `x < 0`, and `x ^ q` for `x < 0` is
+`|x| ^ q · cos (q π)`), so without this condition an identity can hold in Lean only
+because of values that are not the real ones. Integer exponents are `powi`, or `rpow`
+with `q.den = 1`, where `Real.rpow` agrees with `zpow` for every base. -/
+def physOK (env : ℕ → ℝ) : Expr → Prop
+  | .var _ | .lit _ | .pi => True
+  | .neg a | .powi a _ => a.physOK env
+  | .add a b | .sub a b | .mul a b | .div a b => a.physOK env ∧ b.physOK env
+  | .sqrt a => a.physOK env ∧ 0 < a.eval env
+  | .rpow a q => a.physOK env ∧ (q.den = 1 ∨ 0 < a.eval env)
+  | .app .log a => a.physOK env ∧ 0 < a.eval env
+  | .app _ a => a.physOK env
 
 /-- Unit velocity in coordinate `i`. -/
 def basis (i : ℕ) : ℕ → Expr := fun j => if j = i then .lit 1 else .lit 0

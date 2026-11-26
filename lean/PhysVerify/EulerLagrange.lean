@@ -36,6 +36,8 @@ Main results:
 * `verified_meaning`: a `VERIFIED` certificate (pointwise equivalence of the EL system and
   the claimed equations on a domain `D`) implies that every such trajectory staying in `D`
   satisfies the real EL equations at `t` iff it satisfies the claimed equations at `t`.
+* `verified_nonempty`: the certificate also proves that `D` has a point, and that on `D`
+  no `sqrt`, `log` or non-integer power takes a junk value (`PhysOK`).
 * `refuted_meaning`: a `REFUTED` certificate (a domain point where the two disagree) yields
   an explicit smooth (quadratic) trajectory on which, at `t = 0`, the real EL equations and
   the claimed equations disagree.
@@ -167,13 +169,27 @@ consistent (checked by `decide` in every `VERIFIED` certificate). -/
 def dimsOK (ctx : List Dim) (L : Expr) (cs : List Law) : Bool :=
   (L.dimOf ctx).isSome && cs.all (Law.dimOK ctx)
 
-/-- What a `VERIFIED` certificate proves (the judge writes this with concrete `n L D cs`). -/
+/-- No junk values (`Expr.physOK`) in the Lagrangian or in either side of a claimed
+equation. -/
+def PhysOK (L : Expr) (cs : List Law) (env : ℕ → ℝ) : Prop :=
+  L.physOK env ∧ ∀ c ∈ cs, c.lhs.physOK env ∧ c.rhs.physOK env
+
+/-- What a `VERIFIED` certificate proves (the judge writes this with concrete `n L D cs`).
+The first conjunct rules out a vacuous certificate on an empty domain. -/
 def Verified (n : ℕ) (L : Expr) (D : (ℕ → ℝ) → Prop) (cs : List Law) : Prop :=
-  ∀ env, D env → DomainOK n L env ∧ (ELSystem n L env ↔ Claims cs env)
+  (∃ env, D env) ∧
+    ∀ env, D env → DomainOK n L env ∧ PhysOK L cs env ∧ (ELSystem n L env ↔ Claims cs env)
 
 /-- What a `REFUTED` certificate proves. -/
 def Refuted (n : ℕ) (L : Expr) (D : (ℕ → ℝ) → Prop) (cs : List Law) : Prop :=
-  ∃ env, D env ∧ DomainOK n L env ∧ ¬(ELSystem n L env ↔ Claims cs env)
+  ∃ env, D env ∧ DomainOK n L env ∧ PhysOK L cs env ∧ ¬(ELSystem n L env ↔ Claims cs env)
+
+/-- A `VERIFIED` certificate is never vacuous: its domain has a point, where the
+Lagrangian and the claimed equations take no junk values. -/
+theorem verified_nonempty {n : ℕ} {L : Expr} {D : (ℕ → ℝ) → Prop} {cs : List Law}
+    (hcert : Verified n L D cs) : ∃ env, D env ∧ PhysOK L cs env :=
+  let ⟨env, h⟩ := hcert.1
+  ⟨env, h, (hcert.2 env h).2.1⟩
 
 theorem verified_meaning {n : ℕ} {L : Expr} {D : (ℕ → ℝ) → Prop} {cs : List Law}
     (hcert : Verified n L D cs) (hacc : NoAccel n L)
@@ -182,8 +198,9 @@ theorem verified_meaning {n : ℕ} {L : Expr} {D : (ℕ → ℝ) → Prop} {cs :
     (hq2 : ∀ j < n, DifferentiableAt ℝ (_root_.deriv (q j)) t)
     (hD : ∀ᶠ s in 𝓝 t, D (trajEnv n q p s)) :
     (∀ k < n, realEL n k L q p t = 0) ↔ Claims cs (trajEnv n q p t) := by
-  have hL : ∀ᶠ s in 𝓝 t, L.diffOK (trajEnv n q p s) := hD.mono fun s hs => (hcert _ hs).1.1
-  obtain ⟨⟨_, hP⟩, hiff⟩ := hcert _ hD.self_of_nhds
+  have hL : ∀ᶠ s in 𝓝 t, L.diffOK (trajEnv n q p s) :=
+    hD.mono fun s hs => (hcert.2 _ hs).1.1
+  obtain ⟨⟨_, hP⟩, _, hiff⟩ := hcert.2 _ hD.self_of_nhds
   rw [← hiff]
   refine forall_congr' fun k => forall_congr' fun hk => ?_
   rw [EL_bridge hk L hacc q p t hq1 hq2 hL (hP k hk)]
@@ -235,7 +252,7 @@ theorem refuted_meaning {n : ℕ} {L : Expr} {D : (ℕ → ℝ) → Prop} {cs : 
     ∃ env, D env ∧
       ¬((∀ k < n, realEL n k L (jetTraj n env) env 0 = 0) ↔
         Claims cs (trajEnv n (jetTraj n env) env 0)) := by
-  obtain ⟨env, hD, ⟨hL0, hP⟩, hne⟩ := hcert
+  obtain ⟨env, hD, ⟨hL0, hP⟩, _, hne⟩ := hcert
   refine ⟨env, hD, ?_⟩
   have hL : ∀ᶠ s in 𝓝 (0 : ℝ), L.diffOK (trajEnv n (jetTraj n env) env s) :=
     (continuousAt_eval (fun j s => trajEnv n (jetTraj n env) env s j) 0 L
