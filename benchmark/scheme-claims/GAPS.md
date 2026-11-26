@@ -1,32 +1,36 @@
 # Paper-style scheme claims: what the verifier can and cannot decide
 
 `claims.json` holds 20 sentences about 1D linear-advection and Burgers schemes, written the way
-papers and models write them. They are split into 33 readings, each formalized into the named
+papers and models write them. They are split into 34 readings, each formalized into the named
 claims of `physverify/schemes/claims.py` or marked unformalized. Run:
 
 ```
 uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 15 s
 ```
 
-Result now: **18 match, 15 gaps, 0 wrong decisive verdicts** (was 17 match, 16 gaps before the
-exact order checks for linear schemes, and 14 match, 19 gaps before the monotonicity check and the
-Crandall–Majda row; see gaps 1 and 3). The steady non-entropy step check left the counts unchanged
-but made two matches exact: C03 and C10 on the fully discrete entropy claim moved from
-REFUTED_EMPIRICALLY to REFUTED (see gap 5).
+Result now: **22 match, 12 gaps, 0 wrong decisive verdicts** over 34 readings. History: 14 match,
+19 gaps before the monotonicity check and the Crandall–Majda row (gap 3); 17 match, 16 gaps before
+the exact order checks for linear schemes; 18 match, 15 gaps over 33 readings once those checks
+settled C01 reading 1. The steady non-entropy step check left the counts unchanged but made two
+matches exact: C03 and C10 on the fully discrete entropy claim moved from REFUTED_EMPIRICALLY to
+REFUTED (see gap 4). Reformalizing readings onto the order and von Neumann checks closed four gaps
+(C01 reading 2, C04 reading 2, C19 readings 1 and 3; gaps 2 and 7) and added one reading, C19
+reading 4 (upwind's separate space and time orders), which is a gap.
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 10 (all VERIFIED) | 8 (7 REFUTED, 1 REFUTED_EMPIRICALLY) | 18 |
-| gap | 9 | 6 | 15 |
+| decisive and correct (match) | 13 (all VERIFIED) | 9 (8 REFUTED, 1 REFUTED_EMPIRICALLY) | 22 |
+| gap | 7 | 5 | 12 |
 | wrong | 0 | 0 | 0 |
 
-The 15 gaps by verdict: 8 UNFORMALIZED (no named claim expresses the reading), 4 UNKNOWN (a named
+The 12 gaps by verdict: 6 UNFORMALIZED (no named claim expresses the reading), 3 UNKNOWN (a named
 claim exists but its checks cannot decide), 3 NOT_REFUTED (only empirical evidence exists).
 
 What works: exact structural facts about three-point schemes. That covers flux form,
-consistency, positivity of linear schemes on a stated CFL interval, monotonicity of the fully
-discrete update under a stated CFL bound (linear or not), and Tadmor's semi-discrete inequality
-for a quadratic entropy. These come out decisive and correct, including when the
+consistency, positivity of linear schemes on a stated CFL interval, truncation order, von Neumann
+stability and (through Lax–Richtmyer) l2/L1 global order of linear schemes, monotonicity of the
+fully discrete update under a stated CFL bound (linear or not), and Tadmor's semi-discrete
+inequality for a quadratic entropy. These come out decisive and correct, including when the
 scheme is written differently from our own specs: as an update instead of a flux (C14, C15),
 with a = 3/2 or a = -1/2 instead of 1, with Engquist–Osher in its integral form (C09), or with
 f = u^2 instead of u^2/2 and a declared entropy (C20). False claims are often refuted even when
@@ -34,21 +38,57 @@ nothing could verify the true version. Examples: Lax–Wendroff "TVD" (C02), Lax
 "entropy stable" (C03, C10), upwind "unconditionally stable" (C04), and quasilinear upwinding
 "captures shocks" (C13).
 
-What does not work is mostly the claims papers make most often: order of accuracy, high-resolution
-(wider-stencil) schemes, and TVD or stability of nonlinear schemes.
+What does not work is mostly the claims papers make most often: high-resolution (wider-stencil)
+schemes, order of accuracy of nonlinear schemes, and TVD or stability of nonlinear schemes.
+
+The ranking below was redone after the order and von Neumann checks: order of accuracy, which was
+first, is now closed for every linear-scheme reading except separate space and time orders, so
+wider stencils move to the top, and von Neumann stability (formerly 4), now open only for C06's
+existential, moves down to 7.
 
 ## Gaps, ranked by how often we think claims like these appear in papers
 
 The ranking is our judgement from reading the numerical-methods literature, not a measurement.
 Cost estimates are rough, for one person who knows this code base.
 
-### 1. Order of accuracy (global order for linear schemes: CLOSED for C01 reading 1; open: C01 reading 2, C12, C19 readings 1 and 3)
+### 1. High-resolution schemes can't be written down (C18 both readings)
 
-**Status.** The exact truncation-order and von Neumann checks for linear schemes are now on main
-(`physverify/schemes/linear.py`), with a Lax–Richtmyer row for `converges_order_p`. C01 reading 1
-(Lax–Wendroff conservative and order 2) is now VERIFIED. The other readings stay gaps: C01
-reading 2 and C19 reading 3 are still recorded as unformalized in `claims.json`, and C12 and C19
-reading 1 are still decided only by refinement studies.
+MUSCL, minmod, WENO and every TVD limiter use five or more points. Specs are three-point
+(`um1, u0, up1`), so "the minmod-limited MUSCL scheme is second order" can't be formalized at all.
+This is probably the most common kind of scheme in recent papers.
+
+**Proposal.** Allow stencils `um2..up2` in the spec language. Generalize `telescoping` (the same
+argument works for any width), consistency (F(u, ..., u) = f(u)) and the convergence studies, which
+only need `_stencil` to roll more neighbours. Tadmor's check is for two-point fluxes. For
+reconstructed fluxes the natural exact statement is about the underlying two-point flux plus
+reconstruction properties, which is a new claim type. Limiters with min/max become sign cells,
+and the number of cells grows quickly.
+**Cost:** conservation, consistency and order studies for five-point schemes about 2 days; entropy
+and TVD claims for limited schemes are research-sized (weeks).
+
+### 2. Order of accuracy (linear schemes: CLOSED for C01 readings 1–2 and C19 readings 1 and 3; open: C12, C19 reading 4)
+
+**Status.** The exact truncation-order and von Neumann checks for linear schemes are on main
+(`physverify/schemes/linear.py`), with a Lax–Richtmyer row for `converges_order_p`. Now VERIFIED:
+- C01 reading 1 (Lax–Wendroff conservative and order 2), through the Lax–Richtmyer row.
+- C01 reading 2 (Lax–Wendroff truncation error O(dx^2)) and C19 reading 3 (upwind O(dx)), on
+  `consistent_order_p`, which is EQUIVALENT to the truncation check. The check needs e_0..e_p = 0
+  as identities in ν, i.e. the order holds at every fixed dt/dx; that is the textbook meaning, and
+  the bridge says so.
+- C19 reading 1 (upwind converges at order 1). Judgement call, recorded in the bridge: for a
+  linear scheme "first-order accurate" as a global statement means refinement at fixed dt/dx, the
+  combined study, so the reading overrides `claims.order` to `{"combined": 1}` and Lax–Richtmyer's
+  scope check applies. The row gives the order in l2 and L1, not L∞, so the reading now says
+  "l2 or L1".
+
+Still open:
+- C19 reading 4, new: a paper might mean order 1 in Δx and in Δt separately. True (error
+  O(Δx + Δt)), but Lax–Richtmyer covers only fixed dt/dx, so only the space and time refinement
+  studies bear on it: NOT_REFUTED. An exact route would bound the error by C1 Δx + C2 Δt from the
+  truncation terms and stability, which is not a table row.
+- C12 (Lax–Friedrichs on Burgers, order 1): nonlinear, so the linear checks are NOT_APPLICABLE and
+  the order stays empirical. The Burgers truncation expansion in the original proposal below is
+  still the route; even with it, global order for nonlinear schemes has no Lax–Richtmyer theorem.
 
 The original text follows.
 
@@ -69,21 +109,6 @@ constant-coefficient and smooth data. For nonlinear schemes no such theorem hold
 global order stays empirical.
 **Cost:** linear case 1 to 2 days; Burgers 2 to 3 more; the new row is a one-line table change plus
 review.
-
-### 2. High-resolution schemes can't be written down (C18 both readings)
-
-MUSCL, minmod, WENO and every TVD limiter use five or more points. Specs are three-point
-(`um1, u0, up1`), so "the minmod-limited MUSCL scheme is second order" can't be formalized at all.
-This is probably the most common kind of scheme in recent papers.
-
-**Proposal.** Allow stencils `um2..up2` in the spec language. Generalize `telescoping` (the same
-argument works for any width), consistency (F(u, ..., u) = f(u)) and the convergence studies, which
-only need `_stencil` to roll more neighbours. Tadmor's check is for two-point fluxes. For
-reconstructed fluxes the natural exact statement is about the underlying two-point flux plus
-reconstruction properties, which is a new claim type. Limiters with min/max become sign cells,
-and the number of cells grows quickly.
-**Cost:** conservation, consistency and order studies for five-point schemes about 2 days; entropy
-and TVD claims for limited schemes are research-sized (weeks).
 
 ### 3. Stability and monotonicity of nonlinear schemes (monotonicity: CLOSED for C07 readings 1–2 and C08; open: C07 reading 3, C16 reading 2, TVD)
 
@@ -133,23 +158,7 @@ needs a smaller step. A human can easily get this wrong, and an exact check woul
 trivial once the check exists; Harten incremental-form TVD 2 days (the split into C and D is not
 unique, so we would try the canonical one, C = -λ(F(u_i, u_{i+1}) - F(u_i, u_i))/Δu and so on).
 
-### 4. Linear (von Neumann) stability: no check (C04 reading 2, C06)
-
-"Stable for ν ≤ 1" in an L2 / von Neumann sense is standard in papers about linear schemes. Today
-positivity covers only the *sufficient* direction (non-negative coefficients give |g| ≤ 1). That is
-enough to verify Lax–Friedrichs (C05) but cannot refute "upwind is unconditionally L2-stable".
-C06, "stable for sufficiently small time steps", also needs an existential over the CFL range,
-which the spec cannot state.
-
-**Proposal.** Add an exact von Neumann check. |g(θ)|^2 is a polynomial in c = cos θ ∈ [-1, 1] and ν.
-Certify 1 - |g|^2 ≥ 0 on [-1, 1] × [ν_lo, ν_hi] with two-variable Bernstein coefficients, or give
-an exact (c, ν) where it fails. For "for some ν0 > 0", check the sign of the lowest-order term in ν
-of the failing coefficient or of 1 - |g|^2. A term that is negative for every small ν refutes the
-existential exactly.
-**Cost:** 1 to 2 days (Bernstein in two variables, a new named claim `stable_von_neumann_under_cfl`
-with an EQUIVALENT row).
-
-### 5. Entropy claims outside the one-quadratic-entropy fragment (C09 reading 2, C10 reading 2)
+### 4. Entropy claims outside the one-quadratic-entropy fragment (C09 reading 2, C10 reading 2)
 
 "Entropy stable" in papers often means "for all convex entropies" (E-schemes) or "converges to the
 entropy solution" for the method of lines. Two concrete gaps:
@@ -167,24 +176,52 @@ entropy solution" for the method of lines. Two concrete gaps:
 **Cost:** semi-discrete steady-step row an hour or two; E-flux check 1 to 2 days
 (three variables, interval constraint on u; may need certifier work).
 
-### 6. "Conservative, so shocks move at the right speed" has no exact route (C12)
+### 5. "Conservative, so shocks move at the right speed" has no exact route (C12)
 
 Papers often say this. The exact conservation check plus the Lax–Wendroff theorem is sufficient
 for `correct_shock_speed`, with the premise that the scheme converges. The same kind of premise is
 already accepted for Tadmor's row. Today only the empirical shock study bears on the claim. C12 is
-also blocked by gap 1 (its first-order clause).
+also blocked by gap 2 (its first-order clause).
 **Cost:** one SUFFICIENT row in `claims.py`, with its premise, plus review. We have not added it:
 trusted-table changes are reviewed separately.
 
-### 7. Regimes and norms the spec can't state (C19 reading 2, C18 reading 2; C06's quantifier is under gap 4)
+### 6. Regimes and norms the spec can't state (C19 reading 2, C18 reading 2; C06's quantifier is under gap 7)
 
 - "First order" for discontinuous solutions is false in L1 (rate O(√Δx), Kuznetsov 1976, sharp by
   Tang and Teng 1995). The order study has only smooth test problems. A square-wave problem is
   easy to add, but it could only ever refute empirically.
 - The order study requires L1 *and* L∞ within tolerance together. A paper that claims "second order
   in L1" (true for many limiters away from extrema, false in L∞) can't be stated. The fix is a
-  per-norm field in `claims.order`.
+  per-norm field in `claims.order`. (For linear schemes the Lax–Richtmyer row now decides the l2
+  and L1 order exactly; the gap remains for the refinement studies and for nonlinear schemes.)
 **Cost:** half a day each; both stay empirical.
+
+### 7. Linear (von Neumann) stability (CLOSED for C04 reading 2; open: C06)
+
+**Status.** The exact von Neumann check is on main (`von_neumann` in `linear.py`, named claim
+`von_neumann_stable_under_cfl`, EQUIVALENT row). C04 reading 2 ("upwind is von Neumann stable for
+every ν ≥ 0") now uses it on the upwind spec with the range overridden to [0, 2], relation
+`necessary` ("every ν ≥ 0" implies the instance [0, 2]): REFUTED exactly, |g|^2 > 1 at a rational
+(ν, cos θ) with ν > 1. C06 stays open: the check, like positivity, takes one fixed interval, so
+"stable for some (0, ν0]" is still an existential the spec cannot state (the broken FTCS spec is
+REFUTED on [0, 1], which does not refute it). The lowest-order-in-ν test in the proposal below is
+still the route.
+
+The original text follows.
+
+"Stable for ν ≤ 1" in an L2 / von Neumann sense is standard in papers about linear schemes. Today
+positivity covers only the *sufficient* direction (non-negative coefficients give |g| ≤ 1). That is
+enough to verify Lax–Friedrichs (C05) but cannot refute "upwind is unconditionally L2-stable".
+C06, "stable for sufficiently small time steps", also needs an existential over the CFL range,
+which the spec cannot state.
+
+**Proposal.** Add an exact von Neumann check. |g(θ)|^2 is a polynomial in c = cos θ ∈ [-1, 1] and ν.
+Certify 1 - |g|^2 ≥ 0 on [-1, 1] × [ν_lo, ν_hi] with two-variable Bernstein coefficients, or give
+an exact (c, ν) where it fails. For "for some ν0 > 0", check the sign of the lowest-order term in ν
+of the failing coefficient or of 1 - |g|^2. A term that is negative for every small ν refutes the
+existential exactly.
+**Cost:** 1 to 2 days (Bernstein in two variables, a new named claim `stable_von_neumann_under_cfl`
+with an EQUIVALENT row).
 
 ### 8. The same flux in a different formula gets a different verdict (C17 reading 1)
 
@@ -208,7 +245,12 @@ the certificate.
   `claims.json` and `bench.py`. Several readings rely on stated bridge lemmas: linear TVD iff
   non-negative coefficients (C02), linear max-norm stability iff non-negative coefficients (C04,
   C05), positivity sufficient for von Neumann stability (C04, C05), and scheme monotonicity for
-  all λ > 0 under a CFL bound sufficient for flux monotonicity (C07 reading 2). Each lemma is in the
+  all λ > 0 under a CFL bound sufficient for flux monotonicity (C07 reading 2). The order readings
+  add three judgement calls: "truncation error O(dx^p)" means order p at every fixed dt/dx, which
+  the truncation check decides as an identity in ν (C01 reading 2, C19 reading 3); "first-order
+  accurate" as a convergence statement means refinement at fixed dt/dx in l2 or L1 (C19 reading 1,
+  with the separate space and time orders kept as reading 4); and "every ν ≥ 0" is refuted by its
+  instance [0, 2] (C04 reading 2). Each lemma is in the
   `bridge` field. They are standard and we are confident in them, but a wrong bridge or a wrong
   relation (`same`, `necessary`, `sufficient`) would give a wrong verdict that the trusted table
   can't catch. Gap 3 proposes moving the TVD lemma into the trusted table.
