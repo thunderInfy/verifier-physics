@@ -135,10 +135,10 @@
       }
      ],
      "actual": {
-      "verdict": "REFUTED_EMPIRICALLY",
+      "verdict": "REFUTED",
       "result": "match",
       "components": [
-       "REFUTED_EMPIRICALLY"
+       "REFUTED"
       ]
      }
     }
@@ -486,10 +486,10 @@
       }
      ],
      "actual": {
-      "verdict": "REFUTED_EMPIRICALLY",
+      "verdict": "REFUTED",
       "result": "match",
       "components": [
-       "REFUTED_EMPIRICALLY"
+       "REFUTED"
       ]
      }
     },

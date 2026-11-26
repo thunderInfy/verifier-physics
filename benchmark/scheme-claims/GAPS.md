@@ -10,11 +10,13 @@ uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # ab
 
 Result now: **18 match, 15 gaps, 0 wrong decisive verdicts** (was 17 match, 16 gaps before the
 exact order checks for linear schemes, and 14 match, 19 gaps before the monotonicity check and the
-Crandall–Majda row; see gaps 1 and 3).
+Crandall–Majda row; see gaps 1 and 3). The steady non-entropy step check left the counts unchanged
+but made two matches exact: C03 and C10 on the fully discrete entropy claim moved from
+REFUTED_EMPIRICALLY to REFUTED (see gap 5).
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 10 (all VERIFIED) | 8 (5 REFUTED, 3 REFUTED_EMPIRICALLY) | 18 |
+| decisive and correct (match) | 10 (all VERIFIED) | 8 (7 REFUTED, 1 REFUTED_EMPIRICALLY) | 18 |
 | gap | 9 | 6 | 15 |
 | wrong | 0 | 0 | 0 |
 
@@ -157,10 +159,12 @@ entropy solution" for the method of lines. Two concrete gaps:
 - `selects_entropy_solution_semidiscrete` has only a SUFFICIENT row (Tadmor), so a false claim
   can never be refuted (Roe, C10 reading 2). An exact NECESSARY check exists. If uL < uR,
   f(uL) = f(uR) and F(uL, uR) = f(uL), the expansion shock is a steady state of both the
-  semi-discrete and the fully discrete scheme, so neither selects the entropy solution. For Burgers
-  this is a univariate search over uR = -uL with exact arithmetic. It would turn Roe's and
-  Lax–Wendroff's empirical refutations into exact ones.
-**Cost:** stationary-expansion-shock check half a day plus two table rows; E-flux check 1 to 2 days
+  semi-discrete and the fully discrete scheme, so neither selects the entropy solution. The fully
+  discrete half is done: `steady_nonentropy_step` is an exact NECESSARY row for
+  `selects_entropy_solution`, and Roe's and Lax–Wendroff's refutations there (C10 reading 1, C03
+  reading 2) are now exact. The semi-discrete row (the step is steady when F(uL, uR) = f(uL) =
+  f(uR)) is still missing, so C10 reading 2 stays UNKNOWN.
+**Cost:** semi-discrete steady-step row an hour or two; E-flux check 1 to 2 days
 (three variables, interval constraint on u; may need certifier work).
 
 ### 6. "Conservative, so shocks move at the right speed" has no exact route (C12)

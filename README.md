@@ -514,7 +514,8 @@ and a citation. `uv run python -m physverify.schemes.bench benchmark/scheme-clai
 expected against actual. It fails on a decisive verdict that contradicts the expectation and lists
 non-decisive results as gaps. Now: 18 of 33 readings decided correctly, 15 gaps, none wrong
 (the monotonicity check settles the Rusanov and Engquist–Osher monotonicity claims, and the exact
-order checks settle Lax–Wendroff's order 2). `GAPS.md` there ranks the gaps. The largest are order
+order checks settle Lax–Wendroff's order 2; the steady-step check makes the Roe and Lax–Wendroff
+entropy refutations exact, without changing the counts). `GAPS.md` there ranks the gaps. The largest are order
 of accuracy (still empirical outside linear schemes), stencils wider than
 three points, and TVD of nonlinear schemes.
 
@@ -524,7 +525,7 @@ Python 3.11+ and [uv](https://docs.astral.sh/uv/):
 
 ```
 uv sync
-uv run pytest tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py
+uv run pytest tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py tests/test_entropy_steady.py
 ```
 
 The Lean checks need [elan](https://github.com/leanprover/elan) and a built Mathlib (Lean
