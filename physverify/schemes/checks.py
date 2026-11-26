@@ -108,26 +108,29 @@ def telescoping(H: P.Poly) -> tuple[P.Poly, P.Poly]:
     return phi, P.add(D, P.add(at("u0", "up1"), at("um1", "u0"), -1), -1)
 
 
-def telescoping_wide(H: P.Poly) -> tuple[P.Poly, P.Poly, list]:
-    """`telescoping` for a stencil u_{i+kmin}, ..., u_{i+kmax} (kmin >= -2, kmax <= 2): the candidate
-    Phi(y_1, ..., y_m), m = kmax - kmin, on the window u_{i+kmin+1}, ..., u_{i+kmax}, with
-    D = H - u0 = Phi(window at i + 1/2) - Phi(window at i - 1/2). If such Phi exists, then
-    sum_{s=0}^{m-1} D(s + 1 zeros, y_1, ..., y_{m-s}) telescopes to Phi(y) - Phi(0), so this candidate
-    is the only one up to a constant (for m = 2 it is `telescoping`'s). Returns (Phi in the flux
-    argument names of `FLUX_ARGS`, residual, those names in window order)."""
-    D = P.add(H, P.var("u0"), -1)
-    ks = [OFFSET5[x] for x in STENCIL5 if x in P.variables(D)]
+def telescoping_wide(e: E) -> tuple[P.Poly, P.Poly, list]:
+    """`telescoping` for a stencil u_{i+kmin}, ..., u_{i+kmax} (kmin >= -2, kmax <= 2), given the update
+    as an expression e: the candidate Phi(y_1, ..., y_m), m = kmax - kmin, on the window
+    u_{i+kmin+1}, ..., u_{i+kmax}, with D = H - u0 = Phi(window at i + 1/2) - Phi(window at i - 1/2).
+    If such Phi exists, then sum_{s=0}^{m-1} D(s + 1 zeros, y_1, ..., y_{m-s}) telescopes to
+    Phi(y) - Phi(0), so this candidate is the only one up to a constant (for m = 2 it is
+    `telescoping`'s). The substitutions are made in the expression and the residual
+    D - (Phi(at i + 1/2) - Phi(at i - 1/2)) is normalised once (shared subexpressions are normalised
+    once, which keeps nested limiters cheap). Returns (Phi in the flux argument names of `FLUX_ARGS`,
+    residual normal form, those names in window order)."""
+    D = E("sub", (e, var("u0")))
+    used = P.variables(P.from_expr(D))
+    ks = [OFFSET5[x] for x in STENCIL5 if x in used]
     kmin, kmax = min(ks + [-1]), max(ks + [1])
     slots = [STENCIL5[k + 2] for k in range(kmin, kmax + 1)]
     m = kmax - kmin
     names = [x for x, k in FLUX_ARGS.items() if kmin + 1 <= k <= kmax]
-    y = [P.var(x) for x in names]
-    phi: P.Poly = {}
+    phi = lit(0)
     for s in range(m):
-        vals = [P.const(0)] * (s + 1) + y[:m - s]
-        phi = P.add(phi, P.subst(D, dict(zip(slots, vals))))
-    at = lambda shift: P.subst(phi, {x: P.var(STENCIL5[FLUX_ARGS[x] + shift + 2]) for x in names})
-    return phi, P.add(D, P.add(at(0), at(-1), -1), -1), names
+        vals = [lit(0)] * (s + 1) + [var(x) for x in names[:m - s]]
+        phi = E("add", (phi, substitute(D, dict(zip(slots, vals)))))
+    at = lambda shift: substitute(phi, {x: var(STENCIL5[FLUX_ARGS[x] + shift + 2]) for x in names})
+    return P.from_expr(phi), P.from_expr(E("sub", (D, E("sub", (at(0), at(-1)))))), names
 
 
 def periodic_change(H: P.Poly, state: list, lam) -> Fraction | None:
@@ -144,9 +147,10 @@ def periodic_change(H: P.Poly, state: list, lam) -> Fraction | None:
 def conservation(spec: dict) -> dict:
     claim = "discrete conservation on a periodic grid: sum_i (u_i^{n+1} - u_i^n) = 0"
     try:
-        H = P.from_expr(update(spec))
+        e = update(spec)
+        H = P.from_expr(e)
         wide = stencil_of(P.variables(H)) == STENCIL5
-        phi, residual = telescoping(H) if not wide else telescoping_wide(H)[:2]
+        phi, residual = telescoping(H) if not wide else telescoping_wide(e)[:2]
     except P.Undecided as ex:
         return result("conservation", UNKNOWN, claim, str(ex))
     if not residual and wide:
@@ -197,9 +201,10 @@ def consistency(spec: dict) -> dict:
         if F is not None:
             F, how = P.from_expr(F), "declared numerical flux"
         else:
-            H = P.from_expr(update(spec))
+            e = update(spec)
+            H = P.from_expr(e)
             wide = stencil_of(P.variables(H)) == STENCIL5
-            phi, residual = telescoping(H) if not wide else telescoping_wide(H)[:2]
+            phi, residual = telescoping(H) if not wide else telescoping_wide(e)[:2]
             if residual:
                 return result("consistency", NOT_APPLICABLE, claim, "update is not in flux form, so it has no numerical flux")
             if not wide:

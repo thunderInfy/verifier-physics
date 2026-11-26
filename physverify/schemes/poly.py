@@ -26,13 +26,31 @@ from __future__ import annotations
 from fractions import Fraction
 from math import isqrt
 
-from ..expr import E
+from ..expr import E, intern
 
 Poly = dict  # {monomial: Fraction}; monomial = tuple of (atom, exponent), sorted
 
 
 class Undecided(Exception):
     """The expression is outside the fragment this normal form decides."""
+
+
+class _Atom(tuple):
+    """A square-root atom ("s", items): a plain tuple (same equality, repr and order) that caches its
+    hash and repr, which nested limiters otherwise recompute over and over."""
+    def __hash__(self):
+        try:
+            return self._h
+        except AttributeError:
+            self._h = tuple.__hash__(self)
+            return self._h
+
+    def __repr__(self):
+        try:
+            return self._r
+        except AttributeError:
+            self._r = tuple.__repr__(self)
+            return self._r
 
 
 def _key(x) -> str:
@@ -123,15 +141,25 @@ def sqrt(p: Poly, nonneg: bool = False) -> Poly:
         return const(_exact_sqrt(p[()]))
     if not (nonneg or _obviously_nonneg(p)):
         raise Undecided(f"cannot show sqrt argument {show(p)} is non-negative")
-    return {((("s", tuple(sorted(p.items(), key=_key))), 1),): Fraction(1)}
+    return {((_Atom(("s", tuple(sorted(p.items(), key=_key)))), 1),): Fraction(1)}
 
 
-def from_expr(e: E, sqrt_hook=None, positive=()) -> Poly:
+def from_expr(e: E, sqrt_hook=None, positive=(), _memo: dict | None = None) -> Poly:
     """Normal form of e. `sqrt_hook(e, rec)`, if given, replaces the default handling of every
     sqrt node (rec normalises a subexpression with the same hook). `positive`: variables known to
     be > 0 on the caller's domain (see the module docstring); they only widen which sqrt arguments
-    are accepted."""
-    rec = lambda x: from_expr(x, sqrt_hook, positive)
+    are accepted. Equal subtrees are normalised once per call (the result is the same)."""
+    if _memo is None:
+        e, _memo = intern(e), {}
+    if id(e) in _memo:
+        return _memo[id(e)][1]
+    out = _from_expr(e, sqrt_hook, positive, _memo)
+    _memo[id(e)] = (e, out)
+    return out
+
+
+def _from_expr(e: E, sqrt_hook, positive, _memo) -> Poly:
+    rec = lambda x: from_expr(x, sqrt_hook, positive, _memo)
     k, a = e.kind, e.args
     if k == "var": return var(e.name)
     if k == "lit": return const(e.q)
@@ -149,8 +177,10 @@ def from_expr(e: E, sqrt_hook=None, positive=()) -> Poly:
     raise Undecided(f"{k} is outside the polynomial fragment")
 
 
-def subst(p: Poly, env: dict[str, Poly]) -> Poly:
-    """Replace variables by polynomials (re-normalizing square roots)."""
+def subst(p: Poly, env: dict[str, Poly], _cache: dict | None = None) -> Poly:
+    """Replace variables by polynomials (re-normalizing square roots; each distinct square-root atom
+    is re-normalized once per call)."""
+    cache = {} if _cache is None else _cache
     out: Poly = {}
     for m, c in p.items():
         term: Poly = const(c)
@@ -158,21 +188,27 @@ def subst(p: Poly, env: dict[str, Poly]) -> Poly:
             if a[0] == "v":
                 term = mul(term, power(env[a[1]], k) if a[1] in env else {_mono({a: k}): Fraction(1)})
             else:
-                term = mul(term, power(sqrt(subst(dict(a[1]), env), nonneg=True), k))
+                if a not in cache:
+                    cache[a] = sqrt(subst(dict(a[1]), env, cache), nonneg=True)
+                term = mul(term, power(cache[a], k))
         out = add(out, term)
     return out
 
 
-def evaluate(p: Poly, env: dict[str, Fraction]) -> Fraction | None:
-    """Exact value at a rational point, or None if a square root is irrational there."""
+def evaluate(p: Poly, env: dict[str, Fraction], _cache: dict | None = None) -> Fraction | None:
+    """Exact value at a rational point, or None if a square root is irrational there (each distinct
+    square-root atom is evaluated once per call)."""
+    cache = {} if _cache is None else _cache
     total = Fraction(0)
     for m, c in p.items():
         for a, k in m:
             if a[0] == "v":
                 c *= Fraction(env[a[1]]) ** k
                 continue
-            inner = evaluate(dict(a[1]), env)
-            r = None if inner is None else _exact_sqrt(inner)
+            if a not in cache:
+                inner = evaluate(dict(a[1]), env, cache)
+                cache[a] = None if inner is None else _exact_sqrt(inner)
+            r = cache[a]
             if r is None:
                 return None
             c *= r ** k

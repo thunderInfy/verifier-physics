@@ -176,6 +176,17 @@ def variables(e: E) -> set[str]:
     return out
 
 
+def intern(e: E, table: dict | None = None) -> E:
+    """The same expression with equal subtrees shared (hash-consing), so a walk memoized by node
+    identity visits each distinct subexpression once (limiters nest min/max several levels deep)."""
+    table = {} if table is None else table
+    args = tuple(intern(x, table) for x in e.args)
+    key = (e.kind, tuple(id(x) for x in args), e.name, e.q)
+    if key not in table:
+        table[key] = E(e.kind, args, e.name, e.q)
+    return table[key]
+
+
 def to_str(e: E) -> str:
     k, a = e.kind, e.args
     if k == "var": return e.name

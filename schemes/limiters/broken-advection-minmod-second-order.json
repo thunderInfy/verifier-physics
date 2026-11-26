@@ -1,0 +1,36 @@
+{
+ "name": "BROKEN: minmod claimed second order pointwise and in the max norm, on sine data (with extrema)",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL + a/2*(1 - a*lam)*minmod(uR - uL, uL - uLL)"
+ },
+ "named_claims": [
+  "truncation_order_smooth_data",
+  "converges_order_p_linf",
+  "converges_order_p_l1"
+ ],
+ "claims": {
+  "smooth_truncation": {
+   "order": 2
+  },
+  "order_linf": {
+   "combined": 2
+  },
+  "order_l1": {
+   "combined": 2
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "advection-sine",
+   "speed": 1
+  },
+  "T": 0.25,
+  "lam": 0.5
+ }
+}

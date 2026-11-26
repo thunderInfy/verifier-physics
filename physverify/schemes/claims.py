@@ -37,7 +37,9 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "truncation_order": EXACT, "von_neumann": EXACT, "lax_richtmyer_scope": EXACT,
              "steady_nonentropy_step": EXACT, "steady_nonentropy_step_semidiscrete": EXACT,
              "von_neumann_small_cfl": EXACT, "hyperbolicity": EXACT,
-             "depth_positivity": EMPIRICAL, "riemann_l1": EMPIRICAL}
+             "depth_positivity": EMPIRICAL, "riemann_l1": EMPIRICAL,
+             "tvd_harten": EXACT, "tv_increase": EXACT, "truncation_branches": EXACT, "truncation_smooth_data": EXACT,
+             "order_l1/combined": EMPIRICAL, "order_linf/combined": EMPIRICAL}
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -71,6 +73,20 @@ _LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable 
                   "says nothing about the error constant, and gives order at least p; also needs the von Neumann "
                   "check and the structural scope check (linear update, combined refinement at a stable dt/dx, "
                   "consistency order = claimed order, smooth data) to pass")
+
+_HARTEN = ("Harten's lemma (1983): an update u_i - C_{i-1/2} Delta_{i-1/2} + D_{i+1/2} Delta_{i+1/2} with C, D >= 0 "
+           "and C_{i+1/2} + D_{i+1/2} <= 1 for every state is TVD; here with the upwind split (D = 0 for a > 0), "
+           "certified on sign cells that cover the state space. The form is not unique, so a failure says nothing")
+_TV_INCREASE = "one explicit periodic rational state whose total variation grows in one step at a nu in the claimed range"
+_BRANCHES = ("on each sign cell (the cells cover the state space) the update is a linear scheme; if each has "
+             "truncation order >= p, every stencil sampled from smooth data lies in a cell whose linear scheme has "
+             "truncation error O(dx^p), with a constant bounded by the data's derivatives, uniformly over the "
+             "finitely many cells")
+_SMOOTH_DATA = ("one explicit polynomial exact solution u = U(x - a t) and grid placement whose stencil lies in a "
+                "lower-order branch for all small dx; this is the local truncation error only, which says nothing "
+                "about the global error (a nonlinear scheme has no Lax-Richtmyer theorem, and it may damp local errors)")
+_NORM = ("only on the spec's test problem, grids and dt/dx; a refinement study refutes or fails to refute, it never "
+         "proves an order (no Lax-Richtmyer theorem for nonlinear schemes)")
 
 # claim -> (statement, ((check, relation, premise[, requires]), ...)). The premise is what the relation
 # rests on; it is carried into the verdict as an assumption. `requires` lists exact checks that must be
@@ -112,6 +128,22 @@ CLAIMS = {
                           + (("truncation_order", SUFFICIENT, _LAX_RICHTMYER, ("von_neumann", "lax_richtmyer_scope")),)),
     "correct_shock_speed": ("shocks move at the Rankine-Hugoniot speed in the limit dx -> 0",
                             (("shock_speed", NECESSARY, "on the spec's Riemann data and grids only"),)),
+    # limited schemes (limiters.py)
+    "tvd_under_cfl": ("TVD: the total variation sum_i |u_{i+1} - u_i| does not increase in one step, for every "
+                      "state and every nu = a*dt/dx in the claimed range",
+                      (("tvd_harten", SUFFICIENT, _HARTEN),
+                       ("tv_increase", NECESSARY, _TV_INCREASE))),
+    "truncation_order_smooth_data": ("pointwise local truncation order p: the local truncation error is O(dx^p) at "
+                                     "fixed dt/dx at every grid point of every smooth solution, extrema included "
+                                     "(a statement about the truncation error, not the global error)",
+                                     (("truncation_branches", SUFFICIENT, _BRANCHES),
+                                      ("truncation_smooth_data", NECESSARY, _SMOOTH_DATA))),
+    "converges_order_p_l1": ("the global error in the discrete L1 norm, sum_i |u_i - u(x_i)| dx, is O(dx^p) for the "
+                             "claimed p, refining dx at fixed dt/dx, on the spec's smooth test problem",
+                             (("order_l1/combined", NECESSARY, _NORM),)),
+    "converges_order_p_linf": ("the global error in the max norm, max_i |u_i - u(x_i)|, is O(dx^p) for the claimed p, "
+                               "refining dx at fixed dt/dx, on the spec's smooth test problem",
+                               (("order_linf/combined", NECESSARY, _NORM),)),
     # systems (systems.py); `consistent` and `conservative` above apply componentwise
     "hyperbolic": ("the PDE is strictly hyperbolic on the stated domain: df/dq has real, distinct eigenvalues",
                    # equivalent for 2x2 systems; the check is UNKNOWN for n > 2

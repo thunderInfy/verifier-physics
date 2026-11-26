@@ -11,7 +11,35 @@
  },
  "named_claims": [
   "consistent",
-  "conservative"
+  "conservative",
+  "tvd_under_cfl",
+  "converges_order_p_l1"
  ],
- "claims": {}
+ "claims": {
+  "tvd_cfl": [
+   "0",
+   "1"
+  ],
+  "order_l1": {
+   "combined": 2
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "advection-smooth-step",
+   "speed": 1,
+   "x1": 0.2,
+   "x2": 0.6
+  },
+  "T": 0.25,
+  "lam": 0.5,
+  "boundary": "transmissive",
+  "grids": [
+   50,
+   100,
+   200,
+   400,
+   800
+  ]
+ }
 }

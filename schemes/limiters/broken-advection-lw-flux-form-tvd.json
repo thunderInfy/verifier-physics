@@ -1,0 +1,23 @@
+{
+ "name": "BROKEN: Lax-Wendroff in flux-limiter form (L = u_{i+1} - u_i, no limiting) claimed TVD for nu in [0, 1]",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL + a/2*(1 - a*lam)*(uR - uL)"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "tvd_under_cfl"
+ ],
+ "claims": {
+  "tvd_cfl": [
+   "0",
+   "1"
+  ]
+ }
+}

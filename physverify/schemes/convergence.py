@@ -63,6 +63,14 @@ def exact(problem: dict, x: np.ndarray, t: float) -> np.ndarray:
             if np.max(np.abs(r)) < 1e-15:
                 break
         return u
+    if problem["kind"] == "advection-smooth-step":
+        # a C-infinity monotone step from 0 to amp on [x1, x2], constant outside: no extrema, and with
+        # transmissive boundaries the constant ends are exact as long as the step stays inside [0, 1]
+        x1, x2 = problem.get("x1", 0.2), problem.get("x2", 0.6)
+        s = np.clip((x - problem["speed"] * t - x1) / (x2 - x1), 0.0, 1.0)
+        with np.errstate(divide="ignore"):
+            f = lambda y: np.where(y > 0, np.exp(-1.0 / np.where(y > 0, y, 1.0)), 0.0)
+            return amp * f(s) / (f(s) + f(1 - s))
     raise ValueError(problem["kind"])
 
 
@@ -103,14 +111,14 @@ def _steps(T, dt):
     return n, T / n
 
 
-def combined(H: E, problem: dict, T: float, lam: float) -> list:
+def combined(H: E, problem: dict, T: float, lam: float, boundary: str = "periodic", grids=GRIDS) -> list:
     rows = []
-    for n in GRIDS:
+    for n in grids:
         x, dx = _grid(n), 1 / n
         steps, dt = _steps(T, lam * dx)
         u = exact(problem, x, 0)
         for _ in range(steps):
-            u = _stencil(H, u, dt / dx)
+            u = _stencil(H, u, dt / dx) if boundary == "periodic" else ev(H, {**transmissive(u), "lam": dt / dx})
         rows.append((n, *_errors(u, exact(problem, x, T), dx)))
     return rows
 
@@ -148,12 +156,14 @@ def orders(rows: list) -> list:
     return out
 
 
-def verdict(rows: list, p: float) -> tuple[str, str]:
-    last = [q for pair in orders(rows)[-2:] for q in pair]
+def verdict(rows: list, p: float, norm: int | None = None) -> tuple[str, str]:
+    """norm None: L1 and Linf together (the original studies); 0: L1 only; 1: Linf only."""
+    last = [q for pair in orders(rows)[-2:] for i, q in enumerate(pair) if norm is None or i == norm]
     if any(math.isnan(q) for q in last):
         return UNKNOWN, "error vanished or is not finite"
     lo, hi = min(last), max(last)
-    rng = f"observed orders over the last two refinements in [{lo:.2f}, {hi:.2f}], claimed {p}, tolerance {TOL}"
+    which = "" if norm is None else f" ({NORMS[norm]} only)"
+    rng = f"observed orders{which} over the last two refinements in [{lo:.2f}, {hi:.2f}], claimed {p}, tolerance {TOL}"
     if lo < p - TOL:
         return REFUTED_EMPIRICALLY, rng
     if hi > p + TOL:
@@ -181,7 +191,34 @@ def _mol_ok(H: E) -> tuple[bool, str]:
     return False, "the update is not linear in dt/dx (the flux depends on dt/dx), so space and time do not separate"
 
 
+NORMS = ("L1", "Linf")
+NORM_KEYS = {"order_l1": 0, "order_linf": 1}          # claims.order_l1 = {"combined": p}: one norm only
+
+
 def studies(spec: dict) -> list[dict]:
+    out = _studies(spec)
+    test = spec["test"]
+    boundary, grids = test.get("boundary", "periodic"), tuple(test.get("grids", GRIDS))
+    rows = None
+    for key, norm in NORM_KEYS.items():
+        claimed = spec.get("claims", {}).get(key, {})
+        for kind, p in claimed.items():
+            claim = f"combined order {p} in the {NORMS[norm]} norm on {test['problem']['kind']} to T = {test['T']}"
+            if kind != "combined":
+                out.append(checks.result(f"{key}/{kind}", UNKNOWN, claim, "per-norm claims cover the combined study only"))
+                continue
+            if rows is None:
+                rows = combined(checks.update(spec), test["problem"], test["T"], test["lam"], boundary, grids)
+            status, detail = verdict(rows, p, norm)
+            label = (f"combined: fully discrete scheme at fixed dt/dx = {test['lam']}, refining dx and dt together, "
+                     f"{boundary} boundaries; verdict on the {NORMS[norm]} column only")
+            r = checks.result(f"{key}/{kind}", status, claim, detail, {"study": label, "table": table(rows, "N")})
+            r["guarantee"] = EMPIRICAL
+            out.append(r)
+    return out
+
+
+def _studies(spec: dict) -> list[dict]:
     claimed = spec.get("claims", {}).get("order", {})
     test = spec["test"]
     H = checks.update(spec)
@@ -199,7 +236,8 @@ def studies(spec: dict) -> list[dict]:
             if not ok:
                 out.append(checks.result(f"order/{kind}", UNKNOWN, claim, why))
                 continue
-        rows = (combined(H, test["problem"], test["T"], test["lam"]) if kind == "combined"
+        rows = (combined(H, test["problem"], test["T"], test["lam"], test.get("boundary", "periodic"),
+                         tuple(test.get("grids", GRIDS))) if kind == "combined"
                 else space(H, test["problem"], test["T"]) if kind == "space" else time(H, test["problem"], test["T"]))
         status, detail = verdict(rows, p)
         r = checks.result(f"order/{kind}", status, claim, detail,

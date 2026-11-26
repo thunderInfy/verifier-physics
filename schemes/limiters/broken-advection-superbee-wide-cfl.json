@@ -1,0 +1,21 @@
+{
+ "name": "BROKEN: superbee claimed TVD for nu in [0, 3/2]",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL + a/2*(1 - a*lam)*(max(0, max(minmod(2*(uR - uL), uL - uLL), minmod(uR - uL, 2*(uL - uLL)))) + min(0, min(minmod(2*(uR - uL), uL - uLL), minmod(uR - uL, 2*(uL - uLL)))))"
+ },
+ "named_claims": [
+  "tvd_under_cfl"
+ ],
+ "claims": {
+  "tvd_cfl": [
+   "0",
+   "3/2"
+  ]
+ }
+}

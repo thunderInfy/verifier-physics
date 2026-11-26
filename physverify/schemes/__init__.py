@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import checks, claims, convergence, entropy, linear, shock, systems
+from . import checks, claims, convergence, entropy, limiters, linear, shock, systems
 
 
 def load(path) -> dict:
@@ -51,6 +51,10 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
         out.append(linear.von_neumann(spec))
     if "von_neumann_small_cfl" in wanted:
         out.append(linear.von_neumann_small_cfl(spec))
+    if "tvd_cfl" in params or "tvd_under_cfl" in names:
+        out += [limiters.tvd_harten(spec), limiters.tv_increase(spec)]
+    if "smooth_truncation" in params or "truncation_order_smooth_data" in names:
+        out += [limiters.truncation_branches(spec), limiters.truncation_smooth_data(spec)]
     return {"checks": out, "claims": claims.judge(names, out)}
 
 
