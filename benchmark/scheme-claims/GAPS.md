@@ -8,20 +8,22 @@ claims of `physverify/schemes/claims.py` or marked unformalized. Run:
 uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 15 s
 ```
 
-Result now: **14 match, 19 gaps, 0 wrong decisive verdicts.**
+Result now: **17 match, 16 gaps, 0 wrong decisive verdicts** (was 14 match, 19 gaps before the
+monotonicity check and the Crandall–Majda row; see gap 3).
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 7 (all VERIFIED) | 7 (4 REFUTED, 3 REFUTED_EMPIRICALLY) | 14 |
-| gap | 12 | 7 | 19 |
+| decisive and correct (match) | 9 (all VERIFIED) | 8 (5 REFUTED, 3 REFUTED_EMPIRICALLY) | 17 |
+| gap | 10 | 6 | 16 |
 | wrong | 0 | 0 | 0 |
 
-The 19 gaps by verdict: 10 UNFORMALIZED (no named claim expresses the reading), 5 UNKNOWN (a named
+The 16 gaps by verdict: 8 UNFORMALIZED (no named claim expresses the reading), 4 UNKNOWN (a named
 claim exists but its checks cannot decide), 4 NOT_REFUTED (only empirical evidence exists).
 
 What works: exact structural facts about three-point schemes. That covers flux form,
-consistency, positivity of linear schemes on a stated CFL interval, and Tadmor's semi-discrete
-inequality for a quadratic entropy. These come out decisive and correct, including when the
+consistency, positivity of linear schemes on a stated CFL interval, monotonicity of the fully
+discrete update under a stated CFL bound (linear or not), and Tadmor's semi-discrete inequality
+for a quadratic entropy. These come out decisive and correct, including when the
 scheme is written differently from our own specs: as an update instead of a flux (C14, C15),
 with a = 3/2 or a = -1/2 instead of 1, with Engquist–Osher in its integral form (C09), or with
 f = u^2 instead of u^2/2 and a declared entropy (C20). False claims are often refuted even when
@@ -30,7 +32,7 @@ nothing could verify the true version. Examples: Lax–Wendroff "TVD" (C02), Lax
 "captures shocks" (C13).
 
 What does not work is mostly the claims papers make most often: order of accuracy, high-resolution
-(wider-stencil) schemes, and stability or monotonicity of nonlinear schemes.
+(wider-stencil) schemes, and TVD or stability of nonlinear schemes.
 
 ## Gaps, ranked by how often we think claims like these appear in papers
 
@@ -72,10 +74,30 @@ and the number of cells grows quickly.
 **Cost:** conservation, consistency and order studies for five-point schemes about 2 days; entropy
 and TVD claims for limited schemes are research-sized (weeks).
 
-### 3. Stability and monotonicity of nonlinear schemes: no check (C07 all three, C08, C16 reading 2)
+### 3. Stability and monotonicity of nonlinear schemes (monotonicity: CLOSED for C07 readings 1–2 and C08; open: C07 reading 3, C16 reading 2, TVD)
 
-"Monotone under CFL ≤ 1", "TVD", "stable under the CFL condition" for Burgers schemes are very
-common, and positivity is implemented for linear updates only. C07 shows why this matters. The
+**Status.** The monotonicity check and the Crandall–Majda row are now on main (`monotonicity` in
+`checks.py`, `monotone_under_cfl` and the SUFFICIENT row for `selects_entropy_solution` in
+`claims.py`). With them:
+- C07 reading 1 (local α, λ max|u| ≤ 1): REFUTED exactly, on main's
+  `broken-burgers-rusanov-wide-cfl` spec. The sharp bound the check certifies is 1/3.
+- C07 reading 2 (the Rusanov flux is monotone): VERIFIED, through the `sufficient` bridge
+  "scheme monotone for every λ > 0 under some CFL bound c > 0 implies the flux is monotone
+  everywhere" (choose λ small enough that any given states lie in the CFL box; H depends on
+  u_{i-1} only through +λF(u_{i-1}, u_i) and on u_{i+1} only through -λF(u_i, u_{i+1})).
+- C08 (Engquist–Osher monotone under λ max|u| ≤ 1, hence entropy limit): VERIFIED; both
+  conjuncts are exact, the second through the Crandall–Majda row.
+
+Still open: C07 reading 3 (one global α ≥ max|u| needs a parameter with a side condition on the
+data, which the spec cannot state); C16 reading 2 (a fully discrete entropy inequality for *every*
+dt/dx is false, and non-monotonicity does not refute it, so only a cell entropy inequality check
+could); and TVD for nonlinear schemes (Harten's incremental form, below). C11 cannot be closed
+this way: the monotonicity check refutes Roe with Harten's fix (δ = 1/2) as monotone even at
+c = 1/10 (exact decreasing pair at λ = 1/3, states (-3/10, 3/20, -3/10)), so the Crandall–Majda
+row does not apply there.
+
+The original text follows. "Monotone under CFL ≤ 1", "TVD", "stable under the CFL condition" for Burgers schemes are very
+common, and positivity was implemented for linear updates only. C07 shows why this matters. The
 sentence "the Rusanov scheme is monotone under max|u| Δt/Δx ≤ 1", which we first expected to be
 true, is false for the usual α = max(|uL|, |uR|). Our exact counterexample: at Δt/Δx = 9/10,
 H(1, u, -9/10) is 751/4000 at u = 1 and 18011/100000 at u = 101/100. The flux is monotone, and the
@@ -83,11 +105,11 @@ scheme with one global α is monotone under λα ≤ 1, but the three-point sche
 needs a smaller step. A human can easily get this wrong, and an exact check would catch it.
 
 **Proposal.**
-- An exact *nonlinear monotonicity* check: certify ∂H/∂u_k ≥ 0 for k = -1, 0, 1 on each sign cell
+- (Done.) An exact *nonlinear monotonicity* check: certify ∂H/∂u_k ≥ 0 for k = -1, 0, 1 on each sign cell
   under the CFL atoms. The sign-cell splitter, the CFL atoms and the certifier already exist for
   Tadmor's check. Where certification fails, give an exact rational counterexample from finite
   differences like the one above.
-- A trusted SUFFICIENT row (Crandall–Majda 1980): monotone, conservative and consistent implies
+- (Done.) A trusted SUFFICIENT row (Crandall–Majda 1980): monotone, conservative and consistent implies
   `selects_entropy_solution` for the *fully discrete* scheme. Today that claim can never be
   better than NOT_REFUTED. This row would make C08 and the fully discrete parts of the Rusanov,
   Lax–Friedrichs and Engquist–Osher claims VERIFIED.
@@ -170,9 +192,10 @@ the certificate.
 - **No wrong decisive verdict.** Every VERIFIED and REFUTED agrees with the expected truth, at the
   reading level and for each component (each component also records the truth of its named claim).
 - **The formalization is not trusted code.** The mapping from sentence to named claims lives in
-  `claims.json` and `bench.py`. Three readings rely on stated bridge lemmas: linear TVD iff
+  `claims.json` and `bench.py`. Several readings rely on stated bridge lemmas: linear TVD iff
   non-negative coefficients (C02), linear max-norm stability iff non-negative coefficients (C04,
-  C05), and positivity sufficient for von Neumann stability (C04, C05). Each lemma is in the
+  C05), positivity sufficient for von Neumann stability (C04, C05), and scheme monotonicity for
+  all λ > 0 under a CFL bound sufficient for flux monotonicity (C07 reading 2). Each lemma is in the
   `bridge` field. They are standard and we are confident in them, but a wrong bridge or a wrong
   relation (`same`, `necessary`, `sufficient`) would give a wrong verdict that the trusted table
   can't catch. Gap 3 proposes moving the TVD lemma into the trusted table.
@@ -182,11 +205,12 @@ the certificate.
   and it is recorded in the reading's `why`.
 - The C07 expectation differs from the example in the task brief ("Rusanov is monotone under
   CFL ≤ 1: true"). We expect *false* for the local-α reading because of the exact counterexample
-  above. The verifier does not decide it either way (gap 3).
+  above. The verifier now agrees: the monotonicity check refutes it with its own exact
+  counterexample and certifies the scheme at the sharp bound 1/3 (gap 3).
 - C18 reading 2 cites Osher and Chakravarthy (1984) for "TVD schemes drop to first order at smooth
   extrema" from memory. The fact itself is standard (LeVeque 2002, ch. 6).
 - Empirical passes come only from existing specs (C01, C11, C12, C19, and the Engquist–Osher
-  rarefaction in C08), whose studies already run at an incommensurate dt/dx. The new specs'
+  rarefaction in C08, which now only agrees with the exact Crandall–Majda verification), whose studies already run at an incommensurate dt/dx. The new specs'
   empirical results are refutations (Lax–Wendroff on Burgers keeps the expansion shock at both
   dt/dx = 2/5 and 37/100).
 

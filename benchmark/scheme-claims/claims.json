@@ -325,18 +325,18 @@
      "cite": "Rusanov (1961); LeVeque (2002) ch. 12 (local Lax–Friedrichs); direct computation in Fraction arithmetic",
      "formalization": [
       {
-       "unformalized": "positivity/monotonicity is implemented for linear schemes only (positive_under_cfl); there is no named claim for monotonicity of a nonlinear update"
+       "spec": "../../schemes/broken-burgers-rusanov-wide-cfl.json",
+       "claim": "monotone_under_cfl",
+       "relation": "same",
+       "expected": false,
+       "bridge": "the spec's flux is (uL^2 + uR^2)/4 - max(|uL|, |uR|)/2 (uR - uL), with max(a, b) = (a + b + |a - b|)/2, and claims.monotone_cfl = 1; for f = u^2/2, lam*|f'(u)| <= 1 at every stencil state is lam max|u| <= 1"
       }
      ],
-     "gap": {
-      "kind": "missing check",
-      "note": "monotonicity of a nonlinear 3-point update: dH/du_k >= 0 on each sign cell, using the sign-cell splitter and certifier already built for Tadmor's check, with an exact rational counterexample otherwise"
-     },
      "actual": {
-      "verdict": "UNFORMALIZED",
-      "result": "gap",
+      "verdict": "REFUTED",
+      "result": "match",
       "components": [
-       "UNFORMALIZED"
+       "REFUTED"
       ]
      }
     },
@@ -347,18 +347,18 @@
      "cite": "Osher (1984) SINUM 21 (E-schemes); Tadmor (2003) Acta Numerica 12",
      "formalization": [
       {
-       "unformalized": "no named claim for monotonicity of a numerical flux"
+       "spec": "../../schemes/burgers-rusanov.json",
+       "claim": "monotone_under_cfl",
+       "relation": "sufficient",
+       "expected": true,
+       "bridge": "if H is non-decreasing in each argument for every lam > 0 and all states with lam*|u| <= c (some c > 0), the flux is monotone everywhere: for a1 <= a2 and any b, take u_i = b, u_{i+1} = 0 and lam = c/max(|a1|, |a2|, |b|) (any lam if all are 0); H depends on u_{i-1} only through +lam F(u_{i-1}, u_i), so F(a1, b) <= F(a2, b). Likewise the term -lam F(u_i, u_{i+1}) makes F non-increasing in uR. The spec claims c = 1/3."
       }
      ],
-     "gap": {
-      "kind": "missing claim type",
-      "note": "monotone flux / E-flux; the E-flux condition sign(uR - uL)(F - f(u)) <= 0 for u between uL and uR is a polynomial inequality on cells, close to the Tadmor certifier"
-     },
      "actual": {
-      "verdict": "UNFORMALIZED",
-      "result": "gap",
+      "verdict": "VERIFIED",
+      "result": "match",
       "components": [
-       "UNFORMALIZED"
+       "VERIFIED"
       ]
      }
     },
@@ -398,7 +398,10 @@
      "cite": "Engquist and Osher (1981) Math. Comp. 36; Crandall and Majda (1980) Math. Comp. 34; Harten, Hyman and Lax (1976) CPAM 29",
      "formalization": [
       {
-       "unformalized": "no monotonicity check for nonlinear updates"
+       "spec": "../../schemes/burgers-engquist-osher.json",
+       "claim": "monotone_under_cfl",
+       "relation": "same",
+       "expected": true
       },
       {
        "spec": "../../schemes/burgers-engquist-osher.json",
@@ -407,16 +410,12 @@
        "expected": true
       }
      ],
-     "gap": {
-      "kind": "missing check",
-      "note": "nonlinear monotonicity; with it, a trusted SUFFICIENT row 'monotone + conservative + consistent -> selects_entropy_solution' (Crandall–Majda) would make the second conjunct exact too"
-     },
      "actual": {
-      "verdict": "UNKNOWN",
-      "result": "gap",
+      "verdict": "VERIFIED",
+      "result": "match",
       "components": [
-       "UNFORMALIZED",
-       "NOT_REFUTED"
+       "VERIFIED",
+       "VERIFIED"
       ]
      }
     }
