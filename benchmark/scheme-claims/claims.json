@@ -92,6 +92,28 @@
        "REFUTED"
       ]
      }
+    },
+    {
+     "reading": "the scheme written in flux-limiter form, F = a u_i + (a/2)(1 - nu)(u_{i+1} - u_i), is TVD for every nu in [0, 1]",
+     "expected": false,
+     "why": "it is Lax-Wendroff itself (the unlimited slope); a single step of a periodic spike already increases the total variation.",
+     "cite": "Harten (1983) JCP 49; LeVeque (2002) ch. 6",
+     "formalization": [
+      {
+       "spec": "../../schemes/limiters/broken-advection-lw-flux-form-tvd.json",
+       "claim": "tvd_under_cfl",
+       "relation": "same",
+       "expected": false,
+       "bridge": "none needed: the TV-increase check refutes TVD directly with an explicit periodic state and nu"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "result": "match",
+      "components": [
+       "REFUTED"
+      ]
+     }
     }
    ]
   },
@@ -823,40 +845,101 @@
      "cite": "van Leer (1979) JCP 32; LeVeque (2002) ch. 6",
      "formalization": [
       {
-       "unformalized": "MUSCL has a five-point stencil; specs are three-point (um1, u0, up1)"
+       "spec": "../../schemes/limiters/advection-minmod.json",
+       "claim": "converges_order_p_l1",
+       "relation": "necessary",
+       "expected": true,
+       "bridge": "the spec's test problem is a C-infinity monotone step (no extrema) with constant ends and transmissive boundaries, refined at fixed dt/dx = 1/2; 'order 2 in L1 on smooth data without extrema' implies order 2 on this instance"
       }
      ],
      "gap": {
-      "kind": "inexpressible scheme",
-      "note": "wider stencils (um2..up2) in the spec language and in the conservation/consistency checks; and a test problem without extrema"
+      "kind": "empirical only",
+      "note": "global order of a nonlinear scheme has no Lax-Richtmyer theorem, so only the refinement study bears on it (observed L1 order 1.99-2.00, Linf 2.0 from N = 400)"
      },
      "actual": {
-      "verdict": "UNFORMALIZED",
+      "verdict": "NOT_REFUTED",
       "result": "gap",
       "components": [
-       "UNFORMALIZED"
+       "NOT_REFUTED"
       ]
      }
     },
     {
-     "reading": "order 2 including at smooth extrema (pointwise, L-inf)",
+     "reading": "order 2 including at smooth extrema, as a global error in the max norm (L-inf), on sine data",
      "expected": false,
      "why": "TVD schemes clip smooth extrema and drop to first order there.",
      "cite": "Osher and Chakravarthy (1984) SINUM 21 (as we recall the statement); LeVeque (2002) ch. 6",
      "formalization": [
       {
-       "unformalized": "five-point stencil; also the order study tests L1 and L-inf together and cannot claim one norm"
+       "spec": "../../schemes/limiters/broken-advection-minmod-second-order.json",
+       "claim": "converges_order_p_linf",
+       "relation": "necessary",
+       "expected": false,
+       "bridge": "periodic sine data has extrema; 'max-norm order 2' implies order 2 on this instance (dt/dx = 1/2, T = 1/4)"
+      },
+      {
+       "spec": "../../schemes/limiters/broken-advection-minmod-second-order.json",
+       "override": {
+        "test": {
+         "lam": 0.37,
+         "T": 0.2371
+        }
+       },
+       "claim": "converges_order_p_linf",
+       "relation": "necessary",
+       "expected": false,
+       "bridge": "the same at an incommensurate dt/dx = 0.37 and T = 0.2371, so the low order is not a commensurability artefact"
       }
      ],
-     "gap": {
-      "kind": "inexpressible scheme",
-      "note": "as above, plus a per-norm order claim"
-     },
      "actual": {
-      "verdict": "UNFORMALIZED",
-      "result": "gap",
+      "verdict": "REFUTED_EMPIRICALLY",
+      "result": "match",
       "components": [
-       "UNFORMALIZED"
+       "REFUTED_EMPIRICALLY",
+       "REFUTED_EMPIRICALLY"
+      ]
+     }
+    },
+    {
+     "reading": "the local truncation error is O(dx^2) at every grid point for smooth data, extrema included",
+     "expected": false,
+     "why": "at a smooth extremum the slopes Delta_{i+1/2}, Delta_{i-1/2} have opposite signs, minmod clips one of them to 0, and that branch's linear scheme is first order there.",
+     "cite": "LeVeque (2002) ch. 6 (accuracy of limited methods at extrema)",
+     "formalization": [
+      {
+       "spec": "../../schemes/limiters/broken-advection-minmod-second-order.json",
+       "claim": "truncation_order_smooth_data",
+       "relation": "same",
+       "expected": false,
+       "bridge": "the named claim is this reading: a pointwise statement about the local truncation error, not the global error"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "result": "match",
+      "components": [
+       "REFUTED"
+      ]
+     }
+    },
+    {
+     "reading": "order 2 in L1 on smooth periodic data with extrema (sine)",
+     "expected": "unsettled",
+     "why": "the clipped region near each extremum shrinks with dx; we do not know a sharp L1 rate for minmod with extrema. Measured: 1.89-1.95 at N = 100..1600 at dt/dx = 1/2 and 0.37, still rising.",
+     "cite": "LeVeque (2002) ch. 6 (reports degraded accuracy near extrema without an L1 rate)",
+     "formalization": [
+      {
+       "spec": "../../schemes/limiters/broken-advection-minmod-second-order.json",
+       "claim": "converges_order_p_l1",
+       "relation": "necessary",
+       "bridge": "order 2 in L1 on sine data at dt/dx = 1/2, T = 1/4"
+      }
+     ],
+     "actual": {
+      "verdict": "NOT_REFUTED",
+      "result": "unscored",
+      "components": [
+       "NOT_REFUTED"
       ]
      }
     }
@@ -1005,6 +1088,86 @@
       "components": [
        "VERIFIED",
        "VERIFIED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C21",
+   "sentence": "Flux-limited schemes with a limiter in Sweby's TVD region, such as minmod and superbee, are TVD for Courant numbers up to 1.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "minmod (Sweby form, polynomial slope minmod(Delta_{i+1/2}, Delta_{i-1/2})) is TVD for every nu in [0, 1]",
+     "expected": true,
+     "why": "Harten's coefficient is C = nu(1 + (1 - nu)/2 (phi(theta_{i+1/2})/theta_{i+1/2} - phi(theta_{i-1/2}))), which lies in [nu^2, nu(2 - nu)] in [0, 1] when 0 <= phi(theta) <= min(2, 2 theta).",
+     "cite": "Sweby (1984) SINUM 21; Harten (1983) JCP 49; LeVeque (2002) ch. 6",
+     "formalization": [
+      {
+       "spec": "../../schemes/limiters/advection-minmod.json",
+       "claim": "tvd_under_cfl",
+       "relation": "same",
+       "expected": true,
+       "bridge": "the named claim is TVD for every periodic state and every nu in the claimed range [0, 1]"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED"
+      ]
+     }
+    },
+    {
+     "reading": "superbee (slope maxmod(minmod(2 Delta_{i+1/2}, Delta_{i-1/2}), minmod(Delta_{i+1/2}, 2 Delta_{i-1/2}))) is TVD for every nu in [0, 1]",
+     "expected": true,
+     "why": "superbee is the upper boundary of Sweby's region, so the same bound on Harten's coefficient holds.",
+     "cite": "Roe (1985); Sweby (1984) SINUM 21; LeVeque (2002) ch. 6",
+     "formalization": [
+      {
+       "spec": "../../schemes/limiters/advection-superbee.json",
+       "claim": "tvd_under_cfl",
+       "relation": "same",
+       "expected": true,
+       "bridge": "maxmod is written as max(0, max(m1, m2)) + min(0, min(m1, m2)), which equals it because m1 and m2 never have opposite signs"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "C22",
+   "sentence": "The superbee scheme remains TVD up to a Courant number of 3/2.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "superbee is TVD for every nu in [0, 3/2]",
+     "expected": false,
+     "why": "for nu > 1 the anti-diffusive factor (1 - nu)/2 changes sign and the explicit step overshoots; even the first-order upwind scheme is not TVD there.",
+     "cite": "LeVeque (2002) ch. 6 (the TVD region needs nu <= 1)",
+     "formalization": [
+      {
+       "spec": "../../schemes/limiters/broken-advection-superbee-wide-cfl.json",
+       "claim": "tvd_under_cfl",
+       "relation": "same",
+       "expected": false,
+       "bridge": "the named claim is this reading"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "result": "match",
+      "components": [
+       "REFUTED"
       ]
      }
     }

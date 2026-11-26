@@ -82,7 +82,7 @@ def _spec(base: Path, path: str, override: dict, names: list[str]) -> dict:
     for key in ("shock_speed", "entropy_rarefaction"):
         if key not in wanted:
             spec.get("claims", {}).pop(key, None)
-    if not wanted & {"order/combined", "order/space", "order/time"}:
+    if not wanted & {"order/combined", "order/space", "order/time", "order_l1/combined", "order_linf/combined"}:
         spec.pop("test", None)
     return spec
 
