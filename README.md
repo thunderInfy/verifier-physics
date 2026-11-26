@@ -136,6 +136,8 @@ below for how one becomes the other).
 | Conservation on a periodic grid | exact: the update telescopes as -(dt/dx)(F_{i+1/2} - F_{i-1/2}), or an exact periodic state whose total changes | recovered flux, or counterexample state |
 | Positivity of linear schemes on a claimed CFL range | exact: Bernstein coefficients of every c_k(nu) are >= 0 on the interval (endpoint values when c_k is affine in nu), or an exact nu where some c_k < 0 | coefficient list, or offending coefficient and nu |
 | Convergence order (combined, space, time) | empirical only | L1 and Linf error tables |
+| Truncation order of linear schemes | exact: the Taylor coefficients e_j(nu) of the local truncation error vanish identically for j <= p, or an exact nu where some e_j != 0 | every e_j, the leading modified-equation term and its kind (diffusive, anti-diffusive, dispersive) |
+| Von Neumann stability of linear schemes on a claimed CFL range | exact: 1 - \|g\|^2 >= 0 on nu x cos(theta) by tensor Bernstein coefficients after stripping (1 - z), (1 + z), or an exact (nu, cos(theta)) with \|g\|^2 > 1 | \|g\|^2, the factorisation, the boxes and their Bernstein coefficients; or the point |
 | Shock speed on Riemann problems | empirical only | late-window speed at three crossing levels against the exact Rankine-Hugoniot speed, per grid |
 | Entropy stability (Tadmor), semi-discrete | exact for the semi-discrete inequality only, not the time stepping: Q = -[v](F - F*) >= 0 certified on sign cells, or an exact rational point with Q < 0 | F*, Q, per-cell D = Q/(uR - uL)^2 with a change of variables that makes it non-negative by form, or counterexample (uL, uR) |
 | Convergence to the rarefaction fan | empirical only | L1 error tables against u = (x - x0)/t, at two incommensurate dt/dx |
@@ -341,6 +343,56 @@ well below delta, which is why it returns `UNKNOWN` there. delta is a fixed stat
 smaller dt/dx reaches the failing states (|u| near 0.3) under any c. We expect it is never
 monotone, but the check has not shown this.
 
+**Exact order of accuracy for linear schemes.** For u_t + a u_x = 0 and a linear update
+u_i^{n+1} = sum_k c_k(nu) u_{i+k}^n (nu = a dt/dx), the order is polynomial algebra. Expanding the
+exact solution, the local truncation error at fixed dt/dx is tau = sum_j e_j(nu) dx^(j-1) u^(j) with
+e_j = a/(nu j!)((-nu)^j - sum_k c_k k^j), and the scheme is consistent of order p iff e_0..e_p vanish
+identically in nu. The first non-zero e_j is the leading term of the modified equation. Stability is
+von Neumann's condition: with z = cos(theta), |g|^2 is a polynomial in nu and z, and the check
+certifies 1 - |g|^2 >= 0 on the claimed range of nu and z in [-1, 1]. For a consistent scheme
+1 - |g|^2 always vanishes at z = 1, so the check strips the factors (1 - z) and (1 + z) and
+certifies the rest by tensor Bernstein coefficients, bisecting the box when needed. A refutation is
+an exact rational (nu, z) with |g|^2 > 1. The tests replay every witness from the spec's update
+directly (e_q from the truncation error on u = x^q; |g|^2 from Re g and Im g).
+
+| Scheme (a = 1) | Order (exact) | Leading term of the modified equation | Von Neumann (exact) |
+|---|---|---|---|
+| Upwind | 1 | (1 - nu)/2 · a dx u_xx, diffusive | VERIFIED on [0, 1]: 1 - \|g\|^2 = 2 nu(1 - nu)(1 - z) |
+| Lax-Friedrichs | 1 | (1 - nu^2)/(2 nu) · a dx u_xx, diffusive | VERIFIED on [-1, 1]: (1 - z^2)(1 - nu^2); REFUTED on [0, 11/10] at nu = 11/10, z = 0 |
+| Lax-Wendroff | 2 | -(1 - nu^2)/6 · a dx^2 u_xxx, dispersive | VERIFIED on [-1, 1]: nu^2 (1 - nu^2)(1 - z)^2 |
+| Lax-Wendroff with the diffusion halved | 1, REFUTED as 2 (e_2 = nu/4) | -nu/4 · dx u_xx, anti-diffusive | REFUTED for every nu != 0 |
+| FTCS | 1 | -nu/2 · dx u_xx, anti-diffusive | REFUTED for every nu != 0: 1 - \|g\|^2 = -nu^2 (1 - z^2) |
+
+The halved Lax-Wendroff spec was written as an order test, but the exact check shows it is also
+unstable: at z = 0, |g|^2 = 1 + nu^4/4.
+
+The Lax-Richtmyer equivalence theorem turns the two into a convergence order. For a linear
+constant-coefficient scheme on a periodic grid, consistency of order p plus stability gives
+convergence of order p for smooth initial data. That is a `sufficient` row for `converges_order_p`,
+with two preconditions that must be exactly `VERIFIED`: `von_neumann`, and `lax_richtmyer_scope`.
+The second is a structural check: the update is linear with coefficients depending on dt/dx only,
+the claimed study is the combined one (refining dx at fixed dt/dx, which is what the theorem is
+about) at the claimed consistency order, the study's dt/dx is inside the certified range, and the
+test data are smooth. It returns `NOT_APPLICABLE` otherwise, so the row cannot fire for a
+nonlinear update (a test claims all of it for Burgers Lax-Friedrichs: the three checks are
+`NOT_APPLICABLE`, the row gives `UNKNOWN`, and `converges_order_p` stays `NOT_REFUTED` from the study).
+
+So claims of order are now exactly verifiable for Lax-Friedrichs and Lax-Wendroff (`VERIFIED`, where
+they were `NOT_REFUTED`). Upwind's stays `NOT_REFUTED`: it also claims space (method of lines) and
+time (forward Euler on a fixed grid) orders, which this theorem does not cover. For FTCS the row is
+silent (stability fails) and the study decides. At dt/dx = 4/5 round-off in the unstable modes
+grows to 1e11 by N = 400 (`REFUTED_EMPIRICALLY`). At dt/dx = 1/2 to T = 1/4 it does not grow
+enough: the study shows order 1.00 and says `NOT_REFUTED`, and only the exact check sees the
+instability. The judge never says `INCONSISTENT` on any of these. For nonlinear and limited schemes
+(Burgers, anything with |.| or max) nothing here applies, and the empirical study remains the
+only evidence of order.
+
+Lax-Richtmyer is asymptotic. It says the error is O(dx^p) as dx -> 0, nothing about the constant or
+about when the asymptotic regime starts, and "order p" here means at least p: a scheme that happens
+to be more accurate on the test data is not contradicted. The truncation expansion assumes enough
+smooth derivatives; for data with a kink or a shock the order is lower, and the theorem says
+nothing.
+
 Limits: one space dimension, scalar laws, three-point stencils, periodic grids (the shock-speed and
 rarefaction studies use transmissive boundaries), Riemann data with a single shock or a single fan.
 The exact entropy check needs a quadratic entropy, and the rarefaction study's exact fan is for
@@ -374,7 +426,10 @@ to refute.
 | `monotone_under_cfl` | monotonicity | equivalent | exact |
 | `selects_entropy_solution` | entropy_rarefaction | necessary | empirical |
 | | monotonicity (Crandall-Majda), only if conservation and consistency are VERIFIED | sufficient | exact |
+| `consistent_order_p` | truncation_order | equivalent | exact |
+| `von_neumann_stable_under_cfl` | von_neumann | equivalent | exact |
 | `converges_order_p` | order/combined, order/space, order/time | necessary | empirical |
+| | truncation_order (Lax-Richtmyer), only if von_neumann and lax_richtmyer_scope are VERIFIED | sufficient | exact |
 | `correct_shock_speed` | shock_speed | necessary | empirical |
 
 Tadmor's inequality is about the method of lines and says nothing about time stepping, so it
