@@ -20,7 +20,7 @@ CORRECT = ["advection-upwind", "advection-lax-friedrichs", "advection-lax-wendro
 # broken spec -> the checks that must catch it (and nothing else may fail)
 BROKEN = {"broken-advection-inconsistent-flux": {"consistency", "order/combined"},
           "broken-burgers-scaled-flux": {"consistency", "order/combined"},
-          "broken-burgers-nonconservative": {"conservation", "shock_speed"},
+          "broken-burgers-nonconservative": {"conservation", "shock_speed", "stationary_rh_violation"},
           "broken-burgers-roe-no-entropy-fix": {"entropy_stability", "entropy_rarefaction", "monotonicity",
                                                        "steady_nonentropy_step", "steady_nonentropy_step_semidiscrete"},
           "broken-advection-lax-friedrichs-wide-cfl": {"positivity", "monotonicity", "von_neumann"},
@@ -349,7 +349,7 @@ def test_roe_keeps_the_expansion_shock():
 # spec -> the named claims it must fail, with the verdict; every other claim it makes must not fail
 FAILING_CLAIMS = {"broken-advection-inconsistent-flux": {"consistent": C.REFUTED, "converges_order_p": C.REFUTED_EMPIRICALLY},
                   "broken-burgers-scaled-flux": {"consistent": C.REFUTED, "converges_order_p": C.REFUTED_EMPIRICALLY},
-                  "broken-burgers-nonconservative": {"conservative": C.REFUTED, "correct_shock_speed": C.REFUTED_EMPIRICALLY},
+                  "broken-burgers-nonconservative": {"conservative": C.REFUTED, "correct_shock_speed": C.REFUTED},
                   "broken-burgers-roe-no-entropy-fix": {"entropy_stable_tadmor": C.REFUTED,
                                                         "selects_entropy_solution": C.REFUTED,
                                                         "selects_entropy_solution_semidiscrete": C.REFUTED,
