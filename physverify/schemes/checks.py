@@ -414,6 +414,32 @@ def _horner(c: list, x: Fraction) -> Fraction:
     return sum((a * x ** j for j, a in enumerate(c)), Fraction(0))
 
 
+class NotLinear(Exception):
+    """The PDE is not u_t + a u_x = 0 or the update is not linear in (um1, u0, up1)."""
+
+
+class NonlinearFlux(NotLinear):
+    pass
+
+
+def linear_coefficients(spec: dict) -> tuple[Fraction, dict]:
+    """(a, {stencil name: c_k}) with u_i^{n+1} = sum_k c_k u_{i+k}^n for u_t + a u_x = 0, each c_k a
+    Poly in nu = a*lam. Raises NotLinear (the reason) or P.Undecided."""
+    f = P.from_expr(pde_flux(spec))
+    H = P.from_expr(update(spec))
+    if list(f) != [((("v", "u"), 1),)]:
+        raise NonlinearFlux(f"nonlinear flux f = {P.show(f)}")
+    a = f[((("v", "u"), 1),)]
+    coeffs: dict = {}
+    for m, c in H.items():
+        us = [(x, k) for x, k in m if x[0] == "v" and x[1] in STENCIL]
+        if len(us) != 1 or us[0][1] != 1 or any(x[0] == "s" for x, _ in m):
+            raise NotLinear("update is not linear in (um1, u0, up1)")
+        rest = P.subst({P._mono({x: k for x, k in m if x != us[0][0]}): c}, {"lam": P.scale(P.var("nu"), 1 / a)})
+        coeffs[us[0][0][1]] = P.add(coeffs.get(us[0][0][1], {}), rest)
+    return a, coeffs
+
+
 def positivity(spec: dict) -> dict:
     cfl = spec.get("claims", {}).get("positive_cfl")
     if cfl is None:
@@ -421,21 +447,14 @@ def positivity(spec: dict) -> dict:
     lo, hi = (Fraction(x) for x in cfl)
     claim = f"positivity: every coefficient c_k(nu) >= 0 for nu = a*dt/dx in [{lo}, {hi}]"
     try:
-        f = P.from_expr(pde_flux(spec))
-        H = P.from_expr(update(spec))
+        a, coeffs = linear_coefficients(spec)
     except P.Undecided as ex:
         return result("positivity", UNKNOWN, claim, str(ex))
-    if list(f) != [((("v", "u"), 1),)]:
+    except NonlinearFlux:
         return result("positivity", NOT_APPLICABLE, claim,
                       "nonlinear flux: positivity/monotonicity of nonlinear schemes is out of scope in v0")
-    a = f[((("v", "u"), 1),)]
-    coeffs: dict = {}
-    for m, c in H.items():
-        us = [(x, k) for x, k in m if x[0] == "v" and x[1] in STENCIL]
-        if len(us) != 1 or us[0][1] != 1 or any(x[0] == "s" for x, _ in m):
-            return result("positivity", NOT_APPLICABLE, claim, "update is not linear in (um1, u0, up1)")
-        rest = P.subst({P._mono({x: k for x, k in m if x != us[0][0]}): c}, {"lam": P.scale(P.var("nu"), 1 / a)})
-        coeffs[us[0][0][1]] = P.add(coeffs.get(us[0][0][1], {}), rest)
+    except NotLinear as ex:
+        return result("positivity", NOT_APPLICABLE, claim, str(ex))
     wit: dict = {"nu": f"{a}*lam (a = {a})", "coefficients": {}, "bernstein": {}}
     for name in STENCIL:
         p = coeffs.get(name, {})
