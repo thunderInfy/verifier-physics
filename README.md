@@ -428,6 +428,17 @@ decides `conservative`. The shock-speed study is only a necessary condition: it 
 on the conservative schemes its pass adds nothing to the proof. This is the same issue as tracking
 the polarity of each tool's answer (delta-sat in dReal is only sound in one direction).
 
+### Claims as papers write them
+
+`benchmark/scheme-claims/` has 20 sentences phrased the way papers phrase them ("Lax–Wendroff is
+TVD", "our upwind scheme is unconditionally stable", "the minmod MUSCL scheme is second order").
+Each reading of each sentence is formalized into the named claims above, with an expected truth
+and a citation. `uv run python -m physverify.schemes.bench benchmark/scheme-claims/` prints
+expected against actual. It fails on a decisive verdict that contradicts the expectation and lists
+non-decisive results as gaps. Now: 14 of 33 readings decided correctly, 19 gaps, none wrong.
+`GAPS.md` there ranks the gaps. The largest are order of accuracy (only ever empirical), stencils
+wider than three points, and monotonicity of nonlinear schemes.
+
 ## Setup
 
 Python 3.11+ and [uv](https://docs.astral.sh/uv/):
