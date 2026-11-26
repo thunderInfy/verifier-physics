@@ -273,8 +273,9 @@ def span(atoms: list, eqs: list) -> dict | None:
 _CACHE: dict = {}
 
 
-def cells(e, extra=(), cap: int = MAX_CELLS) -> dict:
+def cells(e, extra=(), cap: int | None = None) -> dict:
     """`_cells`, cached per expression (the TVD and truncation checks share one decomposition)."""
+    cap = MAX_CELLS if cap is None else cap
     key = (to_str(e), tuple(checks._key(a) for a in extra), cap)
     if key not in _CACHE:
         _CACHE[key] = _cells(e, extra, cap)
@@ -306,14 +307,16 @@ def _cells(e, extra=(), cap: int = MAX_CELLS) -> dict:
                     todo.append(a2)
             continue
         out.append({"poly": p, "atoms": _atoms(assign, extra), "assign": assign})
-    checked = 0
+    checked = undecided = 0
     for c1, c2 in combinations(out, 2):
         ok = _agree(c1, c2)
         if ok is False:
             raise P.Undecided(f"cells {[_show(a) for a in c1['atoms']]} and {[_show(a) for a in c2['atoms']]} "
                               "disagree where they overlap: a bug in the sign-cell split")
         checked += ok is True
-    return {"cells": out, "explored": explored, "pruned": pruned, "overlaps_checked": checked, "cover": COVER}
+        undecided += ok is None
+    return {"cells": out, "explored": explored, "pruned": pruned, "overlaps_checked": checked,
+            "overlaps_undecided": undecided, "cover": COVER}
 
 
 def _show(a: P.Poly) -> str:
@@ -322,7 +325,8 @@ def _show(a: P.Poly) -> str:
 
 def cell_counts(cs: dict) -> dict:
     return {"retained (full-dimensional)": len(cs["cells"]), "pruned (lower-dimensional, certified)": len(cs["pruned"]),
-            "explored (split-tree nodes)": cs["explored"], "overlapping pairs checked to agree": cs["overlaps_checked"]}
+            "explored (split-tree nodes)": cs["explored"], "pairs checked to agree on their overlap": cs["overlaps_checked"],
+            "pairs whose overlap check was undecided": cs["overlaps_undecided"]}
 
 
 # ---------------------------------------------------------------- linear flux, nu = a*lam
@@ -638,7 +642,7 @@ def tv_increase(spec: dict) -> dict:
     except P.Undecided as ex:
         return result("tv_increase", UNKNOWN, claim, str(ex))
     nus = list(dict.fromkeys([lo + (hi - lo) * Fraction(t, 8) for t in (4, 8, 6, 2, 7, 1, 5, 3)]))
-    nus = [x for x in nus if x != 0]
+    nus = [x for x in nus if x / a > 0]                         # dt/dx = nu/a > 0
     tried = 0
     for data in _candidates():
         u = [Fraction(x) for x in data]

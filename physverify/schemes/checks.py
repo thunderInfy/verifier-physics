@@ -1,7 +1,9 @@
-"""Exact structural checks for 1D three-point schemes u_t + f(u)_x = 0.
+"""Exact structural checks for 1D three-point schemes u_t + f(u)_x = 0 (and five-point ones).
 
 Stencil variables: um1, u0, up1 (u_{i-1}^n, u_i^n, u_{i+1}^n) and lam = dt/dx. A numerical
-flux F is written in uL, uR. Every check returns a plain dict with an explicit witness
+flux F is written in uL, uR. A wider scheme may also use um2, up2 (u_{i-2}^n, u_{i+2}^n) and a flux
+F(uLL, uL, uR, uRR) = F_{i+1/2}(u_{i-1}, u_i, u_{i+1}, u_{i+2}); three-point specs are handled
+exactly as before (`stencil_of`), and the limited schemes' own checks are in `limiters.py`. Every check returns a plain dict with an explicit witness
 (a normal form, a recovered flux, a coefficient list, or an exact rational counterexample),
 so each verdict can later be replayed as a Lean certificate.
 
