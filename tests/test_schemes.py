@@ -19,8 +19,9 @@ CORRECT = ["advection-upwind", "advection-lax-friedrichs", "advection-lax-wendro
 BROKEN = {"broken-advection-inconsistent-flux": {"consistency", "order/combined"},
           "broken-burgers-scaled-flux": {"consistency", "order/combined"},
           "broken-burgers-nonconservative": {"conservation", "shock_speed"},
-          "broken-burgers-roe-no-entropy-fix": {"entropy_stability", "entropy_rarefaction"},
-          "broken-advection-lax-friedrichs-wide-cfl": {"positivity"},
+          "broken-burgers-roe-no-entropy-fix": {"entropy_stability", "entropy_rarefaction", "monotonicity"},
+          "broken-advection-lax-friedrichs-wide-cfl": {"positivity", "monotonicity"},
+          "broken-advection-lax-wendroff-monotone": {"monotonicity"},
           "broken-advection-downwind": {"positivity"},
           "broken-advection-fake-second-order": {"order/combined"}}
 
@@ -344,8 +345,11 @@ FAILING_CLAIMS = {"broken-advection-inconsistent-flux": {"consistent": C.REFUTED
                   "broken-burgers-scaled-flux": {"consistent": C.REFUTED, "converges_order_p": C.REFUTED_EMPIRICALLY},
                   "broken-burgers-nonconservative": {"conservative": C.REFUTED, "correct_shock_speed": C.REFUTED_EMPIRICALLY},
                   "broken-burgers-roe-no-entropy-fix": {"entropy_stable_tadmor": C.REFUTED,
-                                                        "selects_entropy_solution": C.REFUTED_EMPIRICALLY},
-                  "broken-advection-lax-friedrichs-wide-cfl": {"positive_under_cfl": C.REFUTED},
+                                                        "selects_entropy_solution": C.REFUTED_EMPIRICALLY,
+                                                        "monotone_under_cfl": C.REFUTED},
+                  "broken-advection-lax-friedrichs-wide-cfl": {"positive_under_cfl": C.REFUTED,
+                                                               "monotone_under_cfl": C.REFUTED},
+                  "broken-advection-lax-wendroff-monotone": {"monotone_under_cfl": C.REFUTED},
                   "broken-advection-downwind": {"positive_under_cfl": C.REFUTED},
                   "broken-advection-fake-second-order": {"converges_order_p": C.REFUTED_EMPIRICALLY}}
 
@@ -420,8 +424,9 @@ def test_empirical_pass_never_verifies():
 def test_claims_table_is_well_formed():
     for statement, links in C.CLAIMS.values():
         assert statement and links
-        for chk, rel, _ in links:
+        for chk, rel, _, *requires in links:
             assert chk in C.GUARANTEE and rel in (C.SUFFICIENT, C.NECESSARY, C.EQUIVALENT)
+            assert len(requires) <= 1 and all(C.GUARANTEE[r] == C.EXACT for r in (requires or [()])[0])
     with pytest.raises(ValueError):
         check({**load(S / "advection-upwind.json"), "named_claims": ["stable"]})
 
@@ -437,7 +442,8 @@ def test_claim_verdicts(verdicts, name):
 def test_harten_is_not_refuted_by_tadmor(results, verdicts):
     """Tadmor's inequality is sufficient for the semi-discrete scheme selecting the entropy solution,
     not necessary: Harten's fix fails it (exactly, at (-1, 1)) and still converges to the rarefaction.
-    It says nothing about time stepping, so the fully discrete claim rests on the study alone."""
+    It says nothing about time stepping, so it never decides the fully discrete claim: for Harten
+    (not monotone either) the study alone does, for the monotone schemes monotonicity does."""
     assert results["burgers-roe-harten-fix"]["entropy_stability"]["status"] == checks.REFUTED
     harten = verdicts["burgers-roe-harten-fix"]
     v = harten["selects_entropy_solution"]
@@ -453,7 +459,8 @@ def test_harten_is_not_refuted_by_tadmor(results, verdicts):
         v = verdicts[name]["selects_entropy_solution_semidiscrete"]
         assert v["verdict"] == C.VERIFIED and any("semi-discrete" in a for a in v["assumes"])
         v = verdicts[name]["selects_entropy_solution"]
-        assert v["verdict"] == C.NOT_REFUTED and v["decided_by"] == ["entropy_rarefaction"]
+        assert v["verdict"] == C.VERIFIED and v["decided_by"] == ["monotonicity"]
+        assert "entropy_stability" not in {e["check"] for e in v["evidence"]}
 
 
 def test_conservation_claim_three_ways(verdicts):
@@ -464,3 +471,140 @@ def test_conservation_claim_three_ways(verdicts):
     assert verdicts["broken-burgers-nonconservative"]["converges_order_p"]["verdict"] == C.NOT_REFUTED
     for name in BURGERS:
         assert verdicts[name]["conservative"]["decided_by"] == ["conservation"]
+
+
+# ---------------------------------------------------------------- monotonicity (fully discrete)
+
+MONOTONE = {"advection-upwind": "1", "advection-lax-friedrichs": "1", "burgers-lax-friedrichs": "1",
+            "burgers-engquist-osher": "1", "burgers-rusanov": "1/3", "broken-burgers-nonconservative": "1/3"}
+
+
+def _with_cfl(name, c):
+    spec = load(S / f"{name}.json")
+    spec["claims"]["monotone_cfl"] = c
+    return spec
+
+
+def _in_region(spec, state, lam, c):
+    """lam*|f'(u)| <= c on every state, recomputed from f' = a (advection) or f' = u (Burgers)."""
+    a = Fraction(spec.get("params", {}).get("a", 0))
+    return all(lam * abs(a if spec["pde"]["flux"] == "a*u" else u) <= c for u in state)
+
+
+def test_derivative():
+    assert P.add(P.derivative(_p("u^3*lam^-1 + 2*u*v + v"), "u"), _p("3*u^2/lam + 2*v"), -1) == {}
+    with pytest.raises(P.Undecided):
+        P.derivative(_p("sqrt(u^2)"), "u")
+
+
+def test_monotone_specs_verified(results):
+    for name, c in MONOTONE.items():
+        r = results[name]["monotonicity"]
+        assert r["status"] == checks.VERIFIED and r["guarantee"] == checks.EXACT, name
+        assert f"<= {c}" in r["claim"]
+
+
+@pytest.mark.parametrize("name", sorted(MONOTONE))
+def test_monotone_certificates_hold(results, name):
+    """Tests the checker: on exact random states in the CFL region, raising one argument never lowers H;
+    and every Farkas identity recorded in the witness holds in the normal form."""
+    spec, c = load(S / f"{name}.json"), Fraction(MONOTONE[name])
+    H = P.from_expr(checks.update(spec))
+    rng = random.Random(name)
+    burgers = spec["pde"]["flux"] != "a*u"
+    n = 0
+    while n < 200:
+        lam = Fraction(rng.randint(1, 9), rng.randint(1, 9)) if burgers else c * Fraction(rng.randint(1, 9), 9)
+        scale = c / lam if burgers else 3                     # draw states inside the box (Burgers)
+        s = [scale * Fraction(rng.randint(-60, 60), 60) for _ in range(3)]
+        k, h = rng.randrange(3), scale * Fraction(rng.randint(1, 20), rng.randint(20, 400))
+        t = s.copy()
+        t[k] += h
+        if not (_in_region(spec, s, lam, c) and _in_region(spec, t, lam, c)):
+            continue
+        at = lambda st: P.evaluate(H, {**dict(zip(checks.STENCIL, st)), "lam": lam})
+        assert at(t) >= at(s), (s, t, lam)
+        n += 1
+    for cell in results[name]["monotonicity"]["witness"]["cells"]:
+        for part in cell["partials"].values():
+            cert = part["certificate"]
+            if "farkas" in cert:
+                lhs, rhs = cert["farkas"].split(" = ")
+                assert P.add(_p(lhs), _p(rhs), -1) == {}
+                assert all(Fraction(m) > 0 for m in cert["multipliers"].values()) and Fraction(cert["remainder"]) >= 0
+
+
+def _replay_decrease(spec, r):
+    """An exact REFUTED witness: two states in the region, one argument raised, H lower."""
+    w = r["witness"]["counterexample"]
+    c, lam = Fraction(spec["claims"]["monotone_cfl"]), Fraction(w["lam"])
+    s = [Fraction(x) for x in w["state (um1, u0, up1)"]]
+    t = s.copy()
+    t[checks.STENCIL.index(w["increased"])] += Fraction(w["by"])
+    assert Fraction(w["by"]) > 0 and lam > 0 and _in_region(spec, s, lam, c) and _in_region(spec, t, lam, c)
+    H = P.from_expr(checks.update(spec))
+    at = lambda st: P.evaluate(H, {**dict(zip(checks.STENCIL, st)), "lam": lam})
+    assert at(t) == Fraction(w["H after"]) < Fraction(w["H before"]) == at(s)
+    return lam, s, w["increased"]
+
+
+@pytest.mark.parametrize("name,c", [("burgers-lax-friedrichs", "11/10"), ("burgers-lax-friedrichs", "101/100"),
+                                    ("burgers-engquist-osher", "101/100"), ("burgers-rusanov", "1"),
+                                    ("burgers-rusanov", "334/1000"), ("advection-upwind", "11/10"),
+                                    ("advection-lax-wendroff", "1"), ("broken-burgers-roe-no-entropy-fix", "1/10"),
+                                    ("burgers-roe-harten-fix", "1/2"), ("broken-burgers-nonconservative", "334/1000")])
+def test_monotonicity_refutations_replay(name, c):
+    """The CFL ranges in the specs are sharp: just above them each scheme is exactly REFUTED. Rusanov's
+    bound is 1/3, not 1: with alpha = max(|uL|, |uR|), dH/du0 = 1 - 2 w0 + (w_m1 + w_p1)/2 on a cell."""
+    spec = _with_cfl(name, c)
+    r = checks.monotonicity(spec)
+    assert r["status"] == checks.REFUTED and r["guarantee"] == checks.EXACT
+    _replay_decrease(spec, r)
+
+
+def test_lax_wendroff_is_not_monotone(results):
+    """Godunov: a linear monotone scheme is at most first order. Lax-Wendroff is REFUTED for every
+    lam in (0, 1): the coefficient of up1 is -lam*(1 - lam)/2 < 0. At lam = 1 it is the exact shift."""
+    r = results["broken-advection-lax-wendroff-monotone"]["monotonicity"]
+    lam, _, x = _replay_decrease(load(S / "broken-advection-lax-wendroff-monotone.json"), r)
+    assert 0 < lam < 1 and x == "up1"
+    assert r["witness"]["cells"][0]["partials"]["up1"]["dH/dup1"] == "-1/2*lam + 1/2*lam^2"
+
+
+def test_roe_is_not_monotone_at_a_transonic_expansion(results):
+    """Roe without a fix is not monotone under any CFL bound: near the expansion um1 < 0 < u0 the flux is
+    uL^2/2, so dH/dum1 = lam*um1 < 0. Monotonicity is only sufficient, so this alone decides nothing
+    about the entropy claim; the rarefaction study refutes it, with no INCONSISTENT."""
+    r = results["broken-burgers-roe-no-entropy-fix"]["monotonicity"]
+    lam, s, x = _replay_decrease(load(S / "broken-burgers-roe-no-entropy-fix.json"), r)
+    assert x == "um1" and s[0] < 0 < s[1]
+
+
+def test_monotone_and_positive_agree_on_linear_schemes():
+    """For a linear update, monotone on lam*|a| <= c is positivity on nu in [0, c] (a = 1)."""
+    for name in ("advection-upwind", "advection-lax-friedrichs", "advection-lax-wendroff", "broken-advection-downwind"):
+        for c in ("1/2", "1", "11/10"):
+            spec = _with_cfl(name, c)
+            spec["claims"]["positive_cfl"] = ["0", c]
+            assert checks.monotonicity(spec)["status"] == checks.positivity(spec)["status"], (name, c)
+
+
+def test_crandall_majda_needs_conservation_and_consistency(verdicts):
+    """A monotone, non-conservative update must not verify the entropy claim: the row's precondition."""
+    v = verdicts["broken-burgers-nonconservative"]
+    assert v["monotone_under_cfl"]["verdict"] == C.VERIFIED
+    s = v["selects_entropy_solution"]
+    assert s["verdict"] == C.UNKNOWN and s["evidence"][0]["unmet"] == ["conservation: REFUTED", "consistency: NOT_APPLICABLE"]
+    row = next(r for r in C.CLAIMS["selects_entropy_solution"][1] if r[0] == "monotonicity")
+    table = {"c": ("test claim", (row,))}
+    judge = lambda st: C.judge(["c"], [{"check": k, "status": x, "assumptions": []} for k, x in st.items()], table)[0]
+    ok = {"monotonicity": "VERIFIED", "conservation": "VERIFIED", "consistency": "VERIFIED"}
+    assert judge(ok)["verdict"] == C.VERIFIED and "Crandall-Majda" in judge(ok)["assumes"][0]
+    for k, bad in (("conservation", "REFUTED"), ("consistency", "UNKNOWN"), ("consistency", None)):
+        st = {**ok, k: bad} if bad else {x: y for x, y in ok.items() if x != k}
+        assert judge(st)["verdict"] == C.UNKNOWN, (k, bad)
+    # if a monotone, conservative, consistent scheme kept an expansion shock, the judge would say so loudly
+    links = C.CLAIMS["selects_entropy_solution"][1]
+    loud = C.judge(["c"], [{"check": k, "status": x, "assumptions": []} for k, x in
+                           {**ok, "entropy_rarefaction": "REFUTED_EMPIRICALLY"}.items()], {"c": ("t", links)})[0]
+    assert loud["verdict"] == C.INCONSISTENT
