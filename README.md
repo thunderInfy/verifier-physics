@@ -112,9 +112,19 @@ theories. Examples are in `schemes/`, the broken ones prefixed `broken-`.
 
 ```
 $ uv run python -m physverify.schemes schemes/broken-advection-lax-friedrichs-wide-cfl.json
+## BROKEN: Lax-Friedrichs claimed positive up to nu = 1.1: FAILS positive_under_cfl
+claims (judged by the table in claims.py):
+...
+- [REFUTED] (positive_under_cfl, exact) the linear update is a non-negative combination of u_{i-1}, u_i, u_{i+1} on the claimed CFL range
+    evidence: positivity EQUIVALENT REFUTED -> REFUTED
+checks (raw evidence):
+...
 - [REFUTED] (positivity, exact ...) positivity: every coefficient c_k(nu) >= 0 for nu = a*dt/dx in [0, 11/10]
     coefficient of up1 = -1/2*nu + 1/2 is -1/20 < 0 at nu = 11/10
 ```
+
+The claim verdicts come first; the raw checks underneath are the evidence (see "Checks vs claims"
+below for how one becomes the other).
 
 | Check | Guarantee | Witness |
 |---|---|---|
@@ -264,7 +274,8 @@ no bound (at lam = 2, (-2, 2)). Harten's entropy fix, phi(a) = |a| if |a| >= del
 |a| + max(0, delta - |a|)^2/(2 delta) with max(0, z) = (z + |z|)/2. With delta = 1/2 it still fails
 Tadmor's inequality at (-1, 1) (Q = -1/6): its sonic viscosity delta/2 is below (uR - uL)/6. Yet it
 converges to the rarefaction (below). Entropy stability for eta = u^2/2 is sufficient, not
-necessary, so `burgers-roe-harten-fix` claims only the rarefaction.
+necessary, so `burgers-roe-harten-fix` does not claim it: it claims only that it selects the entropy
+solution, and Tadmor's failure there is not a refutation (see "Checks vs claims").
 
 **Empirical rung: convergence to the rarefaction fan.** For uL < uR the entropy solution is
 u = clip((x - x0)/t, uL, uR). The study runs the scheme on [0, 1] with the jump at x0 = 1/2 and
@@ -303,6 +314,52 @@ order about 0.8 at N = 400); the exact check is what catches it. A non-conservat
 converge at the right order on smooth data, as `broken-burgers-nonconservative` does; only the
 conservation check catches it exactly, and the shock-speed study shows the effect. The Burgers tests use data without sonic points, where
 Rusanov's L∞ order is still pre-asymptotic at these grid sizes.
+
+### Checks vs claims
+
+A check is evidence about a claim, and checks differ in how strongly they bear on one. A spec
+lists the named claims it makes (`named_claims`), and a small trusted table in
+`physverify/schemes/claims.py` says, for each claim, which checks bear on it and how. The checks
+never decide what their result means for a claim. The table also fixes each check's guarantee,
+exact or empirical. An empirical study that returned `VERIFIED` would still count as empirical.
+
+| Claim | Check | Relation | Guarantee |
+|---|---|---|---|
+| `consistent` | consistency | equivalent | exact |
+| `conservative` | conservation (telescoping) | equivalent | exact |
+| | shock_speed (late window) | necessary | empirical |
+| `positive_under_cfl` | positivity (Bernstein) | equivalent | exact |
+| `entropy_stable_tadmor` | entropy_stability (Tadmor) | equivalent | exact (semi-discrete) |
+| `selects_entropy_solution` | entropy_stability (Tadmor) | sufficient | exact (semi-discrete) |
+| | entropy_rarefaction | necessary | empirical |
+| `converges_order_p` | order/combined, order/space, order/time | necessary | empirical |
+| `correct_shock_speed` | shock_speed | necessary | empirical |
+
+A passing sufficient or equivalent check verifies the claim, and a failing necessary or
+equivalent check refutes it. A passing necessary check only fails to refute it, and a failing
+sufficient check says nothing (`UNKNOWN`). With the guarantee this gives `VERIFIED`/`REFUTED` from
+exact checks and `NOT_REFUTED`/`REFUTED_EMPIRICALLY` from empirical ones. When several checks bear
+on one claim, any refutation refutes and any verification verifies. If both happen the verdict is
+`INCONSISTENT`. That means a checker, a spec or the table is wrong, not that the physics is: the
+CLI marks it `!!!` and exits with code 3, and the tests fail on it. The verdict lists the premises
+of the relation it used as assumptions. For Tadmor as a sufficient condition these are: the
+inequality is semi-discrete only, the scheme must converge, and for a convex scalar flux one
+strictly convex entropy singles out the entropy solution.
+
+Roe with Harten's fix is the case the table exists for. Tadmor's check fails on it exactly (at
+(-1, 1), Q = -1/6), yet its limit on the rarefaction data is the fan.
+
+| Spec | Tadmor (raw) | Rarefaction (raw) | `entropy_stable_tadmor` | `selects_entropy_solution` |
+|---|---|---|---|---|
+| Roe + Harten fix | REFUTED | NOT_REFUTED | not claimed | NOT_REFUTED (empirical, rarefaction) |
+| Roe, no fix | REFUTED | REFUTED_EMPIRICALLY | REFUTED (exact) | REFUTED_EMPIRICALLY (rarefaction) |
+| Engquist-Osher, Rusanov, Lax-Friedrichs | VERIFIED | NOT_REFUTED | VERIFIED | VERIFIED (exact, under the premises above) |
+
+Reported as the verdict on "the claim", the raw `REFUTED` would have said Harten's fix picks the
+wrong solution. Likewise for `broken-burgers-nonconservative` the exact conservation check
+decides `conservative`. The shock-speed study is only a necessary condition: it agrees there, but
+on the conservative schemes its pass adds nothing to the proof. This is the same issue as tracking
+the polarity of each tool's answer (delta-sat in dReal is only sound in one direction).
 
 ## Setup
 
