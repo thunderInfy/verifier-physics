@@ -4,7 +4,7 @@ For data uL < uR the entropy solution of u_t + (u^2/2)_x = 0 is the rarefaction 
 u = clip((x - x0)/t, uL, uR). Weak solutions are not unique: the standing or moving step is also
 one (an expansion shock), and conservation alone does not exclude it. A scheme whose limit is the
 entropy solution converges to the fan; a scheme that keeps the step has an L1 error that settles at
-a non-zero value (for the stationary step on (-1, 1): the area between step and fan, T/2).
+a non-zero value (for the stationary step on (-1, 1): the area between step and fan, T).
 
 The scheme runs on [0, 1] with the jump at the cell interface x0 and transmissive
 (constant-extrapolation) ghost cells, as in shock.py; T keeps the fan inside the domain, and the

@@ -315,7 +315,7 @@ def test_entropy_outside_the_fragment_is_unknown():
 
 
 def test_roe_keeps_the_expansion_shock():
-    """(-1, 1) is a fixed point of Roe's update: the L1 error is the area between step and fan, T/2,
+    """(-1, 1) is a fixed point of Roe's update: the L1 error is the area between step and fan, T,
     at both dt/dx (2/5 and the incommensurate 37/100). On (-1/2, 1) Roe keeps a stationary jump
     -1/2 | 1/2 and fans out above it; that limit's L1 error is T/4 = 1/16, which the error approaches."""
     H = checks.update(load(S / "broken-burgers-roe-no-entropy-fix.json"))

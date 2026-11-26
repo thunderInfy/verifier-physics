@@ -123,6 +123,8 @@ $ uv run python -m physverify.schemes schemes/broken-advection-lax-friedrichs-wi
 | Positivity of linear schemes on a claimed CFL range | exact: Bernstein coefficients of every c_k(nu) are >= 0 on the interval (endpoint values when c_k is affine in nu), or an exact nu where some c_k < 0 | coefficient list, or offending coefficient and nu |
 | Convergence order (combined, space, time) | empirical only | L1 and Linf error tables |
 | Shock speed on Riemann problems | empirical only | late-window speed at three crossing levels against the exact Rankine-Hugoniot speed, per grid |
+| Entropy stability (Tadmor), semi-discrete | exact for the semi-discrete inequality only, not the time stepping: Q = -[v](F - F*) >= 0 certified on sign cells, or an exact rational point with Q < 0 | F*, Q, per-cell D = Q/(uR - uL)^2 with a change of variables that makes it non-negative by form, or counterexample (uL, uR) |
+| Convergence to the rarefaction fan | empirical only | L1 error tables against u = (x - x0)/t, at two incommensurate dt/dx |
 
 The exact checks use `Fraction` arithmetic and never decide on a float. Their verdicts are not
 Lean-checked yet; each returns the witness a Lean certificate would need. The flux recovery is
@@ -215,12 +217,86 @@ scheme settles to a profile moving at the right speed (stationary for (1, -1)). 
 it has settled to round-off by N = 800. Only the conservation check is a proof; the other two
 are float64 evidence on chosen data.
 
-We have not added an entropy check. A scheme that violates the entropy condition, such as a Roe
-flux without an entropy fix, can keep a stationary expansion shock on data like (-1, 1). That is a
-separate claim from the shock speed, and none of our specs tests it.
+### The ladder: consistency, conservation, entropy
 
-Limits: one space dimension, scalar laws, three-point stencils, periodic grids (the shock-speed study alone uses
-transmissive boundaries), Riemann data with a single shock (no rarefactions). Positivity of
+Each rung is necessary for the next and none is sufficient alone.
+1. Consistency (F(u, u) = f(u)): the scheme approximates the right PDE.
+2. Conservation (flux form): by the Lax-Wendroff theorem, limits are weak solutions.
+3. Entropy: weak solutions are not unique, and the limit must be the physical one.
+
+The benchmark for the third rung is `broken-burgers-roe-no-entropy-fix`, the Roe (Murman) flux
+F = (f(uL) + f(uR))/2 - |a|(uR - uL)/2 with a = (uL + uR)/2. It is consistent and conservative
+(both VERIFIED), converges at order 1 on smooth data and gets every shock speed right. On the
+rarefaction data (-1, 1) it computes a = 0 and F = 1/2 at every interface, so the step is a fixed
+point: a stationary expansion shock, a weak solution, but not the entropy one.
+
+**Exact rung: semi-discrete entropy stability, after Tadmor.** With an entropy pair (eta, q),
+entropy variable v = eta'(u) and potential psi = v f - q, the entropy-conservative flux is
+F* = [psi]/[v] ([.] = right minus left). For Burgers with eta = u^2/2 this is
+F* = (uL^2 + uL uR + uR^2)/6. An interface produces entropy [v]F - [psi] = [v](F - F*), so the
+semi-discrete scheme du_i/dt = -(F_{i+1/2} - F_{i-1/2})/dx is entropy stable iff
+Q = -[v](F - F*) >= 0 for all states. The check computes F* by exact polynomial division, which
+needs [v]/(uR - uL) to be a constant, so a quadratic entropy; anything else is `UNKNOWN`. A spec
+may declare (eta, q); for Burgers the default is (u^2/2, u^3/3). The check verifies q' = eta' f'
+exactly. It then certifies Q >= 0, either globally, as Q = (uR - uL)^2 D with D non-negative by its
+form, or cell by cell. For cells it splits every |x| = sqrt(x^2) into the cases x >= 0 and x <= 0,
+divides each cell's Q by (uR - uL)^2 where that is exact, and looks for a linear change of variables
+to two of the cell's constraints that makes the result a positive combination of monomials. Every
+cell's identity and change of variables is in the witness, ready for a Lean certificate. If some
+cell fails, it searches small rationals for a point with Q < 0 (`REFUTED`). If none turns up, the
+verdict is `UNKNOWN`.
+
+This certifies the *semi-discrete* inequality only. The time discretisation is not covered:
+forward Euler can produce entropy, so the fully discrete scheme is not certified. The output says
+so in the guarantee line.
+
+| Scheme | Entropy stability (exact, semi-discrete) | Witness |
+|---|---|---|
+| Engquist-Osher | VERIFIED | 4 sign cells; e.g. on uL, uR >= 0, D = uL/3 + uR/6; on uL >= 0 >= uR, Q itself is positive in (uL, -uR) |
+| Rusanov | VERIFIED | 8 sign cells (the nested abs(abs(uL) - abs(uR)) splits each quadrant) |
+| Lax-Friedrichs | VERIFIED under lam·\|u\| <= 1 | D = 1/(2 lam) - (uR - uL)/12 = (4 + s + t)/(12 lam) with s = 1 + lam uL, t = 1 - lam uR |
+| Roe, no fix | REFUTED | (uL, uR) = (-1, 1): F = 1/2, F* = 1/6, Q = -2/3, entropy production 2/3 > 0 |
+
+Lax-Friedrichs needs its bound because its viscosity is fixed at dx/(2 dt). D >= 0 iff
+lam(uR - uL) <= 6, so the check is VERIFIED with lam·|u| <= 3, and REFUTED with lam·|u| <= 4 or with
+no bound (at lam = 2, (-2, 2)). Harten's entropy fix, phi(a) = |a| if |a| >= delta and
+(a^2 + delta^2)/(2 delta) otherwise, fits the expression language as
+|a| + max(0, delta - |a|)^2/(2 delta) with max(0, z) = (z + |z|)/2. With delta = 1/2 it still fails
+Tadmor's inequality at (-1, 1) (Q = -1/6): its sonic viscosity delta/2 is below (uR - uL)/6. Yet it
+converges to the rarefaction (below). Entropy stability for eta = u^2/2 is sufficient, not
+necessary, so `burgers-roe-harten-fix` claims only the rarefaction.
+
+**Empirical rung: convergence to the rarefaction fan.** For uL < uR the entropy solution is
+u = clip((x - x0)/t, uL, uR). The study runs the scheme on [0, 1] with the jump at x0 = 1/2 and
+transmissive boundaries, and measures the L1 error at T = 1/4 under refinement. An
+entropy-satisfying scheme's error falls; a scheme that keeps a jump has an error that settles at a
+non-zero value. Verdict on the last two grids: `NOT_REFUTED` at observed order >= 0.3,
+`REFUTED_EMPIRICALLY` if the error changed by under 10%, `UNKNOWN` otherwise. Each case runs at
+dt/dx = 2/5 and at the deliberately incommensurate 37/100, so an error that looks exact (a fixed
+point) must survive a step that does not line up with the grid. L1 errors at N = 1600 (dt/dx = 2/5,
+then 37/100), with the observed order of the last halving:
+
+| Scheme | (-1, 1) | (-1/2, 1) | Verdict |
+|---|---|---|---|
+| Roe, no fix | 0.25, 0.25 (order 0.00; exactly T, the area between step and fan) | 0.0639, 0.0640 (0.02) | REFUTED_EMPIRICALLY |
+| Roe + Harten fix | 2.44e-3, 2.52e-3 (0.79) | 1.66e-3, 1.71e-3 (0.78) | NOT_REFUTED |
+| Engquist-Osher | 3.19e-3, 3.27e-3 (0.79) | 2.39e-3, 2.44e-3 (0.78) | NOT_REFUTED |
+| Rusanov | 2.94e-3, 3.01e-3 (0.79) | 2.17e-3, 2.21e-3 (0.78) | NOT_REFUTED |
+| Lax-Friedrichs | 8.47e-3, 9.06e-3 (0.81) | 7.61e-3, 8.13e-3 (0.79) | NOT_REFUTED |
+
+Roe's 0.25 is the same at both dt/dx and on every grid: the step is an exact fixed point of the
+update, not a round-off coincidence. On (-1/2, 1), Roe keeps a stationary jump from -1/2 to 1/2
+(a = 0 across it) with a fan above it. That limit's L1 error is T/4 = 1/16 = 0.0625, which the
+measured error approaches from above (largest jump between neighbouring cells 1.0). The
+entropy-satisfying schemes converge at observed order about 0.8, still rising at N = 1600; we have
+not pinned down the asymptotic rate (the fan's corners limit first-order schemes). Only the exact
+rung is a proof, and only of the semi-discrete inequality. The rarefaction study is float64
+evidence on two state pairs.
+
+Limits: one space dimension, scalar laws, three-point stencils, periodic grids (the shock-speed and
+rarefaction studies use transmissive boundaries), Riemann data with a single shock or a single fan.
+The exact entropy check needs a quadratic entropy, and the rarefaction study's exact fan is for
+Burgers only. Positivity of
 nonlinear schemes (Burgers) is out of scope in v0. Consistency with an inconsistent flux shows
 up in the order study only weakly when the defect is small (the 1.01-scaled flux still shows
 order about 0.8 at N = 400); the exact check is what catches it. A non-conservative scheme can
