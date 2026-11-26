@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import checks, claims, convergence, entropy, shock
+from . import checks, claims, convergence, entropy, linear, shock
 
 
 def load(path) -> dict:
@@ -36,6 +36,12 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
         out.append(checks.monotonicity(spec))
     if "entropy_rarefaction" in params:
         out.append(entropy.study(spec, rarefaction_grids))
+    if "consistent_order" in params or "consistent_order_p" in names:
+        out.append(linear.truncation_order(spec))
+        if "converges_order_p" in names:
+            out.append(linear.lax_richtmyer_scope(spec))
+    if "von_neumann_cfl" in params or "von_neumann_stable_under_cfl" in names:
+        out.append(linear.von_neumann(spec))
     return {"checks": out, "claims": claims.judge(names, out)}
 
 

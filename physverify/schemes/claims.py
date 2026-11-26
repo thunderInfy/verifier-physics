@@ -33,7 +33,8 @@ FAILURES = (REFUTED, REFUTED_EMPIRICALLY, SUSPICIOUS, INCONSISTENT)
 # The strength of each check, fixed here rather than read from the check's own result.
 GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "entropy_stability": EXACT,
              "order/combined": EMPIRICAL, "order/space": EMPIRICAL, "order/time": EMPIRICAL,
-             "monotonicity": EXACT, "shock_speed": EMPIRICAL, "entropy_rarefaction": EMPIRICAL}
+             "monotonicity": EXACT, "shock_speed": EMPIRICAL, "entropy_rarefaction": EMPIRICAL,
+             "truncation_order": EXACT, "von_neumann": EXACT, "lax_richtmyer_scope": EXACT}
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -44,6 +45,12 @@ _CRANDALL_MAJDA = ("Crandall-Majda (1980): a conservative, consistent, monotone 
                    "solution as dx -> 0 at fixed dt/dx (initial data in L1 and BV, with values in the CFL range; "
                    "a monotone consistent scheme keeps them there by the maximum principle); also needs the "
                    "conservation and consistency checks to pass")
+
+_LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable implies convergence of order p for "
+                  "smooth initial data; linear constant-coefficient schemes on periodic grids only. Asymptotic: it "
+                  "says nothing about the error constant, and gives order at least p; also needs the von Neumann "
+                  "check and the structural scope check (linear update, combined refinement at a stable dt/dx, "
+                  "consistency order = claimed order, smooth data) to pass")
 
 # claim -> (statement, ((check, relation, premise[, requires]), ...)). The premise is what the relation
 # rests on; it is carried into the verdict as an assumption. `requires` lists exact checks that must be
@@ -67,8 +74,14 @@ CLAIMS = {
     "selects_entropy_solution": ("the limit of the scheme is the entropy solution, not another weak solution",
                                  (("entropy_rarefaction", NECESSARY, "on the spec's rarefaction data only"),
                                   ("monotonicity", SUFFICIENT, _CRANDALL_MAJDA, ("conservation", "consistency")))),
+    "consistent_order_p": ("the local truncation error is O(dx^p) at fixed dt/dx for the claimed p (linear schemes)",
+                           (("truncation_order", EQUIVALENT, ""),)),
+    "von_neumann_stable_under_cfl": ("|g(theta)| <= 1 for every theta and every nu = a*dt/dx in the claimed range",
+                                     (("von_neumann", EQUIVALENT, ""),)),
     "converges_order_p": ("converges to smooth solutions of the PDE at the order p claimed for each study",
-                          tuple((f"order/{k}", NECESSARY, _ORDER) for k in ("combined", "space", "time"))),
+                          tuple((f"order/{k}", NECESSARY, _ORDER) for k in ("combined", "space", "time"))
+                          # the row cannot fire for a nonlinear scheme: lax_richtmyer_scope is NOT_APPLICABLE there
+                          + (("truncation_order", SUFFICIENT, _LAX_RICHTMYER, ("von_neumann", "lax_richtmyer_scope")),)),
     "correct_shock_speed": ("shocks move at the Rankine-Hugoniot speed in the limit dx -> 0",
                             (("shock_speed", NECESSARY, "on the spec's Riemann data and grids only"),)),
 }
