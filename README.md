@@ -122,6 +122,7 @@ $ uv run python -m physverify.schemes schemes/broken-advection-lax-friedrichs-wi
 | Conservation on a periodic grid | exact: the update telescopes as -(dt/dx)(F_{i+1/2} - F_{i-1/2}), or an exact periodic state whose total changes | recovered flux, or counterexample state |
 | Positivity of linear schemes on a claimed CFL range | exact: Bernstein coefficients of every c_k(nu) are >= 0 on the interval (endpoint values when c_k is affine in nu), or an exact nu where some c_k < 0 | coefficient list, or offending coefficient and nu |
 | Convergence order (combined, space, time) | empirical only | L1 and Linf error tables |
+| Shock speed on Riemann problems | empirical only | measured speed against the exact Rankine-Hugoniot speed, per grid |
 
 The exact checks use `Fraction` arithmetic and never decide on a float. Their verdicts are not
 Lean-checked yet; each returns the witness a Lean certificate would need. The flux recovery is
@@ -140,12 +141,42 @@ are within 0.2 of p, `REFUTED_EMPIRICALLY` when one is below, and `SUSPICIOUS` w
 (superconvergence on a test is not a pass). This is evidence from float64 runs on one problem,
 not a proof of order.
 
-Limits: one space dimension, scalar laws, three-point stencils, periodic grids. Positivity of
+The shock-speed check runs a Riemann problem (a step from uL down to uR) on [0, 1] with
+transmissive boundaries, stopping before the waves reach them. It locates the shock where u
+crosses (uL + uR)/2 and compares the measured speed with the Rankine-Hugoniot speed
+s = (f(uL) - f(uR))/(uL - uR), which it computes exactly from the PDE flux. The claim is
+`NOT_REFUTED` when the error is within 4 dx/T on the last two grids, and `REFUTED_EMPIRICALLY`
+when it stays above that and has stopped changing. The output also shows the estimator
+x0 + (∫u(T) - ∫u(0))/(uL - uR), but the verdict doesn't use it: for a conservative scheme it
+returns s from the boundary fluxes alone, wherever the shock is.
+
+One claim, three checkers. `broken-burgers-nonconservative` discretises u_t + u u_x = 0 directly
+with upwinding. An empirical convergence study passed this structurally wrong scheme. The exact
+conservation check caught it, and a Riemann problem shows the consequence: the wrong shock speed
+(Lax-Wendroff and Hou-LeFloch theorems). Numbers from
+`uv run python -m physverify.schemes schemes/*burgers*.json`:
+
+| Scheme | Conservation (exact) | Smooth order, last refinement to N = 400 (L1, Linf) | Shock-speed error (1, 0), s = 1/2, N = 200 → 3200 | Shock-speed error (2, 1/2), s = 5/4, N = 200 → 3200 | Shock speed verdict |
+|---|---|---|---|---|---|
+| non-conservative upwind | REFUTED | 0.99, 0.97: NOT_REFUTED | -0.5 → -0.5 (measured speed 0) | -0.274 → -0.268 (measured speed 0.976 → 0.982) | REFUTED_EMPIRICALLY |
+| Lax-Friedrichs | VERIFIED | 0.98, 0.95: NOT_REFUTED | -1.2e-4 → -7.6e-6 | -4.4e-4 → -2.8e-5 | NOT_REFUTED |
+| Engquist-Osher | VERIFIED | 0.99, 0.98: NOT_REFUTED | +2.0e-5 → +1.3e-6 | round-off (2e-16 → 0) | NOT_REFUTED |
+| Rusanov | VERIFIED | 1.01, 1.00: NOT_REFUTED | +2.9e-4 → +1.8e-5 | +6.1e-4 → +3.8e-5 | NOT_REFUTED |
+
+The tolerance 4 dx/T is 0.0013 and 0.0031 at N = 3200. For the conservative schemes the error
+falls like dx (a factor 16 over four halvings). Engquist-Osher (plain upwinding for these
+non-negative data) measures the (2, 1/2) speed exactly to round-off; we have not worked out why. For the non-conservative scheme
+the error doesn't shrink. In the (1, 0) case u = 0 is a fixed point of the update, so the step
+never moves; in the (2, 1/2) case the speed settles near 0.98. Only the conservation check is a
+proof; the other two are float64 evidence on chosen data.
+
+Limits: one space dimension, scalar laws, three-point stencils, periodic grids (the shock-speed study alone uses
+transmissive boundaries), Riemann data with a single shock and no sonic point. Positivity of
 nonlinear schemes (Burgers) is out of scope in v0. Consistency with an inconsistent flux shows
 up in the order study only weakly when the defect is small (the 1.01-scaled flux still shows
 order about 0.8 at N = 400); the exact check is what catches it. A non-conservative scheme can
 converge at the right order on smooth data, as `broken-burgers-nonconservative` does; only the
-conservation check catches it. The Burgers tests use data without sonic points, where
+conservation check catches it exactly, and the shock-speed study shows the effect. The Burgers tests use data without sonic points, where
 Rusanov's L∞ order is still pre-asymptotic at these grid sizes.
 
 ## Setup
