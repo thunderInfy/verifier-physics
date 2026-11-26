@@ -615,6 +615,7 @@ to refute.
 | `converges_order_p_linf` | order_linf/combined | necessary | empirical |
 | `hyperbolic` (systems) | hyperbolicity (discriminant of the 2x2 Jacobian) | equivalent | exact |
 | `positive_depth_under_cfl` (systems) | depth_positivity (Riemann runs) | necessary | empirical |
+| | depth_positivity_exact (induction step on the stencil) | equivalent | exact |
 | `converges_to_riemann_solution` (systems) | riemann_l1 (against the exact Riemann solution) | necessary | empirical |
 
 Tadmor's inequality is about the method of lines and says nothing about time stepping, so it
@@ -708,10 +709,10 @@ still go through the scalar code, so no scalar verdict changes. Specs are in `sc
 
 | Spec | `hyperbolic` | `conservative` | `consistent` | `positive_depth_under_cfl` | `converges_to_riemann_solution` |
 |---|---|---|---|---|---|
-| Lax-Friedrichs | VERIFIED | VERIFIED | VERIFIED | NOT_REFUTED | NOT_REFUTED |
-| Rusanov, wave speed max(\|u\| + sqrt(g h)) | VERIFIED | VERIFIED | VERIFIED | NOT_REFUTED | NOT_REFUTED |
+| Lax-Friedrichs | VERIFIED | VERIFIED | VERIFIED | VERIFIED | NOT_REFUTED |
+| Rusanov, wave speed max(\|u\| + sqrt(g h)) | VERIFIED | VERIFIED | VERIFIED | VERIFIED | NOT_REFUTED |
 | BROKEN: pressure sign flipped, f2 = m^2/h - g h^2/2 | REFUTED (discriminant -4 at g = h = 1) | VERIFIED | VERIFIED | not claimed | not claimed |
-| BROKEN: m_t + u m_x + h (u u_x + g h_x) = 0, LxF averaging | VERIFIED | REFUTED (exact periodic state) | UNKNOWN (no flux form) | UNKNOWN | UNKNOWN |
+| BROKEN: m_t + u m_x + h (u u_x + g h_x) = 0, LxF averaging | VERIFIED | REFUTED (exact periodic state) | UNKNOWN (no flux form) | VERIFIED (LxF depth update) | UNKNOWN |
 
 **Hyperbolicity.** We compute the Jacobian A(q) = df/dq symbolically. A real 2x2 matrix has real,
 distinct eigenvalues exactly when tr(A)^2 - 4 det(A) > 0, so the check is equivalent to "strictly
@@ -762,19 +763,53 @@ rarefaction study.
 | Rusanov, near-dry, 3/10 | 2.65e-2 | 1.57e-2 | 0.75 | 0.034 | 0.750 |
 
 This is evidence and not a proof. The dam break never comes near h = 0, so only the near-dry case
-tests positivity. An exact positivity proof for LxF on shallow water is a later item. The
+tests positivity. The exact check below proves it. The
 non-conservative scheme goes past the CFL bound and blows up on the near-dry case, so both of its
 studies are UNKNOWN. On the dam break alone its observed order falls from 0.52 to 0.23 between
 N = 800 and 3200 (LxF stays near 0.78), which looks like convergence to the wrong shock, but the
 error has not settled by the 10% rule.
+
+**Depth positivity (exact, `depth_positivity_exact`).** The check proves one induction step: if
+g > 0, h_j^n > 0 and lam(|u_j| + sqrt(g h_j)) <= c at the three stencil cells, then h_i^{n+1} > 0.
+Induction over n gives h > 0 at every step from positive initial data, as long as the CFL condition
+holds at each step. The hypothesis covers the stencil only, which is weaker than a bound on the whole
+grid, so the theorem is stronger. h^n > 0 and g > 0 are the only uses of the domain. `positive=`
+only ever sees g, the step-n depths and lam (a test spies on every call), and h^{n+1} is never
+declared positive: an update sqrt(X)^2 with X = h^{n+1} stays UNKNOWN.
+
+The method. With h_j > 0, write m_j = h_j u_j. Split every |x| into sign cells (32 for Rusanov,
+where the cells also resolve max(|u| + sqrt(g h)) at each interface; 1 for LxF). Keep sqrt(g h_j) as
+a variable and forget z_j^2 = lam^2 g h_j, keeping only z_j = lam sqrt(g h_j) > 0. That is a weaker
+hypothesis, so a certificate over the relaxed variables still proves the claim. On each cell,
+h_i^{n+1} = sum_j c_j h_j, with each c_j affine in w_j = lam u_j and z_j. Each c_j >= 0 on the cell
+within the CFL region c -+ w_j - z_j >= 0 is certified by an affine Farkas identity. An exact LP
+finds the identity and the normal form replays it, so the solver is not trusted. One c_j >= eps z_j
+(or >= eps) makes the sum strictly positive. For LxF the cell is
+h_i^{n+1} = (1/2) h_{i-1}(1 + w_{i-1}) + (1/2) h_{i+1}(1 - w_{i+1}). REFUTED needs an exact positive
+stencil state a | b | c within the bound whose step gives h <= 0. In the grid a, ..., a, b, c, ..., c
+that is positive data within the bound whose first step has h <= 0, so the row is EQUIVALENT. A
+domain that does not state h > 0 (wet/dry) is NOT_APPLICABLE.
+
+| Scheme | c = 1/2 | c = 9/10 (claimed) | c = 1 | c = 101/100 | c = 1001/1000 | c = 10001/10000 |
+|---|---|---|---|---|---|---|
+| LxF | VERIFIED | VERIFIED | VERIFIED | REFUTED | REFUTED | UNKNOWN (search grid too coarse) |
+| Rusanov | VERIFIED | VERIFIED | VERIFIED | REFUTED | REFUTED | REFUTED |
+
+A certificate at c = 1 covers every c <= 1, because the region only shrinks. So with this CFL
+number, lam·max(|u| + sqrt(g h)), the sharp bound for both schemes is 1, not 1/2. The Rusanov
+counterexample at c = 101/100 (lam = g = 1) is a deep middle cell, h_i = 10201/10000 at rest,
+between two shallow neighbours. The middle coefficient 1 - lam(a_{i-1/2} + a_{i+1/2})/2 = 1 - c is
+then negative. For LxF a neighbour moving out at lam|u| > 1 with a small sqrt(g h) does the same.
+The non-conservative spec has the LxF depth update, so its depth positivity also verifies. Its
+momentum update is irrelevant to the induction step.
 
 **What carries over from scalar 1D, and what doesn't.** Consistency and conservation carry over
 componentwise, with the same exact witnesses. Tadmor's entropy test needs entropy variables
 v = eta'(q), a vector, and an entropy-conservative flux defined by a line integral, so it is not
 ported. Monotonicity has no direct analogue: a system update is not monotone in each argument
 even for good schemes, and the scalar route through Crandall-Majda does not apply. Invariant
-domains (positivity of h, Riemann-invariant bounds) take its place, and we only test them
-empirically so far. The eigenvalues need square roots. We report them, but no check depends on
+domains (positivity of h, Riemann-invariant bounds) take its place. Positivity of h is now proved
+exactly (above); the Riemann-invariant bounds are not checked yet. The eigenvalues need square roots. We report them, but no check depends on
 them.
 
 ## Setup
