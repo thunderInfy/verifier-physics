@@ -137,14 +137,17 @@ def test_burgers_exact_solution_satisfies_characteristics():
 
 
 def test_three_checkers_one_claim(results):
-    """Benchmark: the non-conservative Burgers scheme passes the smooth convergence study, the exact
-    conservation check refutes it, and a Riemann problem shows the consequence (wrong shock speed)."""
+    """Benchmark: one structural fact, conservation, seen three ways. The exact check decides it; the
+    smooth convergence study cannot see it; the late-window shock speed sees its consequence, but only
+    as a necessary condition (the non-conservative scheme gets (1, -1) right by accident)."""
     r = results["broken-burgers-nonconservative"]
     assert r["conservation"]["status"] == checks.REFUTED and r["conservation"]["guarantee"] == checks.EXACT
     assert r["order/combined"]["status"] == convergence.NOT_REFUTED
     sh = r["shock_speed"]
     assert sh["status"] == convergence.REFUTED_EMPIRICALLY and "empirical" in sh["guarantee"]
-    assert "settled at a non-zero value" in sh["detail"]
+    cases = dict(d.split(": ", 1) for d in sh["detail"].removeprefix("(uL, uR) = ").split("; (uL, uR) = "))
+    assert [k for k, v in cases.items() if "settled at a non-zero value" in v] == ["(1, 0)", "(2, 1/2)", "(1, -1/2)"]
+    assert "settled" not in cases["(1, -1)"]                                      # right speed, by accident
     for name in BURGERS:
         assert all(results[name][k]["status"] in (checks.VERIFIED, convergence.NOT_REFUTED)
                    for k in ("conservation", "order/combined", "shock_speed"))
@@ -153,15 +156,43 @@ def test_three_checkers_one_claim(results):
 def test_shock_speed_numbers():
     spec = load(S / "broken-burgers-nonconservative.json")
     assert shock.rh_speed(spec, Fraction(2), Fraction(1, 2)) == Fraction(5, 4)
+    assert shock.rh_speed(spec, Fraction(1), Fraction(-1, 2)) == Fraction(1, 4)
     H = checks.update(spec)
     # u = 0 is a fixed point of this update, so the (1, 0) step never moves: speed 0, not 1/2
-    assert shock.run(H, 1.0, 0.0, 0.25, 1.0, 0.8, 200)["speed"] == 0
-    # (2, 1/2): the speed settles near 0.98, not 5/4, on every grid
+    # (the slope of a constant position is 0 up to least-squares round-off)
+    assert np.max(np.abs(shock.run(H, 1.0, 0.0, 0.25, 1.0, 0.8, 200)["late"])) < 1e-14
+    # transonic data: the step 1 | uR < 0 is a fixed point too, right for (1, -1), wrong for (1, -1/2)
+    assert np.max(np.abs(shock.run(H, 1.0, -1.0, 0.25, 0.5, 0.8, 200)["late"])) < 1e-14
+    assert np.max(np.abs(shock.run(H, 1.0, -0.5, 0.25, 0.5, 0.8, 200)["late"])) < 1e-14
+    # (2, 1/2): the speed settles near 0.98, not 5/4, on every grid and at every level
     for n in (200, 800):
-        assert abs(shock.run(H, 2.0, 0.5, 0.25, 0.4, 0.4, n)["speed"] - 0.98) < 0.01
+        assert np.all(np.abs(np.array(shock.run(H, 2.0, 0.5, 0.25, 0.4, 0.4, n)["late"]) - 0.983) < 0.002)
+
+
+def test_late_window_removes_the_start_up_offset():
+    """Over [0, T] a conservative scheme shows an O(dx) error (the step relaxing into a profile shifts
+    the crossing); over [T/2, T] the profile translates at the Rankine-Hugoniot speed, at every level."""
     lf = checks.update(load(S / "burgers-lax-friedrichs.json"))
-    errs = [abs(shock.run(lf, 2.0, 0.5, 0.25, 0.4, 0.4, n)["speed"] - 1.25) for n in (200, 400)]
-    assert errs[1] < 0.6 * errs[0] < 1e-3                                         # error ~ dx
+    rows = [shock.run(lf, 2.0, 0.5, 0.25, 0.4, 0.4, n) for n in (200, 400)]
+    full = [abs(r["full"] - 1.25) for r in rows]
+    assert 0.45 < full[1] / full[0] < 0.55 and full[1] > 1e-4                    # offset / T ~ dx
+    late = [np.abs(np.array(r["late"]) - 1.25) for r in rows]
+    assert np.all(late[1] < 0.3 * late[0]) and np.all(late[1] < 0.5 * full[1])
+    assert np.all(late[1] < shock.tol(rows[1]) / 50)
+
+
+@pytest.mark.parametrize("name", ["burgers-engquist-osher", "burgers-rusanov"])
+def test_late_window_speed_agrees_across_levels(name):
+    """A conservative scheme's profile translates rigidly: the late-window speed is the same at
+    levels 0.2, 0.5 and 0.8 (here on the asymmetric transonic case, where the window does not move
+    the profile a whole number of cells at N = 200)."""
+    H = checks.update(load(S / f"{name}.json"))
+    r = shock.run(H, 1.0, -0.5, 0.25, 0.5, 0.8, 200)
+    e = np.array(r["late"]) - 0.25
+    assert np.ptp(e) < shock.tol(r) / 10 and np.all(np.abs(e) < shock.tol(r) / 10)
+    assert abs(r["endpoints"] - 0.25) > 1e-4                                      # phase wobble, not round-off
+    assert shock.verdict([r, r], 0.25)[0] == convergence.NOT_REFUTED
+    assert shock.verdict([r, r], 0.3)[0] == convergence.REFUTED_EMPIRICALLY
 
 
 def test_crossing_estimator():
