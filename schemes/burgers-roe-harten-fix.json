@@ -11,7 +11,8 @@
   "conservative",
   "converges_order_p",
   "correct_shock_speed",
-  "selects_entropy_solution"
+  "selects_entropy_solution",
+  "selects_entropy_solution_semidiscrete"
  ],
  "claims": {
   "order": {

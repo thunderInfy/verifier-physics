@@ -12,7 +12,8 @@
   "converges_order_p",
   "correct_shock_speed",
   "entropy_stable_tadmor",
-  "selects_entropy_solution"
+  "selects_entropy_solution",
+  "selects_entropy_solution_semidiscrete"
  ],
  "claims": {
   "order": {

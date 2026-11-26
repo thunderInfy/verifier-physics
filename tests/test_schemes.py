@@ -417,20 +417,25 @@ def test_claim_verdicts(verdicts, name):
 
 
 def test_harten_is_not_refuted_by_tadmor(results, verdicts):
-    """Tadmor's inequality is sufficient for selecting the entropy solution, not necessary: Harten's
-    fix fails it (exactly, at (-1, 1)) and still converges to the rarefaction."""
+    """Tadmor's inequality is sufficient for the semi-discrete scheme selecting the entropy solution,
+    not necessary: Harten's fix fails it (exactly, at (-1, 1)) and still converges to the rarefaction.
+    It says nothing about time stepping, so the fully discrete claim rests on the study alone."""
     assert results["burgers-roe-harten-fix"]["entropy_stability"]["status"] == checks.REFUTED
-    v = verdicts["burgers-roe-harten-fix"]["selects_entropy_solution"]
+    harten = verdicts["burgers-roe-harten-fix"]
+    v = harten["selects_entropy_solution"]
     assert v["verdict"] == C.NOT_REFUTED and v["guarantee"] == C.EMPIRICAL
     assert v["decided_by"] == ["entropy_rarefaction"]
-    assert {e["check"]: e["gives"] for e in v["evidence"]} == {"entropy_stability": C.UNKNOWN,
-                                                               "entropy_rarefaction": C.NOT_REFUTED}
+    assert {e["check"]: e["gives"] for e in v["evidence"]} == {"entropy_rarefaction": C.NOT_REFUTED}
+    assert harten["selects_entropy_solution_semidiscrete"]["verdict"] == C.UNKNOWN
     roe = verdicts["broken-burgers-roe-no-entropy-fix"]
-    assert roe["entropy_stable_tadmor"]["guarantee"] == C.EXACT
+    assert roe["entropy_stable_tadmor"]["verdict"] == C.REFUTED and roe["entropy_stable_tadmor"]["guarantee"] == C.EXACT
     assert roe["selects_entropy_solution"]["decided_by"] == ["entropy_rarefaction"]
+    assert roe["selects_entropy_solution_semidiscrete"]["verdict"] == C.UNKNOWN    # a failed sufficient condition
     for name in BURGERS:                                     # Tadmor VERIFIED decides it, with its premises
-        v = verdicts[name]["selects_entropy_solution"]
+        v = verdicts[name]["selects_entropy_solution_semidiscrete"]
         assert v["verdict"] == C.VERIFIED and any("semi-discrete" in a for a in v["assumes"])
+        v = verdicts[name]["selects_entropy_solution"]
+        assert v["verdict"] == C.NOT_REFUTED and v["decided_by"] == ["entropy_rarefaction"]
 
 
 def test_conservation_claim_three_ways(verdicts):

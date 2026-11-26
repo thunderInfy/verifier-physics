@@ -1,8 +1,8 @@
 """Trusted judge: which checks bear on which claims, and how strongly.
 
 A check returns its own status, but a check is evidence about a claim, not the claim. Tadmor's
-inequality is sufficient for "the scheme selects the entropy solution" and equivalent to "entropy
-stable in Tadmor's sense"; the shock-speed study is only necessary for "conservative". The
+inequality is sufficient for "the method-of-lines scheme selects the entropy solution" (it says
+nothing about time stepping) and equivalent to "entropy stable in Tadmor's sense"; the shock-speed study is only necessary for "conservative". The
 relation lives here, in a fixed table, so no tool can report the strength of its own evidence.
 
 The guarantee is orthogonal to the relation, and it also comes from this table: a check listed as
@@ -49,9 +49,11 @@ CLAIMS = {
                            "claimed CFL range", (("positivity", EQUIVALENT, ""),)),
     "entropy_stable_tadmor": ("entropy stable in Tadmor's semi-discrete sense: Q = -[v](F - F*) >= 0",
                               (("entropy_stability", EQUIVALENT, ""),)),
+    "selects_entropy_solution_semidiscrete": ("the method-of-lines scheme's limit is the entropy solution",
+                                              (("entropy_stability", SUFFICIENT, _TADMOR),)),
+    # the fully discrete scheme: Tadmor's inequality says nothing about time stepping, so only the study bears
     "selects_entropy_solution": ("the limit of the scheme is the entropy solution, not another weak solution",
-                                 (("entropy_stability", SUFFICIENT, _TADMOR),
-                                  ("entropy_rarefaction", NECESSARY, "on the spec's rarefaction data only"))),
+                                 (("entropy_rarefaction", NECESSARY, "on the spec's rarefaction data only"),)),
     "converges_order_p": ("converges to smooth solutions of the PDE at the order p claimed for each study",
                           tuple((f"order/{k}", NECESSARY, _ORDER) for k in ("combined", "space", "time"))),
     "correct_shock_speed": ("shocks move at the Rankine-Hugoniot speed in the limit dx -> 0",
