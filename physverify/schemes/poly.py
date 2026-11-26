@@ -10,6 +10,15 @@ non-zero. Different normal forms do NOT prove the expressions differ (the atoms 
 related, e.g. sqrt(u^4) and u^2); callers must then find an exact counterexample point.
 sqrt(q^2k) is also accepted for any q, since a syntactic even power is non-negative. Anything outside this fragment (pi, sin, non-integer powers, division by a sum) raises
 `Undecided`.
+
+Domain-positive variables (`positive=` in `from_expr` and `sqrt`). A caller that works on a stated
+domain where some variables are > 0 (the depth h and gravity g of shallow water) may pass them as
+`positive`; then sqrt(p) is also accepted when p is non-negative by form with those variables at
+any exponent (e.g. sqrt(g*h)). Soundness: on the domain p >= 0, so sqrt(p) is real and
+sqrt(p)^2 = p there, which is the only rule the normal form uses. Off the domain the atom means
+nothing, so every result built from such an atom holds on the domain only, and the caller must
+record "these variables are > 0" as a side condition of its verdict. Without `positive` nothing
+changes.
 """
 
 from __future__ import annotations
@@ -117,10 +126,12 @@ def sqrt(p: Poly, nonneg: bool = False) -> Poly:
     return {((("s", tuple(sorted(p.items(), key=_key))), 1),): Fraction(1)}
 
 
-def from_expr(e: E, sqrt_hook=None) -> Poly:
+def from_expr(e: E, sqrt_hook=None, positive=()) -> Poly:
     """Normal form of e. `sqrt_hook(e, rec)`, if given, replaces the default handling of every
-    sqrt node (rec normalises a subexpression with the same hook)."""
-    rec = lambda x: from_expr(x, sqrt_hook)
+    sqrt node (rec normalises a subexpression with the same hook). `positive`: variables known to
+    be > 0 on the caller's domain (see the module docstring); they only widen which sqrt arguments
+    are accepted."""
+    rec = lambda x: from_expr(x, sqrt_hook, positive)
     k, a = e.kind, e.args
     if k == "var": return var(e.name)
     if k == "lit": return const(e.q)
@@ -131,7 +142,10 @@ def from_expr(e: E, sqrt_hook=None) -> Poly:
     if k == "div": return mul(rec(a[0]), inverse(rec(a[1])))
     if k == "powi": return power(rec(a[0]), e.q)
     if k == "sqrt" and sqrt_hook: return sqrt_hook(e, rec)
-    if k == "sqrt": return sqrt(rec(a[0]), a[0].kind == "powi" and a[0].q % 2 == 0)
+    if k == "sqrt":
+        arg = rec(a[0])
+        return sqrt(arg, (a[0].kind == "powi" and a[0].q % 2 == 0)
+                    or bool(positive) and nonneg_by_form(arg, positive=positive))
     raise Undecided(f"{k} is outside the polynomial fragment")
 
 
@@ -219,6 +233,14 @@ def nonneg_by_form(p: Poly, nonneg=(), positive=()) -> bool:
             if (k < 0) if a[1] in nonneg else (k % 2 != 0):
                 return False
     return True
+
+
+def positive_by_form(p: Poly, positive=()) -> bool:
+    """p > 0 where every variable in `positive` is > 0: p is non-negative by form and at least one
+    monomial is a product of `positive` variables only (no square root, which may vanish, and no
+    other variable, whose even power may vanish), so that monomial is > 0 and the rest are >= 0."""
+    return nonneg_by_form(p, positive=positive) and any(
+        all(a[0] == "v" and a[1] in positive for a, _ in m) for m in p)
 
 
 def show(p: Poly) -> str:
