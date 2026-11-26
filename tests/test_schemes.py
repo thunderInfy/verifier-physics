@@ -7,17 +7,19 @@ import numpy as np
 import pytest
 
 from physverify.expr import parse
-from physverify.schemes import FAILURES, check, checks, convergence, load, poly as P, shock
+from physverify.schemes import FAILURES, check, checks, convergence, entropy, load, poly as P, shock
 
 S = Path(__file__).resolve().parent.parent / "schemes"
 BURGERS = ["burgers-lax-friedrichs", "burgers-engquist-osher", "burgers-rusanov"]
 SHOCK_GRIDS = (100, 200, 400, 800)  # the CLI refines to N = 3200
+RAREFACTION_GRIDS = (200, 400)      # the CLI refines to N = 1600
 CORRECT = ["advection-upwind", "advection-lax-friedrichs", "advection-lax-wendroff",
-           "burgers-lax-friedrichs", "burgers-engquist-osher", "burgers-rusanov"]
+           "burgers-lax-friedrichs", "burgers-engquist-osher", "burgers-rusanov", "burgers-roe-harten-fix"]
 # broken spec -> the checks that must catch it (and nothing else may fail)
 BROKEN = {"broken-advection-inconsistent-flux": {"consistency", "order/combined"},
           "broken-burgers-scaled-flux": {"consistency", "order/combined"},
           "broken-burgers-nonconservative": {"conservation", "shock_speed"},
+          "broken-burgers-roe-no-entropy-fix": {"entropy_stability", "entropy_rarefaction"},
           "broken-advection-lax-friedrichs-wide-cfl": {"positivity"},
           "broken-advection-downwind": {"positivity"},
           "broken-advection-fake-second-order": {"order/combined"}}
@@ -29,7 +31,7 @@ def _p(s):
 
 @pytest.fixture(scope="module")
 def results():
-    return {name: {r["check"]: r for r in check(load(S / f"{name}.json"), SHOCK_GRIDS)}
+    return {name: {r["check"]: r for r in check(load(S / f"{name}.json"), SHOCK_GRIDS, RAREFACTION_GRIDS)}
             for name in CORRECT + list(BROKEN)}
 
 
@@ -45,8 +47,12 @@ def test_correct_schemes_pass(results, name):
     assert r["positivity"]["status"] in (checks.VERIFIED, checks.NOT_APPLICABLE)
     orders = [v for k, v in r.items() if k.startswith("order/")]
     assert orders and all(v["status"] == convergence.NOT_REFUTED for v in orders)
-    if name in BURGERS:
+    if name.startswith("burgers"):
         assert r["shock_speed"]["status"] == convergence.NOT_REFUTED
+        assert r["entropy_rarefaction"]["status"] == convergence.NOT_REFUTED
+    if name in BURGERS:
+        assert r["entropy_stability"]["status"] == checks.VERIFIED
+        assert "semi-discrete" in r["entropy_stability"]["guarantee"]
 
 
 @pytest.mark.parametrize("name", sorted(BROKEN))
@@ -199,3 +205,124 @@ def test_crossing_estimator():
     u = np.array([2.0, 2.0, 1.25, 0.5, 0.5])
     assert shock.crossing(u, 1.25, 0.2) == (0.5, 1)                               # cell 2 centre
     assert shock.crossing(np.array([2.0, 2.0, 0.5, 0.5]), 1.25, 0.25)[0] == 0.5   # interface
+
+
+# ---------------------------------------------------------------- entropy
+
+def _flux_q(spec):
+    """Q(uL, uR, lam) = -(uR - uL)(F - F*) for Burgers' u^2/2 entropy, recomputed independently."""
+    F = P.from_expr(checks.numerical_flux(spec))
+    Fstar = _p("(uL^2 + uL*uR + uR^2)/6")
+    return P.scale(P.mul(_p("uR - uL"), P.add(F, Fstar, -1)), -1)
+
+
+def test_divide_difference_and_nonneg_by_form():
+    q = P.divide_difference(_p("(uR - uL)^2*(uL + 3*uR^2)"), "uL", "uR", 2)
+    assert P.add(q, _p("uL + 3*uR^2"), -1) == {}
+    assert P.divide_difference(_p("uR^2 - uL"), "uL", "uR", 1) is None
+    assert P.divide_difference(_p("uR^3 - uL^3"), "uL", "uR", 2) is None
+    assert P.nonneg_by_form(_p("u^2/lam + sqrt(u^2)"), positive={"lam"})
+    assert not P.nonneg_by_form(_p("u^2/lam"))
+    assert not P.nonneg_by_form(_p("a*b"), nonneg={"a"})
+    assert P.nonneg_by_form(_p("a*b^2"), nonneg={"a"})
+
+
+def test_sign_cells_cover_and_agree():
+    """On each closed sign cell the polynomial equals the flux (checked at exact rational points)."""
+    F = checks.numerical_flux(load(S / "burgers-rusanov.json"))
+    cells = checks.sign_cells(F)
+    assert len(cells) == 8
+    full = P.from_expr(F)
+    rng = random.Random(3)
+    for _ in range(300):
+        pt = {"uL": Fraction(rng.randint(-9, 9), rng.randint(1, 4)), "uR": Fraction(rng.randint(-9, 9), rng.randint(1, 4))}
+        inside = [p for p, atoms in cells if all(P.evaluate(a, pt) >= 0 for a in atoms)]
+        assert inside and all(P.evaluate(p, pt) == P.evaluate(full, pt) for p in inside)
+
+
+def test_roe_entropy_counterexample(results):
+    """Third rung: Roe without a fix is consistent and conservative but not entropy stable; the
+    exact check gives the expansion pair (-1, 1), where the interface produces entropy 2/3."""
+    r = results["broken-burgers-roe-no-entropy-fix"]
+    assert r["consistency"]["status"] == r["conservation"]["status"] == checks.VERIFIED
+    assert r["shock_speed"]["status"] == convergence.NOT_REFUTED
+    e = r["entropy_stability"]
+    assert e["status"] == checks.REFUTED and "semi-discrete" in e["guarantee"]
+    w = e["witness"]["counterexample"]
+    assert w["point"] == {"uL": "-1", "uR": "1"} and Fraction(w["Q"]) == Fraction(-2, 3)
+    pt = {k: Fraction(v) for k, v in w["point"].items()}
+    assert P.evaluate(_flux_q(load(S / "broken-burgers-roe-no-entropy-fix.json")), pt) == Fraction(-2, 3)
+    assert e["witness"]["F_star = [psi]/[v]"] == "1/6*uL*uR + 1/6*uL^2 + 1/6*uR^2"
+
+
+@pytest.mark.parametrize("name", BURGERS)
+def test_entropy_certificates_hold_at_rational_points(results, name):
+    """Tests the checker: a VERIFIED entropy certificate must agree with exact random data, and every
+    recorded cell identity Q = (uR - uL)^2 D must hold."""
+    spec = load(S / f"{name}.json")
+    Q = _flux_q(spec)
+    cfl = Fraction(spec["claims"]["entropy_stability"].get("cfl", 10 ** 9))
+    rng = random.Random(name)
+    n = 0
+    while n < 300:
+        pt = {"uL": Fraction(rng.randint(-30, 30), rng.randint(1, 9)), "uR": Fraction(rng.randint(-30, 30), rng.randint(1, 9)),
+              "lam": Fraction(rng.randint(1, 9), rng.randint(1, 9))}
+        if pt["lam"] * max(abs(pt["uL"]), abs(pt["uR"])) <= cfl:
+            assert P.evaluate(Q, pt) >= 0
+            n += 1
+    for cell in results[name]["entropy_stability"]["witness"].get("cells", []):
+        if "D = Q/(uR - uL)^2" in cell:
+            Dc, Qc = _p(cell["D = Q/(uR - uL)^2"]), _p(cell["Q"])
+            assert P.add(Qc, P.mul(_p("(uR - uL)^2"), Dc), -1) == {}
+
+
+def test_lax_friedrichs_entropy_needs_the_cfl_bound():
+    """D = 1/(2 lam) - (uR - uL)/12, so LxF is entropy stable iff lam*(uR - uL) <= 6: VERIFIED with
+    lam*|u| <= 3, REFUTED with lam*|u| <= 4 and with no bound."""
+    spec = load(S / "burgers-lax-friedrichs.json")
+    assert checks.entropy_stability(spec)["witness"]["D = Q/(uR - uL)^2"] == "1/2*lam^-1 + 1/12*uL - 1/12*uR"
+    for cfl, status in (("3", checks.VERIFIED), ("4", checks.REFUTED), (None, checks.REFUTED)):
+        spec["claims"]["entropy_stability"] = {"cfl": cfl} if cfl else {}
+        r = checks.entropy_stability(spec)
+        assert r["status"] == status
+        if status == checks.REFUTED:
+            pt = {k: Fraction(v) for k, v in r["witness"]["counterexample"]["point"].items()}
+            assert P.evaluate(_flux_q(spec), pt) < 0
+            assert pt["lam"] * max(abs(pt["uL"]), abs(pt["uR"])) <= int(cfl or 10 ** 9)
+
+
+def test_entropy_stability_is_sufficient_not_necessary(results):
+    """Harten's fix (delta = 1/2) gives the rarefaction, yet fails Tadmor's inequality at (-1, 1):
+    its sonic viscosity delta/2 is below (uR - uL)/6 there. So REFUTED here does not mean a wrong limit."""
+    assert results["burgers-roe-harten-fix"]["entropy_rarefaction"]["status"] == convergence.NOT_REFUTED
+    spec = load(S / "burgers-roe-harten-fix.json")
+    spec["claims"]["entropy_stability"] = {}
+    r = checks.entropy_stability(spec)
+    assert r["status"] == checks.REFUTED and r["witness"]["counterexample"]["point"] == {"uL": "-1", "uR": "1"}
+    assert Fraction(r["witness"]["counterexample"]["Q"]) == Fraction(-1, 6)
+
+
+def test_entropy_outside_the_fragment_is_unknown():
+    spec = load(S / "burgers-engquist-osher.json")
+    spec["claims"]["entropy_stability"] = {"eta": "u^4/4", "q": "u^5/5"}       # [v]/(uR - uL) not constant
+    assert checks.entropy_stability(spec)["status"] == checks.UNKNOWN
+    spec["claims"]["entropy_stability"] = {"eta": "u^2/2", "q": "u^3/2"}       # not an entropy pair
+    r = checks.entropy_stability(spec)
+    assert r["status"] == checks.UNKNOWN and "not an entropy pair" in r["detail"]
+    adv = load(S / "advection-upwind.json")
+    adv["claims"]["entropy_stability"] = {}
+    assert checks.entropy_stability(adv)["status"] == checks.UNKNOWN            # no default pair for a*u
+
+
+def test_roe_keeps_the_expansion_shock():
+    """(-1, 1) is a fixed point of Roe's update: the L1 error is the area between step and fan, T/2,
+    at both dt/dx (2/5 and the incommensurate 37/100). On (-1/2, 1) Roe keeps a stationary jump
+    -1/2 | 1/2 and fans out above it; that limit's L1 error is T/4 = 1/16, which the error approaches."""
+    H = checks.update(load(S / "broken-burgers-roe-no-entropy-fix.json"))
+    for lam in (0.4, 0.37):
+        assert entropy.run(H, -1.0, 1.0, 0.5, 0.25, lam, 200)["L1"] == 0.25
+        e = [entropy.run(H, -0.5, 1.0, 0.5, 0.25, lam, n) for n in (200, 400)]
+        assert 1 / 16 < e[1]["L1"] < e[0]["L1"] < 1 / 16 + 0.008 and abs(e[1]["max_jump"] - 1) < 0.01
+    eo = checks.update(load(S / "burgers-engquist-osher.json"))
+    e = [entropy.run(eo, -1.0, 1.0, 0.5, 0.25, 0.37, n)["L1"] for n in (200, 400)]
+    assert 0.6 < np.log2(e[0] / e[1]) < 0.9
