@@ -1,0 +1,18 @@
+{
+ "name": "BROKEN: Lax-Friedrichs claimed positive up to nu = 1.1",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + uR)/2 - (uR - uL)/(2*lam)"
+ },
+ "claims": {
+  "positive_cfl": [
+   "0",
+   "11/10"
+  ]
+ }
+}

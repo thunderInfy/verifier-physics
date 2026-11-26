@@ -1,0 +1,23 @@
+{
+ "name": "BROKEN: non-conservative upwind for Burgers, u_t + u u_x = 0 discretized directly",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "update": "u0 - lam*((u0 + sqrt(u0^2))/2*(u0 - um1) + (u0 - sqrt(u0^2))/2*(up1 - u0))"
+ },
+ "claims": {
+  "order": {
+   "combined": 1
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "burgers-sine",
+   "mean": 0.5,
+   "amplitude": 0.25
+  },
+  "T": 0.3,
+  "lam": 1
+ }
+}

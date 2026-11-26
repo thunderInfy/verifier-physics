@@ -1,0 +1,25 @@
+{
+ "name": "BROKEN: F = uL for advection with a = -1 (inconsistent)",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "-1"
+ },
+ "scheme": {
+  "numerical_flux": "uL"
+ },
+ "claims": {
+  "order": {
+   "combined": 1
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "advection-sine",
+   "speed": -1
+  },
+  "T": 0.25,
+  "lam": 0.5
+ }
+}

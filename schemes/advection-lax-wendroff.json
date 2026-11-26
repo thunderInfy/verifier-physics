@@ -1,0 +1,25 @@
+{
+ "name": "Lax-Wendroff, linear advection a = 1",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + uR)/2 - a^2*lam*(uR - uL)/2"
+ },
+ "claims": {
+  "order": {
+   "combined": 2
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "advection-sine",
+   "speed": 1
+  },
+  "T": 0.25,
+  "lam": 0.5
+ }
+}

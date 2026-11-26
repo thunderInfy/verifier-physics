@@ -1,0 +1,25 @@
+{
+ "name": "Engquist-Osher, Burgers",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "((uL + sqrt(uL^2))/2)^2/2 + ((uR - sqrt(uR^2))/2)^2/2"
+ },
+ "claims": {
+  "order": {
+   "combined": 1,
+   "space": 1,
+   "time": 1
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "burgers-sine",
+   "mean": 0.5,
+   "amplitude": 0.25
+  },
+  "T": 0.3,
+  "lam": 1
+ }
+}

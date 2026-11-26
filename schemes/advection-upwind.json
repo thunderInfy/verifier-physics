@@ -1,0 +1,31 @@
+{
+ "name": "Upwind, linear advection a = 1",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL"
+ },
+ "claims": {
+  "positive_cfl": [
+   "0",
+   "1"
+  ],
+  "order": {
+   "combined": 1,
+   "space": 1,
+   "time": 1
+  }
+ },
+ "test": {
+  "problem": {
+   "kind": "advection-sine",
+   "speed": 1
+  },
+  "T": 0.25,
+  "lam": 0.5
+ }
+}
