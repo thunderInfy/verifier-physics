@@ -117,17 +117,21 @@ def sqrt(p: Poly, nonneg: bool = False) -> Poly:
     return {((("s", tuple(sorted(p.items(), key=_key))), 1),): Fraction(1)}
 
 
-def from_expr(e: E) -> Poly:
+def from_expr(e: E, sqrt_hook=None) -> Poly:
+    """Normal form of e. `sqrt_hook(e, rec)`, if given, replaces the default handling of every
+    sqrt node (rec normalises a subexpression with the same hook)."""
+    rec = lambda x: from_expr(x, sqrt_hook)
     k, a = e.kind, e.args
     if k == "var": return var(e.name)
     if k == "lit": return const(e.q)
-    if k == "neg": return scale(from_expr(a[0]), -1)
-    if k == "add": return add(from_expr(a[0]), from_expr(a[1]))
-    if k == "sub": return add(from_expr(a[0]), from_expr(a[1]), -1)
-    if k == "mul": return mul(from_expr(a[0]), from_expr(a[1]))
-    if k == "div": return mul(from_expr(a[0]), inverse(from_expr(a[1])))
-    if k == "powi": return power(from_expr(a[0]), e.q)
-    if k == "sqrt": return sqrt(from_expr(a[0]), a[0].kind == "powi" and a[0].q % 2 == 0)
+    if k == "neg": return scale(rec(a[0]), -1)
+    if k == "add": return add(rec(a[0]), rec(a[1]))
+    if k == "sub": return add(rec(a[0]), rec(a[1]), -1)
+    if k == "mul": return mul(rec(a[0]), rec(a[1]))
+    if k == "div": return mul(rec(a[0]), inverse(rec(a[1])))
+    if k == "powi": return power(rec(a[0]), e.q)
+    if k == "sqrt" and sqrt_hook: return sqrt_hook(e, rec)
+    if k == "sqrt": return sqrt(rec(a[0]), a[0].kind == "powi" and a[0].q % 2 == 0)
     raise Undecided(f"{k} is outside the polynomial fragment")
 
 
@@ -168,6 +172,39 @@ def variables(p: Poly) -> set[str]:
         for a, _ in m:
             out |= {a[1]} if a[0] == "v" else variables(dict(a[1]))
     return out
+
+
+def divide_difference(p: Poly, x: str, y: str, k: int) -> Poly | None:
+    """q with p = (y - x)^k * q as an identity of normal forms, or None if there is none.
+
+    Substitutes y = x + h and keeps p only if every monomial carries h^k explicitly; square-root
+    atoms are re-normalised with their argument in terms of x and h. Then h = y - x is put back.
+    """
+    h = "_h"
+    ph = subst(p, {y: add(var(x), var(h))})
+    q: Poly = {}
+    for m, c in ph.items():
+        e = dict(m).get(("v", h), 0)
+        if e < k:
+            return None
+        q = add(q, {_mono({**dict(m), ("v", h): e - k}): c})
+    q = subst(q, {h: add(var(y), var(x), -1)})
+    return q if not add(p, mul(power(add(var(y), var(x), -1), k), q), -1) else None
+
+
+def nonneg_by_form(p: Poly, nonneg=(), positive=()) -> bool:
+    """p >= 0 because every coefficient is positive and every factor of every monomial is >= 0:
+    variables in `nonneg` (any exponent >= 0), in `positive` (any exponent), the rest only to
+    even powers; square-root atoms are >= 0 by construction."""
+    for m, c in p.items():
+        if c <= 0:
+            return False
+        for a, k in m:
+            if a[0] != "v" or a[1] in positive:
+                continue
+            if (k < 0) if a[1] in nonneg else (k % 2 != 0):
+                return False
+    return True
 
 
 def show(p: Poly) -> str:
