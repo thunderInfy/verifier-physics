@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from physverify.expr import parse
-from physverify.schemes import FAILURES, check, checks, convergence, entropy, load, poly as P, shock
+from physverify.schemes import FAILURES, check, checks, claims as C, convergence, entropy, load, poly as P, render, shock
 
 S = Path(__file__).resolve().parent.parent / "schemes"
 BURGERS = ["burgers-lax-friedrichs", "burgers-engquist-osher", "burgers-rusanov"]
@@ -30,9 +30,18 @@ def _p(s):
 
 
 @pytest.fixture(scope="module")
-def results():
-    return {name: {r["check"]: r for r in check(load(S / f"{name}.json"), SHOCK_GRIDS, RAREFACTION_GRIDS)}
-            for name in CORRECT + list(BROKEN)}
+def reports():
+    return {name: check(load(S / f"{name}.json"), SHOCK_GRIDS, RAREFACTION_GRIDS) for name in CORRECT + list(BROKEN)}
+
+
+@pytest.fixture(scope="module")
+def results(reports):
+    return {name: {r["check"]: r for r in rep["checks"]} for name, rep in reports.items()}
+
+
+@pytest.fixture(scope="module")
+def verdicts(reports):
+    return {name: {v["claim"]: v for v in rep["claims"]} for name, rep in reports.items()}
 
 
 def test_every_spec_on_disk_is_covered():
@@ -326,3 +335,109 @@ def test_roe_keeps_the_expansion_shock():
     eo = checks.update(load(S / "burgers-engquist-osher.json"))
     e = [entropy.run(eo, -1.0, 1.0, 0.5, 0.25, 0.37, n)["L1"] for n in (200, 400)]
     assert 0.6 < np.log2(e[0] / e[1]) < 0.9
+
+
+# ---------------------------------------------------------------- claims vs checks
+
+# spec -> the named claims it must fail, with the verdict; every other claim it makes must not fail
+FAILING_CLAIMS = {"broken-advection-inconsistent-flux": {"consistent": C.REFUTED, "converges_order_p": C.REFUTED_EMPIRICALLY},
+                  "broken-burgers-scaled-flux": {"consistent": C.REFUTED, "converges_order_p": C.REFUTED_EMPIRICALLY},
+                  "broken-burgers-nonconservative": {"conservative": C.REFUTED, "correct_shock_speed": C.REFUTED_EMPIRICALLY},
+                  "broken-burgers-roe-no-entropy-fix": {"entropy_stable_tadmor": C.REFUTED,
+                                                        "selects_entropy_solution": C.REFUTED_EMPIRICALLY},
+                  "broken-advection-lax-friedrichs-wide-cfl": {"positive_under_cfl": C.REFUTED},
+                  "broken-advection-downwind": {"positive_under_cfl": C.REFUTED},
+                  "broken-advection-fake-second-order": {"converges_order_p": C.REFUTED_EMPIRICALLY}}
+
+# (relation, raw status) -> verdict, for an exact check (conservation) and an empirical one (shock_speed)
+EXACT_CASES = {(C.SUFFICIENT, "VERIFIED"): C.VERIFIED, (C.SUFFICIENT, "REFUTED"): C.UNKNOWN,
+               (C.NECESSARY, "VERIFIED"): C.NOT_REFUTED, (C.NECESSARY, "REFUTED"): C.REFUTED,
+               (C.EQUIVALENT, "VERIFIED"): C.VERIFIED, (C.EQUIVALENT, "REFUTED"): C.REFUTED}
+EMPIRICAL_CASES = {(C.SUFFICIENT, "NOT_REFUTED"): C.NOT_REFUTED, (C.SUFFICIENT, "REFUTED_EMPIRICALLY"): C.UNKNOWN,
+                   (C.NECESSARY, "NOT_REFUTED"): C.NOT_REFUTED, (C.NECESSARY, "REFUTED_EMPIRICALLY"): C.REFUTED_EMPIRICALLY,
+                   (C.EQUIVALENT, "NOT_REFUTED"): C.NOT_REFUTED,
+                   (C.EQUIVALENT, "REFUTED_EMPIRICALLY"): C.REFUTED_EMPIRICALLY,
+                   # an empirical check cannot promote itself: the table, not the result, fixes its strength
+                   (C.EQUIVALENT, "VERIFIED"): C.NOT_REFUTED, (C.NECESSARY, "REFUTED"): C.REFUTED_EMPIRICALLY}
+for rel in (C.SUFFICIENT, C.NECESSARY, C.EQUIVALENT):
+    for st in ("UNKNOWN", "NOT_APPLICABLE"):
+        EXACT_CASES[rel, st] = EMPIRICAL_CASES[rel, st] = C.UNKNOWN
+    EMPIRICAL_CASES[rel, "SUSPICIOUS"] = C.SUSPICIOUS
+
+
+def _judge(links, statuses):
+    table = {"c": ("test claim", tuple((chk, rel, "") for chk, rel in links))}
+    results = [{"check": chk, "status": st, "assumptions": []} for chk, st in statuses.items()]
+    return C.judge(["c"], results, table)[0]
+
+
+@pytest.mark.parametrize("check_name,cases", [("conservation", EXACT_CASES), ("shock_speed", EMPIRICAL_CASES)])
+def test_every_relation_outcome_pair(check_name, cases):
+    for (rel, status), want in cases.items():
+        v = _judge([(check_name, rel)], {check_name: status})
+        assert v["verdict"] == want, (check_name, rel, status)
+        assert v["guarantee"] == (C.EXACT if want in (C.VERIFIED, C.REFUTED) else
+                                  "" if want == C.UNKNOWN else C.EMPIRICAL)
+
+
+def test_aggregation_over_several_checks():
+    links = [("conservation", C.EQUIVALENT), ("shock_speed", C.NECESSARY)]
+    assert _judge(links, {"conservation": "REFUTED", "shock_speed": "REFUTED_EMPIRICALLY"})["verdict"] == C.REFUTED
+    assert _judge(links, {"conservation": "UNKNOWN", "shock_speed": "REFUTED_EMPIRICALLY"})["verdict"] == C.REFUTED_EMPIRICALLY
+    assert _judge(links, {"conservation": "VERIFIED", "shock_speed": "NOT_REFUTED"})["verdict"] == C.VERIFIED
+    assert _judge(links, {"conservation": "UNKNOWN", "shock_speed": "NOT_REFUTED"})["verdict"] == C.NOT_REFUTED
+    assert _judge(links, {})["verdict"] == C.UNKNOWN and "no check" in _judge(links, {})["detail"]
+
+
+def test_contradictory_evidence_is_inconsistent_and_loud():
+    """A deliberately contradictory fake check: conservation proved, and a 'necessary' check failing."""
+    v = _judge([("conservation", C.EQUIVALENT), ("fake_contradiction", C.NECESSARY)],
+               {"conservation": "VERIFIED", "fake_contradiction": "REFUTED"})
+    assert v["verdict"] == C.INCONSISTENT and v["verdict"] in C.FAILURES
+    assert set(v["decided_by"]) == {"conservation", "fake_contradiction"} and "bug" in v["detail"]
+    out = render({"name": "fake"}, {"checks": [], "claims": [v]})
+    assert "FAILS c" in out and "!!! [INCONSISTENT]" in out
+
+
+def test_claims_table_is_well_formed():
+    for statement, links in C.CLAIMS.values():
+        assert statement and links
+        for chk, rel, _ in links:
+            assert chk in C.GUARANTEE and rel in (C.SUFFICIENT, C.NECESSARY, C.EQUIVALENT)
+    with pytest.raises(ValueError):
+        check({**load(S / "advection-upwind.json"), "named_claims": ["stable"]})
+
+
+@pytest.mark.parametrize("name", CORRECT + sorted(BROKEN))
+def test_claim_verdicts(verdicts, name):
+    v = verdicts[name]
+    assert v and not [c for c, x in v.items() if x["verdict"] == C.INCONSISTENT]
+    assert {c: x["verdict"] for c, x in v.items() if x["verdict"] in C.FAILURES} == FAILING_CLAIMS.get(name, {})
+    assert set(v) == set(load(S / f"{name}.json")["named_claims"])
+
+
+def test_harten_is_not_refuted_by_tadmor(results, verdicts):
+    """Tadmor's inequality is sufficient for selecting the entropy solution, not necessary: Harten's
+    fix fails it (exactly, at (-1, 1)) and still converges to the rarefaction."""
+    assert results["burgers-roe-harten-fix"]["entropy_stability"]["status"] == checks.REFUTED
+    v = verdicts["burgers-roe-harten-fix"]["selects_entropy_solution"]
+    assert v["verdict"] == C.NOT_REFUTED and v["guarantee"] == C.EMPIRICAL
+    assert v["decided_by"] == ["entropy_rarefaction"]
+    assert {e["check"]: e["gives"] for e in v["evidence"]} == {"entropy_stability": C.UNKNOWN,
+                                                               "entropy_rarefaction": C.NOT_REFUTED}
+    roe = verdicts["broken-burgers-roe-no-entropy-fix"]
+    assert roe["entropy_stable_tadmor"]["guarantee"] == C.EXACT
+    assert roe["selects_entropy_solution"]["decided_by"] == ["entropy_rarefaction"]
+    for name in BURGERS:                                     # Tadmor VERIFIED decides it, with its premises
+        v = verdicts[name]["selects_entropy_solution"]
+        assert v["verdict"] == C.VERIFIED and any("semi-discrete" in a for a in v["assumes"])
+
+
+def test_conservation_claim_three_ways(verdicts):
+    """The shock speed is only necessary for conservation: on the conservative schemes it adds nothing
+    to the exact proof, and on the non-conservative one the exact refutation decides."""
+    v = verdicts["broken-burgers-nonconservative"]["conservative"]
+    assert v["verdict"] == C.REFUTED and v["decided_by"] == ["conservation"]
+    assert verdicts["broken-burgers-nonconservative"]["converges_order_p"]["verdict"] == C.NOT_REFUTED
+    for name in BURGERS:
+        assert verdicts[name]["conservative"]["decided_by"] == ["conservation"]

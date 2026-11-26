@@ -9,6 +9,11 @@
  "scheme": {
   "numerical_flux": "a*(uL + uR)/2 - a^2*lam*(uR - uL)/4"
  },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "converges_order_p"
+ ],
  "claims": {
   "order": {
    "combined": 2

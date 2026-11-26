@@ -6,6 +6,14 @@
  "scheme": {
   "numerical_flux": "(uL^2 + uR^2)/4 - sqrt(((uL + uR)/2)^2)*(uR - uL)/2"
  },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "converges_order_p",
+  "correct_shock_speed",
+  "entropy_stable_tadmor",
+  "selects_entropy_solution"
+ ],
  "claims": {
   "order": {
    "combined": 1,

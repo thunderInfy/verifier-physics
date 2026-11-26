@@ -33,9 +33,8 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
-_TADMOR = ("semi-discrete only (time stepping not covered); sufficiency also needs the scheme to converge, "
-           "and uses that for a convex scalar flux one strictly convex entropy inequality singles out the "
-           "entropy solution")
+_TADMOR = ("sufficiency needs the scheme to converge, and uses that for a convex scalar flux one strictly "
+           "convex entropy inequality singles out the entropy solution")
 
 # claim -> (statement, ((check, relation, premise), ...)). The premise is what the relation rests on;
 # it is carried into the verdict as an assumption.

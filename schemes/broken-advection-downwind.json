@@ -9,6 +9,11 @@
  "scheme": {
   "numerical_flux": "a*uR"
  },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "positive_under_cfl"
+ ],
  "claims": {
   "positive_cfl": [
    "0",

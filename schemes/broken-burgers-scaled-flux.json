@@ -6,6 +6,11 @@
  "scheme": {
   "numerical_flux": "1.01*(uL^2 + uR^2)/4 - (uR - uL)/(2*lam)"
  },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "converges_order_p"
+ ],
  "claims": {
   "order": {
    "combined": 1

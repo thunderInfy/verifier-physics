@@ -6,6 +6,11 @@
  "scheme": {
   "update": "u0 - lam*((u0 + sqrt(u0^2))/2*(u0 - um1) + (u0 - sqrt(u0^2))/2*(up1 - u0))"
  },
+ "named_claims": [
+  "conservative",
+  "converges_order_p",
+  "correct_shock_speed"
+ ],
  "claims": {
   "order": {
    "combined": 1

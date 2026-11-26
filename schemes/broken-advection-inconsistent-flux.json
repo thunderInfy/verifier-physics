@@ -9,6 +9,11 @@
  "scheme": {
   "numerical_flux": "uL"
  },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "converges_order_p"
+ ],
  "claims": {
   "order": {
    "combined": 1
