@@ -35,7 +35,8 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "order/combined": EMPIRICAL, "order/space": EMPIRICAL, "order/time": EMPIRICAL,
              "monotonicity": EXACT, "shock_speed": EMPIRICAL, "entropy_rarefaction": EMPIRICAL,
              "truncation_order": EXACT, "von_neumann": EXACT, "lax_richtmyer_scope": EXACT,
-             "steady_nonentropy_step": EXACT, "hyperbolicity": EXACT,
+             "steady_nonentropy_step": EXACT, "steady_nonentropy_step_semidiscrete": EXACT,
+             "von_neumann_small_cfl": EXACT, "hyperbolicity": EXACT,
              "depth_positivity": EMPIRICAL, "riemann_l1": EMPIRICAL}
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
@@ -52,6 +53,16 @@ _STEADY_STEP = ("a scheme with a steady non-entropy step converges, trivially, t
                 "(a non-entropy weak solution if the scheme is conservative and f(uL) = f(uR), otherwise not even "
                 "a weak solution); for convex f with f'(uL) < f'(uR) the entropy solution is the rarefaction fan, "
                 "so the limit is not the entropy solution")
+_STEADY_STEP_SEMI = ("a numerical flux with F(uL, uL) = F(uL, uR) = F(uR, uR) makes the step uL | uR, jump at a cell "
+                     "interface, a steady state of the method of lines on every grid (the unique solution, F being "
+                     "locally Lipschitz), so the semi-discrete scheme converges, trivially, to that step on its "
+                     "Riemann data; for convex f with f'(uL) < f'(uR) the entropy solution is the rarefaction fan, "
+                     "so the limit is not the entropy solution")
+_SMALL_CFL = ("linear constant-coefficient schemes on periodic grids, nu = a*dt/dx of the sign of a; VERIFIED is a "
+              "von Neumann (l2) certificate on [0, nu1]. On a periodic grid the Fourier modes are eigenvectors of "
+              "the update, so |g| > 1 on an open theta-set (which a REFUTED witness gives for every nu in (0, nu1]) "
+              "means unbounded growth in every norm, max norm included, once N is large enough for a grid mode "
+              "2*pi*j/N to land there: the refutation also refutes max-norm stability")
 
 _LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable implies convergence of order p for "
                   "smooth initial data; linear constant-coefficient schemes on periodic grids only. The order is "
@@ -77,7 +88,9 @@ CLAIMS = {
     "entropy_stable_tadmor": ("entropy stable in Tadmor's semi-discrete sense: Q = -[v](F - F*) >= 0",
                               (("entropy_stability", EQUIVALENT, ""),)),
     "selects_entropy_solution_semidiscrete": ("the method-of-lines scheme's limit is the entropy solution",
-                                              (("entropy_stability", SUFFICIENT, _TADMOR),)),
+                                              (("entropy_stability", SUFFICIENT, _TADMOR),
+                                               # exact: its failure refutes; finding no steady step gives nothing
+                                               ("steady_nonentropy_step_semidiscrete", NECESSARY, _STEADY_STEP_SEMI))),
     "monotone_under_cfl": ("H is non-decreasing in each argument for states with lam*|f'(u)| <= c",
                            (("monotonicity", EQUIVALENT, ""),)),
     # the fully discrete scheme: Tadmor's inequality says nothing about time stepping; monotonicity does
@@ -90,6 +103,9 @@ CLAIMS = {
                            (("truncation_order", EQUIVALENT, ""),)),
     "von_neumann_stable_under_cfl": ("|g(theta)| <= 1 for every theta and every nu = a*dt/dx in the claimed range",
                                      (("von_neumann", EQUIVALENT, ""),)),
+    "stable_for_small_cfl": ("there is nu0 > 0 such that |g(theta)| <= 1 for every theta and every nu = a*dt/dx in "
+                             "(0, nu0] (linear constant-coefficient schemes)",
+                             (("von_neumann_small_cfl", EQUIVALENT, _SMALL_CFL),)),
     "converges_order_p": ("converges to smooth solutions of the PDE at the order p claimed for each study",
                           tuple((f"order/{k}", NECESSARY, _ORDER) for k in ("combined", "space", "time"))
                           # the row cannot fire for a nonlinear scheme: lax_richtmyer_scope is NOT_APPLICABLE there

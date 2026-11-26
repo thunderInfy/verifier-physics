@@ -16,7 +16,8 @@
   "converges_order_p",
   "monotone_under_cfl",
   "consistent_order_p",
-  "von_neumann_stable_under_cfl"
+  "von_neumann_stable_under_cfl",
+  "stable_for_small_cfl"
  ],
  "claims": {
   "positive_cfl": [

@@ -14,7 +14,8 @@
   "conservative",
   "consistent_order_p",
   "von_neumann_stable_under_cfl",
-  "converges_order_p"
+  "converges_order_p",
+  "stable_for_small_cfl"
  ],
  "claims": {
   "consistent_order": 1,

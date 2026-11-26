@@ -22,14 +22,14 @@ BROKEN = {"broken-advection-inconsistent-flux": {"consistency", "order/combined"
           "broken-burgers-scaled-flux": {"consistency", "order/combined"},
           "broken-burgers-nonconservative": {"conservation", "shock_speed"},
           "broken-burgers-roe-no-entropy-fix": {"entropy_stability", "entropy_rarefaction", "monotonicity",
-                                                       "steady_nonentropy_step"},
+                                                       "steady_nonentropy_step", "steady_nonentropy_step_semidiscrete"},
           "broken-advection-lax-friedrichs-wide-cfl": {"positivity", "monotonicity", "von_neumann"},
           "broken-advection-lax-wendroff-monotone": {"monotonicity"},
           "broken-burgers-rusanov-wide-cfl": {"monotonicity"},
           "broken-advection-downwind": {"positivity"},
           # halving Lax-Wendroff's diffusion leaves it first order and unstable for every nu != 0
           "broken-advection-fake-second-order": {"order/combined", "truncation_order", "von_neumann"},
-          "broken-advection-ftcs": {"von_neumann", "order/combined"}}
+          "broken-advection-ftcs": {"von_neumann", "von_neumann_small_cfl", "order/combined"}}
 
 
 def _p(s):
@@ -352,6 +352,7 @@ FAILING_CLAIMS = {"broken-advection-inconsistent-flux": {"consistent": C.REFUTED
                   "broken-burgers-nonconservative": {"conservative": C.REFUTED, "correct_shock_speed": C.REFUTED_EMPIRICALLY},
                   "broken-burgers-roe-no-entropy-fix": {"entropy_stable_tadmor": C.REFUTED,
                                                         "selects_entropy_solution": C.REFUTED,
+                                                        "selects_entropy_solution_semidiscrete": C.REFUTED,
                                                         "monotone_under_cfl": C.REFUTED},
                   "broken-advection-lax-friedrichs-wide-cfl": {"positive_under_cfl": C.REFUTED,
                                                                "monotone_under_cfl": C.REFUTED,
@@ -362,7 +363,7 @@ FAILING_CLAIMS = {"broken-advection-inconsistent-flux": {"consistent": C.REFUTED
                   "broken-advection-fake-second-order": {"converges_order_p": C.REFUTED_EMPIRICALLY,
                                                          "consistent_order_p": C.REFUTED,
                                                          "von_neumann_stable_under_cfl": C.REFUTED},
-                  "broken-advection-ftcs": {"von_neumann_stable_under_cfl": C.REFUTED,
+                  "broken-advection-ftcs": {"von_neumann_stable_under_cfl": C.REFUTED, "stable_for_small_cfl": C.REFUTED,
                                             "converges_order_p": C.REFUTED_EMPIRICALLY}}
 
 # (relation, raw status) -> verdict, for an exact check (conservation) and an empirical one (shock_speed)
@@ -467,7 +468,8 @@ def test_harten_is_not_refuted_by_tadmor(results, verdicts):
     roe = verdicts["broken-burgers-roe-no-entropy-fix"]
     assert roe["entropy_stable_tadmor"]["verdict"] == C.REFUTED and roe["entropy_stable_tadmor"]["guarantee"] == C.EXACT
     assert roe["selects_entropy_solution"]["decided_by"] == ["steady_nonentropy_step"]    # exact beats empirical
-    assert roe["selects_entropy_solution_semidiscrete"]["verdict"] == C.UNKNOWN    # a failed sufficient condition
+    semi = roe["selects_entropy_solution_semidiscrete"]                   # Tadmor fails (sufficient: says nothing),
+    assert semi["verdict"] == C.REFUTED and semi["decided_by"] == ["steady_nonentropy_step_semidiscrete"]  # the step refutes
     for name in BURGERS:                                     # Tadmor VERIFIED decides it, with its premises
         v = verdicts[name]["selects_entropy_solution_semidiscrete"]
         assert v["verdict"] == C.VERIFIED and any("semi-discrete" in a for a in v["assumes"])
