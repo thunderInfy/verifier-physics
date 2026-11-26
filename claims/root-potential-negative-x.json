@@ -1,0 +1,31 @@
+{
+  "name": "potential k x^(1/2), domain x != 0",
+  "true": null,
+  "expect": "UNKNOWN",
+  "why": "for x < 0 the Lagrangian is not real; Lean's x^(1/2) = 0 there makes the claim hold on all of x != 0 only through junk values",
+  "coordinates": [
+    "x"
+  ],
+  "symbols": {
+    "x": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M L^2"
+    },
+    "k": {
+      "dim": "M L^2 T^-2"
+    }
+  },
+  "lagrangian": "m/2*x_dot^2 - k*x^(1/2)",
+  "domain": [
+    "m > 0",
+    "x != 0"
+  ],
+  "eom": [
+    {
+      "lhs": "x_ddot",
+      "rhs": "-k/(2*m)*x^(-1/2)"
+    }
+  ]
+}

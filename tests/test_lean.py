@@ -91,8 +91,103 @@ def test_derivation_claims(path):
     from physverify.tools import eulerlagrange
     c = load_claim(path)
     r = judge_claim(c, eulerlagrange.propose(c))
+    if c.source["true"] is None:      # ill-posed: neither verdict is right
+        assert r.verdict == "UNKNOWN", r.detail
     assert r.verdict != ("REFUTED" if c.source["true"] else "VERIFIED")
     assert r.verdict == c.expect, r.detail
+
+
+# The statements as they were before the empty-domain and junk-value fixes: used only to show
+# that the new benchmark claims did get through them.
+OLD_DEFS = """
+def OldVerified (n : ℕ) (L : Expr) (D : (ℕ → ℝ) → Prop) (cs : List Law) : Prop :=
+  ∀ env, D env → DomainOK n L env ∧ (ELSystem n L env ↔ Claims cs env)
+def OldRefuted (n : ℕ) (L : Expr) (D : (ℕ → ℝ) → Prop) (cs : List Law) : Prop :=
+  ∃ env, D env ∧ DomainOK n L env ∧ ¬(ELSystem n L env ↔ Claims cs env)
+"""
+
+
+def _old_tactic(tactic: str) -> str:
+    """The planner's `verified` tactic without its PhysOK step."""
+    from physverify.tools.eulerlagrange import PHYS
+    lines = [l for l in tactic.splitlines() if not l.lstrip("· ").startswith(PHYS[:-1])]
+    return "\n".join(lines).replace("refine ⟨⟨?_, ?_⟩, ?_, ?_⟩", "refine ⟨⟨?_, ?_⟩, ?_⟩")
+
+
+def test_empty_domain_never_verified():
+    """`th > 1/2, th < -1/2`: the old statement held vacuously; the new one is false in Lean,
+    so no tactic can give VERIFIED, and the judge does not even try."""
+    from physverify.derivation import UNKNOWN, lean_terms, load_claim, statement
+    from physverify.derivation import judge as judge_claim
+    from physverify.lean_backend import check
+    c = load_claim(ROOT / "claims/pendulum-empty-domain.json")
+    t = lean_terms(c)
+    vacuous = "intro env h\nobtain ⟨-, -, -, h1, h2⟩ := h\nnorm_num [Expr.eval] at h1 h2\nlinarith"
+    old = check(f"OldVerified {t['n']} {t['L']} {t['D']} {t['cs']}", vacuous, preamble=OLD_DEFS,
+                module="PhysVerify.EulerLagrange")
+    assert old.ok, old.log[-2000:]
+    neg = check(f"¬ ({statement('verified', c)})",
+                "rintro ⟨-, -, ⟨env, h⟩, -⟩\n" + vacuous.split("\n", 1)[1],
+                module="PhysVerify.EulerLagrange")
+    assert neg.ok, neg.log[-2000:]
+    # a planner proposing the vacuous proof, with or without the judge's prefix, gets UNKNOWN
+    r = judge_claim(c, [("verified", vacuous), ("verified", "refine ⟨by decide, by decide, ?_⟩\n" + vacuous)])
+    assert r.verdict == UNKNOWN
+
+
+def test_junk_sqrt_claim_no_longer_verifies():
+    """x^(1/2) on the domain x != 0: Lean's x^(1/2) = 0 for x < 0 let the planner's own
+    certificate prove the old statement; the new one requires 0 < x on D and is false."""
+    from physverify.derivation import UNKNOWN, lean_terms, load_claim, statement
+    from physverify.derivation import judge as judge_claim
+    from physverify.lean_backend import check
+    from physverify.tools import eulerlagrange
+    c = load_claim(ROOT / "claims/root-potential-negative-x.json")
+    t = lean_terms(c)
+    ((kind, tactic),) = eulerlagrange.propose(c)
+    assert kind == "verified"
+    old = check(f"OldVerified {t['n']} {t['L']} {t['D']} {t['cs']}", _old_tactic(tactic),
+                preamble=OLD_DEFS, module="PhysVerify.EulerLagrange")
+    assert old.ok, old.log[-2000:]
+    r = judge_claim(c, [(kind, tactic)])
+    assert r.verdict == UNKNOWN, r.detail
+    # the new statement is false: at x = -1 (in D) the real power x^(1/2) is junk
+    # layout: x = 0, x_dot = 1, x_ddot = 2, k = 3, m = 4
+    point = "(fun j : ℕ => [(-1 : ℝ), 0, 0, 1, 1].getD j 0)"
+    neg = check(f"¬ ({statement('verified', c)})",
+                f"rintro ⟨-, -, -, h⟩\nhave := (h {point} (by norm_num [Expr.eval])).2.1.1\n"
+                "norm_num [Expr.physOK, Expr.eval] at this",
+                module="PhysVerify.EulerLagrange")
+    assert neg.ok, neg.log[-2000:]
+    # with the domain the author meant, x > 0, the same claim is VERIFIED
+    good = load_claim(ROOT / "claims/root-potential.json")
+    assert judge_claim(good, eulerlagrange.propose(good)).verdict == "VERIFIED"
+
+
+def test_junk_sqrt_counterexample_rejected():
+    """x'' = -sqrt(k/m)^2 x with the sign of k left open: at k < 0 Lean's sqrt(k/m) = 0 gave a
+    counterexample to a claim that is right wherever sqrt(k/m) is real. Now UNKNOWN."""
+    from physverify.derivation import UNKNOWN, lean_terms, load_claim
+    from physverify.derivation import judge as judge_claim
+    from physverify.lean_backend import check
+    from physverify.tools import eulerlagrange
+    c = load_claim(ROOT / "claims/oscillator-sqrt-frequency.json")
+    t = lean_terms(c)
+    # layout: x = 0, x_dot = 1, x_ddot = 2, k = 3, m = 4; the jet x = 1, x'' = 0 at k = -1, m = 1
+    point = "(fun j : ℕ => [(1 : ℝ), 0, 0, -1, 1].getD j 0)"
+    old = check(f"OldRefuted {t['n']} {t['L']} {t['D']} {t['cs']}",
+                f"refine ⟨{point}, by norm_num [Expr.eval], ?_, ?_⟩\n"
+                "· refine ⟨?_, ?_⟩\n"
+                "  · simp [Expr.diffOK, Expr.eval]\n"
+                "  · intro k hk; interval_cases k; norm_num [Expr.diffOK, Expr.deriv, Expr.dir, Expr.basis, Expr.eval]\n"
+                "· intro h\n"
+                "  have := h.2 (by norm_num [Claims, Law.Holds, Expr.eval, "
+                "Real.sqrt_eq_zero_of_nonpos (by norm_num : (-1 : ℝ) ≤ 0)]) 0 (by norm_num)\n"
+                "  norm_num [EL, dt, timeDir, Expr.deriv, Expr.dir, Expr.basis, Expr.eval] at this",
+                preamble=OLD_DEFS, module="PhysVerify.EulerLagrange")
+    assert old.ok, old.log[-2000:]
+    r = judge_claim(c, eulerlagrange.propose(c))
+    assert r.verdict == UNKNOWN, r.detail
 
 
 def test_derivation_judge_rejects_planner_tricks():

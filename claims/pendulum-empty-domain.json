@@ -1,0 +1,37 @@
+{
+  "name": "small-angle pendulum on an empty domain",
+  "true": null,
+  "expect": "UNKNOWN",
+  "why": "|th| < 1/2 mistyped as th > 1/2 and th < -1/2: no point satisfies it, so a VERIFIED certificate would be vacuous",
+  "coordinates": [
+    "th"
+  ],
+  "symbols": {
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "l": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "m*l^2*th_dot^2/2 + m*g*l*cos(th)",
+  "domain": [
+    "m > 0",
+    "l > 0",
+    "g > 0",
+    "th > 1/2",
+    "th < -1/2"
+  ],
+  "eom": [
+    {
+      "lhs": "th_ddot",
+      "rhs": "-(g/l)*th"
+    }
+  ]
+}

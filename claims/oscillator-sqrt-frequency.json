@@ -1,0 +1,30 @@
+{
+  "name": "oscillator with w = sqrt(k/m), sign of k not fixed",
+  "true": null,
+  "expect": "UNKNOWN",
+  "why": "x'' = -sqrt(k/m)^2 x is right for k > 0; for k < 0 Lean's sqrt(k/m) = 0 would give a junk counterexample",
+  "coordinates": [
+    "x"
+  ],
+  "symbols": {
+    "x": {
+      "dim": "L"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "k": {
+      "dim": "M T^-2"
+    }
+  },
+  "lagrangian": "m/2*x_dot^2 - k/2*x^2",
+  "domain": [
+    "m > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "x_ddot",
+      "rhs": "-sqrt(k/m)^2*x"
+    }
+  ]
+}

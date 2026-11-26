@@ -159,8 +159,71 @@ def test_planner_routes_true_and_false_claims():
     """Untrusted planner: certificate attempts for true claims, counterexamples for false."""
     from physverify.tools import eulerlagrange
     for c in _claims():
+        if c.source["true"] is None:      # ill-posed: whatever it proposes, Lean must reject
+            continue
         kinds = {k for k, _ in eulerlagrange.propose(c)}
         assert kinds == ({"verified"} if c.source["true"] else {"refuted"}), c.name
+
+
+def test_claim_rejects_acceleration_in_domain():
+    from physverify.derivation import load_claim
+    spec = {"name": "x", "coordinates": ["x"], "symbols": {"x": {"dim": "L"}, "m": {"dim": "M"}},
+            "lagrangian": "m/2*x_dot^2", "domain": ["m > 0", "x_ddot > 0"],
+            "eom": [{"lhs": "x_ddot", "rhs": "0"}]}
+    with pytest.raises(ValueError, match="accelerations"):
+        load_claim(spec)
+    spec["domain"] = ["m > 0", "x_ddot*m < 1"]
+    with pytest.raises(ValueError, match="accelerations"):
+        load_claim(spec)
+
+
+def test_claim_domain_atoms_are_continuous():
+    """D must be open, so its atoms are strict inequalities of continuous expressions."""
+    from physverify.derivation import load_claim
+    base = {"name": "x", "coordinates": ["x"], "symbols": {"x": {"dim": "L"}, "m": {"dim": "M"}},
+            "lagrangian": "m/2*x_dot^2", "eom": [{"lhs": "x_ddot", "rhs": "0"}]}
+    for atom in ["1/x < 1", "sqrt(m) > 0", "log(m) > 0", "x^(-1) < 1", "x^(1/2) > 0"]:
+        with pytest.raises(ValueError, match="continuous"):
+            load_claim({**base, "domain": [atom]})
+    load_claim({**base, "domain": ["x > 1/2", "x^2 - m*x < 3", "cos(x) != 0"]})
+
+
+def test_empty_domain_is_unknown_even_with_planner_tactic():
+    """`r > 0, r < 0` must not give a vacuous VERIFIED, even if Lean were to accept the tactic."""
+    from physverify.derivation import UNKNOWN, find_witness, judge, load_claim
+    from physverify.lean_backend import LeanResult
+    c = load_claim(ROOT / "claims/pendulum-empty-domain.json")
+    assert c.source["true"] is None and c.expect == UNKNOWN
+    assert find_witness(c) is None
+    calls = []
+
+    def accept_all(s, p, **kw):
+        calls.append(s)
+        return LeanResult(True, set(), "")
+    vacuous = "intro env ⟨_, _, _, h1, h2⟩\nexfalso\nsimp only [Expr.eval] at h1 h2\nlinarith"
+    r = judge(c, [("verified", vacuous), ("verified", "sorry")], check=accept_all)
+    assert r.verdict == UNKNOWN and calls == []
+    # the same claim with a satisfiable domain does get to Lean
+    ok = load_claim({**c.source, "domain": ["m > 0", "l > 0", "g > 0", "th < 1/2", "th > -1/2"]})
+    w = find_witness(ok)
+    assert w is not None and -Fraction(1, 2) < w["th"] < Fraction(1, 2)
+    assert judge(ok, [("verified", vacuous)], check=accept_all).verdict == "VERIFIED"
+
+
+def test_witness_for_every_well_posed_claim():
+    from physverify.derivation import find_witness
+    for c in _claims():
+        if c.source["true"] is not None:
+            assert find_witness(c) is not None, c.name
+
+
+def test_planner_mirror_of_phys_ok():
+    from physverify.derivation import load_claim
+    from physverify.tools import eulerlagrange
+    c = load_claim(ROOT / "claims/root-potential-negative-x.json")
+    env = {"x": Fraction(-1), "x_dot": Fraction(1), "x_ddot": Fraction(0), "m": Fraction(1), "k": Fraction(1)}
+    assert not eulerlagrange.in_domain(c, env)          # x < 0: x^(1/2) is junk
+    assert eulerlagrange.in_domain(c, {**env, "x": Fraction(1, 4)})
 
 
 def test_failed_certificates_give_unknown():

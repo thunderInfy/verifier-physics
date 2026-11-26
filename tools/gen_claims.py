@@ -31,6 +31,15 @@ DP = {"coordinates": ["a", "b"],
       "domain": ["m1 > 0", "m2 > 0", "l1 > 0", "l2 > 0", "g > 0"]}
 
 
+# x is dimensionless (a real power needs a dimensionless base), so m is a moment of inertia
+ROOT_POT = {"coordinates": ["x"],
+            "symbols": {"x": {"dim": "1"}, "m": {"dim": "M L^2"}, "k": {"dim": "M L^2 T^-2"}},
+            "lagrangian": "m/2*x_dot^2 - k*x^(1/2)"}
+HO = {"coordinates": ["x"],
+      "symbols": {"x": {"dim": "L"}, "m": {"dim": "M"}, "k": {"dim": "M T^-2"}},
+      "lagrangian": "m/2*x_dot^2 - k/2*x^2"}
+
+
 def eq(l, r): return {"lhs": l, "rhs": r}
 
 
@@ -108,9 +117,33 @@ CLAIMS = {
                                  "true, but equal to the EL equations only via double-angle identities "
                                  "our tactics do not try",
                                  [eq("a_ddot", DP_A_TXT), eq("b_ddot", DP_B_TXT)]),
+    "root-potential": ({**ROOT_POT, "domain": ["m > 0", "x > 0"]}, "potential k x^(1/2)", "VERIFIED",
+                       "m x'' = -(k/2) x^(-1/2) for x > 0",
+                       [eq("x_ddot", "-k/(2*m)*x^(-1/2)")]),
+}
+# Ill-posed claims (`"true": null`): any decisive verdict is wrong.
+ILL_POSED = {
+    "pendulum-empty-domain": ({**PEND, "domain": ["m > 0", "l > 0", "g > 0", "th > 1/2", "th < -1/2"]},
+                              "small-angle pendulum on an empty domain", "UNKNOWN",
+                              "|th| < 1/2 mistyped as th > 1/2 and th < -1/2: no point satisfies it, "
+                              "so a VERIFIED certificate would be vacuous",
+                              [eq("th_ddot", "-(g/l)*th")]),
+    "root-potential-negative-x": ({**ROOT_POT, "domain": ["m > 0", "x != 0"]},
+                                  "potential k x^(1/2), domain x != 0", "UNKNOWN",
+                                  "for x < 0 the Lagrangian is not real; Lean's x^(1/2) = 0 there "
+                                  "makes the claim hold on all of x != 0 only through junk values",
+                                  [eq("x_ddot", "-k/(2*m)*x^(-1/2)")]),
+    "oscillator-sqrt-frequency": ({**HO, "domain": ["m > 0"]},
+                                  "oscillator with w = sqrt(k/m), sign of k not fixed", "UNKNOWN",
+                                  "x'' = -sqrt(k/m)^2 x is right for k > 0; for k < 0 Lean's "
+                                  "sqrt(k/m) = 0 would give a junk counterexample",
+                                  [eq("x_ddot", "-sqrt(k/m)^2*x")]),
 }
 
 for fn, (base, name, expect, why, eom) in CLAIMS.items():
     spec = {"name": name, "true": expect != "REFUTED", "expect": expect, "why": why, **base, "eom": eom}
     (OUT / f"{fn}.json").write_text(json.dumps(spec, indent=2) + "\n")
-print(len(CLAIMS), "claims written to", OUT)
+for fn, (base, name, expect, why, eom) in ILL_POSED.items():
+    spec = {"name": name, "true": None, "expect": expect, "why": why, **base, "eom": eom}
+    (OUT / f"{fn}.json").write_text(json.dumps(spec, indent=2) + "\n")
+print(len(CLAIMS) + len(ILL_POSED), "claims written to", OUT)
