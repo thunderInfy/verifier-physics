@@ -108,7 +108,9 @@ A numerical scheme is a theory of a discrete universe, so claims about it can be
 same way. `physverify/schemes/` takes a 1D scalar conservation law u_t + f(u)_x = 0 and a
 three-point scheme, given either as a numerical flux F(uL, uR) or as an update
 u_i^{n+1} = H(u_{i-1}, u_i, u_{i+1}, dt/dx), written in the same expression language as
-theories. Examples are in `schemes/`, the broken ones prefixed `broken-`.
+theories. Examples are in `schemes/`, the broken ones prefixed `broken-`. Stencils up to five
+points wide (`um2`, `up2`, and fluxes F(uLL, uL, uR, uRR)) and limiters (`abs`, `min`, `max`,
+`minmod`) are covered too; see "Limited schemes on five-point stencils" below and `schemes/limiters/`.
 
 ```
 $ uv run python -m physverify.schemes schemes/broken-advection-lax-friedrichs-wide-cfl.json
@@ -135,13 +137,15 @@ below for how one becomes the other).
 | Consistency F(u, u) = f(u) | exact: normal form of the residual is 0, or an exact rational point where it isn't | normal form, or counterexample u |
 | Conservation on a periodic grid | exact: the update telescopes as -(dt/dx)(F_{i+1/2} - F_{i-1/2}), or an exact periodic state whose total changes | recovered flux, or counterexample state |
 | Positivity of linear schemes on a claimed CFL range | exact: Bernstein coefficients of every c_k(nu) are >= 0 on the interval (endpoint values when c_k is affine in nu), or an exact nu where some c_k < 0 | coefficient list, or offending coefficient and nu |
-| Convergence order (combined, space, time) | empirical only | L1 and Linf error tables |
+| Convergence order (combined, space, time; or one norm, L1 or Linf, for the combined study) | empirical only | L1 and Linf error tables |
 | Truncation order of linear schemes | exact: the Taylor coefficients e_j(nu) of the local truncation error vanish identically for j <= p, or an exact nu where some e_j != 0 | every e_j, the leading modified-equation term and its kind (diffusive, anti-diffusive, dispersive) |
 | Von Neumann stability of linear schemes on a claimed CFL range | exact: 1 - \|g\|^2 >= 0 on nu x cos(theta) by tensor Bernstein coefficients after stripping (1 - z), (1 + z), or an exact (nu, cos(theta)) with \|g\|^2 > 1 | \|g\|^2, the factorisation, the boxes and their Bernstein coefficients; or the point |
 | Shock speed on Riemann problems | empirical only | late-window speed at three crossing levels against the exact Rankine-Hugoniot speed, per grid |
 | Entropy stability (Tadmor), semi-discrete | exact for the semi-discrete inequality only, not the time stepping: Q = -[v](F - F*) >= 0 certified on sign cells, or an exact rational point with Q < 0 | F*, Q, per-cell D = Q/(uR - uL)^2 with a change of variables that makes it non-negative by form, or counterexample (uL, uR) |
 | Convergence to the rarefaction fan | empirical only | L1 error tables against u = (x - x0)/t, at two incommensurate dt/dx |
 | Steady non-entropy step (fully discrete) | exact refutation only: the four stencils of a step uL < uR with f'(uL) < f'(uR) (f'' >= 0 by form) are fixed, as normal forms in lam; a failed search is `UNKNOWN`, never `VERIFIED` | (uL, uR), how it was found (candidate or search), f'(uL), f'(uR), f(uL), f(uR) |
+| TVD of limited schemes (linear advection) on a claimed CFL range | exact both ways: Harten's incremental form certified on every sign cell by Farkas identities with multipliers polynomial in nu (sufficient), or an exact periodic state whose total variation grows (necessary) | per cell and half-cell: the identities, their nu-pieces and Bernstein minima, cell counts; or the state, nu and both total variations |
+| Truncation order of limited schemes, per branch and on smooth data | exact: the truncation order of the linear scheme on each sign cell (sufficient when all are >= p), or an exact polynomial solution and grid placement whose local truncation error is a lower power of dx (necessary) | the branch table (slopes, order, leading e_j); or U(x), the placement, the cell and tau(dx) |
 | Monotonicity of the fully discrete update on a claimed CFL bound | exact: every partial of H(u_{i-1}, u_i, u_{i+1}) is >= 0 on every sign cell within lam*\|f'(u)\| <= c, or two exact states, one argument raised, with H lower | per cell: H, the three partials, and a certificate (by form, a Farkas identity in w = lam*u, or Bernstein in lam); or the decreasing pair |
 
 The exact checks use `Fraction` arithmetic and never decide on a float. Their verdicts are not
@@ -427,9 +431,10 @@ time (forward Euler on a fixed grid) orders, which this theorem does not cover. 
 silent (stability fails) and the study decides. At dt/dx = 4/5 round-off in the unstable modes
 grows to 1e11 by N = 400 (`REFUTED_EMPIRICALLY`). At dt/dx = 1/2 to T = 1/4 it does not grow
 enough: the study shows order 1.00 and says `NOT_REFUTED`, and only the exact check sees the
-instability. The judge never says `INCONSISTENT` on any of these. For nonlinear and limited schemes
-(Burgers, anything with |.| or max) nothing here applies, and the empirical study remains the
-only evidence of order.
+instability. The judge never says `INCONSISTENT` on any of these. For nonlinear schemes (Burgers)
+nothing here applies, and the empirical study remains the only evidence of order. For limited
+schemes of linear advection the truncation order is exact branch by branch (see "Limited schemes on
+five-point stencils" below), but the global order is still only empirical.
 
 Lax-Richtmyer is asymptotic. It says the error is O(dx^p) as dx -> 0, nothing about the constant or
 about when the asymptotic regime starts, and "order p" here means at least p: a scheme that happens
@@ -437,7 +442,129 @@ to be more accurate on the test data is not contradicted. The truncation expansi
 smooth derivatives; for data with a kink or a shock the order is lower, and the theorem says
 nothing.
 
-Limits: one space dimension, scalar laws, three-point stencils, periodic grids (the shock-speed and
+### Limited schemes on five-point stencils
+
+A spec may use `um2` and `up2` (u_{i-2}, u_{i+2}), and a numerical flux may take four arguments,
+F(uLL, uL, uR, uRR) = F_{i+1/2}(u_{i-1}, u_i, u_{i+1}, u_{i+2}). The expression language has
+`abs(x)`, `min(a, b)`, `max(a, b)` and `minmod(a, b)`. They are written with |x| = sqrt(x^2)
+(max(a, b) = (a + b + |a - b|)/2, minmod(a, b) = max(0, min(a, b)) + min(0, max(a, b))), so the AST
+and its Lean mirror get no new node. Three-point specs are parsed and reported exactly as before. The
+flux recovery (`telescoping_wide`) and the consistency, truncation, von Neumann and positivity checks
+work on the wider stencil. Monotonicity and the steady-step check are still three-point only and give
+`UNKNOWN` on wider stencils. The examples are in `schemes/limiters/`, in Sweby's flux-limiter form
+for u_t + u_x = 0: u_i^{n+1} = u_i - nu (F_{i+1/2} - F_{i-1/2}) with
+F_{i+1/2} = u_i + (1 - nu)/2 * L(Delta_{i+1/2}, Delta_{i-1/2}) and Delta_{i+1/2} = u_{i+1} - u_i. The
+slope L is a polynomial with min and max, so no ratio r appears. Minmod is L = minmod(Delta_{i+1/2},
+Delta_{i-1/2}). Superbee is maxmod(minmod(2 Delta_{i+1/2}, Delta_{i-1/2}), minmod(Delta_{i+1/2},
+2 Delta_{i-1/2})), with maxmod written as max(0, max(m1, m2)) + min(0, min(m1, m2)). That equals it
+because the two minmods never have opposite signs.
+
+**Sign cells and why they cover everything** (`limiters.cells`). Every |x| is split into the closed
+cells x >= 0 and x <= 0, and on each cell the update is a polynomial (here linear in the u's). The
+split is lazy: |x| is split only when the normal form needs its sign, and atoms are scaled to a
+canonical form so that |2x| and |x| share one split. A cell is dropped only with a certificate that
+it lies in a hyperplane: an atom a with -a = sum_j mu_j a_j and mu_j >= 0 (an identity replayed in the
+normal form), so a = 0 on the cell. An exact phase-1 simplex in `Fraction` arithmetic finds the
+multipliers (Gordan's alternative). The retained cells still cover the state space. Every split
+covers its parent, so the retained and dropped cells together cover everything. The union of the
+retained closed cells is closed, and its complement is an open set inside the finitely many
+hyperplanes of the dropped cells, so it is empty. A verdict over all states therefore never rests on
+"the branches we happened to enumerate". Past `MAX_CELLS` (4000 explored cells) the checks give
+`UNKNOWN`.
+
+Where two retained cells overlap, their polynomials must agree, and the code asserts it. It checks
+first on the subspace where the atoms of opposite sign vanish. If the polynomials differ there, it
+checks on the overlap's linear span, which repeated Gordan LPs find exactly (a polynomial that
+vanishes on a cone vanishes on its span). A disagreement would be a bug in the split and gives
+`UNKNOWN`. Minmod's update has 18 full-dimensional cells (8 lower-dimensional ones dropped, 43
+split-tree nodes, all 153 pairs checked). Superbee's has 50 (36 dropped, 135 nodes, 1225 pairs). The
+tests also sample random rational states and confirm that each lies in a retained cell whose
+polynomial gives H's exact value there.
+
+**TVD, exact both ways** (`tvd_under_cfl`). Harten's lemma: if
+u_i^{n+1} = u_i - C_{i-1/2} Delta_{i-1/2} + D_{i+1/2} Delta_{i+1/2} with C, D >= 0 and
+C_{i+1/2} + D_{i+1/2} <= 1, the scheme is TVD. For a > 0 the check takes D = 0 and
+C = -(H - u_i)/Delta_{i-1/2}. With N = H - u_i, each cell is split once more by the sign s of
+Delta_{i-1/2}. On s*Delta_{i-1/2} >= 0 the check certifies -s*N >= 0 (that is, C*Delta^2 >= 0) and
+s*(N + Delta_{i-1/2}) >= 0 (that is, (1 - C)*Delta^2 >= 0), so it never divides by Delta. Both are
+linear in the u's with coefficients polynomial in nu. Each is certified as an identity
+p = sum_j mu_j(nu) a_j over the cell's atoms, where every mu_j(nu) has non-negative Bernstein
+coefficients on a piece of the nu-range (`farkas_in_nu`). The pieces come from bisection, and the
+atoms from an exact LP at sample values of nu, with a full subset search as the fallback. Where
+Delta_{i-1/2} = 0 the two certificates force N = 0, so the form holds there too. Harten's form is not
+unique, so this row is `sufficient`. Refutation is a separate `necessary` check, `tv_increase`: an
+explicit periodic rational state and a rational nu in the claimed range whose total variation grows
+in one step, in `Fraction` arithmetic. The same certificate gives a local maximum principle for free,
+since u_i^{n+1} = (1 - C) u_i + C u_{i-1} with C in [0, 1]. That is the claim
+`local_max_principle_under_cfl`, refuted by `max_principle_violation` (an exact state with
+u_i^{n+1} outside its stencil's range).
+
+| Spec | consistent, conservative | `tvd_under_cfl` | Witness |
+|---|---|---|---|
+| `advection-minmod`, nu in [0, 1] | VERIFIED | VERIFIED (Harten) | 18 cells, 18 half-cells certified (18 lower-dimensional halves dropped); the local maximum principle is VERIFIED too |
+| `advection-superbee`, nu in [0, 1] | VERIFIED | VERIFIED (Harten) | 50 cells, 50 half-cells certified |
+| `broken-advection-lw-flux-form-tvd` (L = Delta_{i+1/2}: unlimited Lax-Wendroff), [0, 1] | VERIFIED | REFUTED | periodic u = (0, 0, 0, 0, 0, 1) at nu = 1/4: TV goes from 2 to 33/16. At nu = 1/2, u_4^{n+1} = -1/8 < 0 breaks the maximum principle |
+| `broken-advection-superbee-wide-cfl`, [0, 3/2] | not claimed | REFUTED | the same state at nu = 3/2: TV goes from 2 to 4 (u^{n+1} = (3/2, 0, 0, 0, 0, -1/2)). Harten fails on 58 conditions, which alone would give only `UNKNOWN` |
+
+The exact checks agree with the literature range (Sweby 1984; LeVeque 2002, ch. 6). Both limiters
+are TVD for 0 <= nu <= 1, and superbee is not TVD on [0, 3/2] (a test also finds a TV increase at
+nu = 9/8). The range is not hard-coded anywhere: the certificate was searched for on the claimed
+interval, and the refutation came from the search.
+
+**Truncation order per branch.** On each cell the update is a linear scheme, so the exact truncation
+expansion of `linear.py` applies to each branch. Minmod has nine distinct branches over its 18 cells.
+The slope columns say what minmod picks at each interface, and e_j is the leading coefficient in
+tau = sum_j e_j dx^(j-1) d^j u/dx^j (the modified equation's term is -e_j):
+
+| slope at i+1/2 | slope at i-1/2 | Branch | Truncation order | Leading e_j |
+|---|---|---|---|---|
+| Delta_{i+1/2} | Delta_{i-1/2} | Lax-Wendroff | 2 | e_3 = (1 - nu^2)/6 |
+| Delta_{i-1/2} | Delta_{i-3/2} | Beam-Warming | 2 | e_3 = -(1 - nu)(2 - nu)/6 |
+| 0 | 0 | upwind (both slopes clipped) | 1 | e_2 = -(1 - nu)/2 |
+| Delta_{i-1/2} | Delta_{i-1/2} | upwind (the two limited terms cancel) | 1 | e_2 = -(1 - nu)/2 |
+| Delta_{i+1/2} | Delta_{i-3/2} | mixed | 1 | e_2 = (1 - nu)/2 |
+| Delta_{i+1/2} | 0 | mixed | 0 | e_1 = (1 - nu)/2 |
+| Delta_{i-1/2} | 0 | mixed | 0 | e_1 = (1 - nu)/2 |
+| 0 | Delta_{i-1/2} | mixed | 0 | e_1 = -(1 - nu)/2 |
+| 0 | Delta_{i-3/2} | mixed | 0 | e_1 = -(1 - nu)/2 |
+
+The mixed branches with one slope clipped are not even consistent as linear schemes:
+tau = e_1 u_x + O(dx). Smooth data reach them only next to an extremum, where the two slopes have
+opposite signs and u_x = O(dx), so there they contribute O(dx). That is why the claim "truncation order
+2 at every stencil of smooth data" (`truncation_order_smooth_data`) is refuted exactly. Its
+`sufficient` row, "every branch has order >= p", gives `UNKNOWN` here (7 of 9 branches are below 2);
+it verifies only schemes whose every branch is order p, such as a linear scheme. The `necessary`
+check computes tau exactly at explicit data. Take u = U(x - t) with U(x) = 1 - x^2/2 (cos x to second
+order; a polynomial, so the exact solution is smooth and known) and x_i = 0. Every stencil atom is a
+single power of dx, so the stencil lies in one cell for every dx > 0: the cell with slope 0 at i+1/2
+and Delta_{i-1/2} at i-1/2. There tau(dx) = (1 - nu)/4 * dx exactly, which is O(dx) and not O(dx^2)
+for every nu != 1. For cos(x) itself the stencil signs are the same, and a float check gives
+tau/dx -> (1 - nu)/4. Superbee happens to be exact at this order at x_i = 0 (its clipped slope is
+2 Delta_{i-1/2}), but it is refuted at x_i = dx/2. All of this is about the local truncation error only.
+
+**Global order, with the norm named.** A nonlinear scheme has no Lax-Richtmyer theorem and can damp
+local errors, so the exact truncation order above says nothing about the global order. The global
+claims are separate and empirical: `converges_order_p_linf` (max norm) and `converges_order_p_l1`
+(discrete L1). Each reads only its own column of the combined refinement study (`claims.order_linf`,
+`claims.order_l1`). Minmod, a = 1, observed orders between successive grids:
+
+| Data | dt/dx, T | L1 order (N = 100..1600) | L∞ order (N = 100..1600) | Verdict |
+|---|---|---|---|---|
+| sine (periodic, with extrema) | 1/2, 1/4 | 1.91, 1.89, 1.92, 1.93, 1.95 | 1.28, 1.29, 1.30, 1.30, 1.31 | L∞ order 2: REFUTED_EMPIRICALLY; L1 order 2: NOT_REFUTED |
+| sine | 0.37, 0.2371 (incommensurate) | 1.89, 1.90, 1.91, 1.94, 1.94 | 1.23, 1.31, 1.27, 1.31, 1.31 | the same |
+| sine | 0.9, 1/4 | 1.88, 1.94, 1.92, 2.00, 1.98 | 1.24, 1.25, 1.27, 1.32, 1.31 | the same |
+| C-infinity monotone step, constant ends, transmissive boundaries (no extrema) | 1/2, 1/4 | 1.82, 1.99, 2.00, 2.00, 2.00 | 1.53, 1.70, 1.94, 2.01, 2.00 | L1 order 2: NOT_REFUTED (the spec runs N = 50..800) |
+| the same | 0.37, 0.2371 | 1.84, 1.97, 2.01, 2.00, 2.00 | 1.39, 1.67, 1.90, 2.01, 2.00 | the same |
+
+With extrema the max-norm order is about 1.3, not 1. Clipping costs O(dx) locally, but only in a few
+cells near each extremum, and we have not derived the rate. It stays at 1.3 at an incommensurate dt/dx
+and final time, so it is not a commensurability artefact. The L1 order on sine data is about 1.9 and
+still rising at N = 1600. We do not know whether it tends to 2, so the benchmark records that reading
+as unsettled. Without extrema both norms reach 2.0 once N >= 400. On coarser grids the max norm is
+still pre-asymptotic, which is why the extrema-free spec runs N = 50..800.
+
+Limits: one space dimension, scalar laws, three-point stencils for the entropy, monotonicity and
+steady-step checks (five points for the rest), limiter checks for linear advection only, periodic grids (the shock-speed and
 rarefaction studies use transmissive boundaries), Riemann data with a single shock or a single fan.
 The exact entropy check needs a quadratic entropy, and the rarefaction study's exact fan is for
 Burgers only. Positivity of
@@ -478,6 +605,14 @@ to refute.
 | `converges_order_p` | order/combined, order/space, order/time | necessary | empirical |
 | | truncation_order (Lax-Richtmyer), only if von_neumann and lax_richtmyer_scope are VERIFIED | sufficient | exact |
 | `correct_shock_speed` | shock_speed | necessary | empirical |
+| `tvd_under_cfl` | tvd_harten (Harten's incremental form on sign cells) | sufficient | exact |
+| | tv_increase (an explicit periodic state whose TV grows) | necessary | exact |
+| `local_max_principle_under_cfl` | tvd_harten (a convex combination of two stencil values) | sufficient | exact |
+| | max_principle_violation (an explicit state outside its stencil's range) | necessary | exact |
+| `truncation_order_smooth_data` | truncation_branches (every branch's linear scheme has order >= p) | sufficient | exact |
+| | truncation_smooth_data (an explicit polynomial solution with a lower-order tau) | necessary | exact |
+| `converges_order_p_l1` | order_l1/combined | necessary | empirical |
+| `converges_order_p_linf` | order_linf/combined | necessary | empirical |
 | `hyperbolic` (systems) | hyperbolicity (discriminant of the 2x2 Jacobian) | equivalent | exact |
 | `positive_depth_under_cfl` (systems) | depth_positivity (Riemann runs) | necessary | empirical |
 | `converges_to_riemann_solution` (systems) | riemann_l1 (against the exact Riemann solution) | necessary | empirical |
@@ -535,19 +670,25 @@ the polarity of each tool's answer (delta-sat in dReal is only sound in one dire
 
 ### Claims as papers write them
 
-`benchmark/scheme-claims/` has 20 sentences phrased the way papers phrase them ("Lax–Wendroff is
+`benchmark/scheme-claims/` has 22 sentences phrased the way papers phrase them ("Lax–Wendroff is
 TVD", "our upwind scheme is unconditionally stable", "the minmod MUSCL scheme is second order").
 Each reading of each sentence is formalized into the named claims above, with an expected truth
 and a citation. `uv run python -m physverify.schemes.bench benchmark/scheme-claims/` prints
 expected against actual. It fails on a decisive verdict that contradicts the expectation and lists
-non-decisive results as gaps. Now: 24 of 34 readings decided correctly, 10 gaps, none wrong
+non-decisive results as gaps. Now: 30 of 40 readings decided correctly, 9 gaps, 1 unscored
+(expected truth unsettled), none wrong. Before the limiter checks it was 24 of 34 with 10 gaps
 (the monotonicity check settles the Rusanov and Engquist–Osher monotonicity claims, and the exact
 order and von Neumann checks settle the truncation and global orders of Lax–Wendroff and upwind and
 refute "upwind is unconditionally L2-stable"; the steady-step check makes the Roe and Lax–Wendroff
 entropy refutations exact, and its semi-discrete form refutes "Roe's method of lines converges to
 the entropy solution"; the small-CFL check refutes "FTCS is stable for sufficiently small time
-steps"). `GAPS.md` there ranks the gaps. The largest are stencils wider than
-three points, order of accuracy outside linear schemes, and TVD and stability of nonlinear schemes.
+steps"). The limiter checks added six matches: minmod and superbee TVD on [0, 1] (VERIFIED),
+superbee TVD on [0, 3/2] and Lax–Wendroff in flux-limiter form TVD (REFUTED, exact), minmod's pointwise
+truncation order 2 at smooth extrema (REFUTED, exact), and its max-norm order 2 on sine data
+(REFUTED_EMPIRICALLY, at two dt/dx). "Order 2 in L1 without extrema" stays a gap (NOT_REFUTED: no
+theorem turns a refinement study into a proof). `GAPS.md` there ranks the gaps. The largest
+remaining ones are order of accuracy and entropy claims for nonlinear schemes, and stability claims
+that need a global parameter or a regime the spec cannot state.
 
 ### Systems
 
