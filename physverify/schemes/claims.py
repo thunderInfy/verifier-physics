@@ -7,7 +7,9 @@ relation lives here, in a fixed table, so no tool can report the strength of its
 
 The guarantee is orthogonal to the relation, and it also comes from this table: a check listed as
 empirical can never produce VERIFIED or REFUTED, whatever status string it returns. An exact check
-gives VERIFIED/REFUTED; an empirical one NOT_REFUTED/REFUTED_EMPIRICALLY.
+gives VERIFIED/REFUTED; an empirical one NOT_REFUTED/REFUTED_EMPIRICALLY. An empirical pass never
+counts as a verification at all, even under a SUFFICIENT or EQUIVALENT row: a finite-grid study
+can fail to refute a claim, not prove it. An empirical failure stays decisive.
 
 Per (relation, outcome of one check):
     SUFFICIENT  pass -> verified      fail -> unknown
@@ -64,7 +66,7 @@ CLAIMS = {
 _POLARITY = {(SUFFICIENT, "pass"): "verified", (SUFFICIENT, "fail"): "unknown",
              (NECESSARY, "pass"): "not_refuted", (NECESSARY, "fail"): "refuted",
              (EQUIVALENT, "pass"): "verified", (EQUIVALENT, "fail"): "refuted"}
-_LABEL = {("verified", EXACT): VERIFIED, ("verified", EMPIRICAL): NOT_REFUTED,
+_LABEL = {("verified", EXACT): VERIFIED,
           ("refuted", EXACT): REFUTED, ("refuted", EMPIRICAL): REFUTED_EMPIRICALLY}
 
 
@@ -83,7 +85,10 @@ def bear(relation: str, check: str, status: str) -> tuple[str, str]:
     """(polarity, guarantee) that one check result gives the claim it bears on."""
     o = outcome(status)
     polarity = _POLARITY[relation, o] if o in ("pass", "fail") else o
-    return polarity, strength(check, status)
+    g = strength(check, status)
+    if polarity == "verified" and g == EMPIRICAL:                # a finite-grid study never verifies
+        polarity = "not_refuted"
+    return polarity, g
 
 
 def label(polarity: str, guarantee: str) -> str:

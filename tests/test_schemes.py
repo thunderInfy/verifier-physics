@@ -399,6 +399,24 @@ def test_contradictory_evidence_is_inconsistent_and_loud():
     assert "FAILS c" in out and "!!! [INCONSISTENT]" in out
 
 
+def test_empirical_pass_never_verifies():
+    """A misconfigured fake row: the empirical shock-speed study as EQUIVALENT. Its pass is evidence of
+    "not refuted" polarity, so it gives NOT_REFUTED, never VERIFIED, and cannot by itself contradict a
+    refutation. Its failure stays decisive, so against an exact pass it is still INCONSISTENT."""
+    for status in ("NOT_REFUTED", "VERIFIED"):                  # even if the study claims an exact pass
+        v = _judge([("shock_speed", C.EQUIVALENT)], {"shock_speed": status})
+        assert v["verdict"] == C.NOT_REFUTED and v["evidence"][0]["polarity"] == "not_refuted"
+        v = _judge([("shock_speed", C.EQUIVALENT), ("conservation", C.EQUIVALENT)],
+                   {"shock_speed": status, "conservation": "REFUTED"})
+        assert v["verdict"] == C.REFUTED and v["decided_by"] == ["conservation"]
+        v = _judge([("shock_speed", C.EQUIVALENT), ("order/space", C.NECESSARY)],
+                   {"shock_speed": status, "order/space": "REFUTED_EMPIRICALLY"})
+        assert v["verdict"] == C.REFUTED_EMPIRICALLY and v["decided_by"] == ["order/space"]
+    v = _judge([("conservation", C.EQUIVALENT), ("shock_speed", C.EQUIVALENT)],
+               {"conservation": "VERIFIED", "shock_speed": "REFUTED_EMPIRICALLY"})
+    assert v["verdict"] == C.INCONSISTENT and set(v["decided_by"]) == {"conservation", "shock_speed"}
+
+
 def test_claims_table_is_well_formed():
     for statement, links in C.CLAIMS.values():
         assert statement and links
