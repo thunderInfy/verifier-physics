@@ -176,7 +176,7 @@ def studies(spec: dict) -> list[dict]:
     H = checks.update(spec)
     runs = {"combined": f"combined: fully discrete scheme at fixed dt/dx = {test['lam']}, refining dx and dt together",
             "space": "space: method of lines, RK4 at dt = 0.2*dx (time error negligible), refining dx",
-            "time": "time: forward Euler on fixed N = 200, refining dt, against the same-grid RK4 solution at dt = dx/100"}
+            "time": "time: forward Euler on fixed N = 200, refining dt, against the same-grid RK4 solution at dt = dx/20"}
     out = []
     for kind, label in runs.items():
         if kind not in claimed:
