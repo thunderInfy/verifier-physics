@@ -43,6 +43,8 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
         out.append(checks.steady_nonentropy_step_semidiscrete(spec))
     if "stationary_rh_violation" in wanted:
         out.append(fixedjump.stationary_rh_violation(spec))
+    if "stationary_shock_rh_violation" in wanted:
+        out.append(fixedjump.stationary_shock_rh_violation(spec))
     if "entropy_rarefaction" in params:
         out.append(entropy.study(spec, rarefaction_grids))
     if "consistent_order" in params or "consistent_order_p" in names:

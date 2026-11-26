@@ -42,7 +42,7 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "max_principle_violation": EXACT,
              "order_l1/combined": EMPIRICAL, "order_linf/combined": EMPIRICAL}
 GUARANTEE.update({"flux_lipschitz": EXACT, "shock_scope_monotone": EXACT, "shock_scope_tvd": EXACT})  # shockspeed.py
-GUARANTEE.update({"stationary_rh_violation": EXACT})  # fixedjump.py
+GUARANTEE.update({"stationary_rh_violation": EXACT, "stationary_shock_rh_violation": EXACT})  # fixedjump.py
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -124,9 +124,17 @@ _FIXED_JUMP = ("if the step uL | uR (uL != uR), jump at a cell interface, is an 
                "update at every stencil position (far-field constants included), then at every dx (fixed dt/dx) the "
                "numerical solution from that Riemann data is that same jump; its L1_loc limit is the stationary jump, "
                "which is bounded, and a stationary jump is a weak solution iff f(uL) = f(uR). So with f(uL) != f(uR) "
-               "the limit is not a weak solution, and its discontinuity stays put while the Rankine-Hugoniot speed "
-               "(f(uL) - f(uR))/(uL - uR) is not 0. Scalar 1D laws, refinement at fixed dt/dx, infinite grid or "
+               "the limit is not a weak solution. Scalar 1D laws, refinement at fixed dt/dx, infinite grid or "
                "transmissive boundaries; no flux form needed, so it covers non-conservative updates")
+_FIXED_JUMP_ENTROPY = (_FIXED_JUMP + ". The entropy solution is a weak solution, so a limit that is not a weak solution "
+                       "is not the entropy solution; this holds for any frozen pair with f(uL) != f(uR), shock or "
+                       "expansion")
+_FIXED_SHOCK = (_FIXED_JUMP + ". Used for the shock speed only when uL | uR is a Lax shock: f'' >= 0 on [uR, uL] "
+                "(certified by non-negative Bernstein coefficients) and f'(uL) > f'(uR), so the entropy solution of "
+                "this Riemann problem (it takes values in [uR, uL] only) is the single shock uL | uR moving at the "
+                "Rankine-Hugoniot speed (f(uL) - f(uR))/(uL - uR), which is not 0, while the scheme's discontinuity "
+                "stays at speed 0. A frozen expansion (f'(uL) < f'(uR)) has a rarefaction as exact solution, so it "
+                "shows a wrong limit but no shock at a wrong speed, and does not count here")
 
 # claim -> (statement, ((check, relation, premise[, requires]), ...)). The premise is what the relation
 # rests on; it is carried into the verdict as an assumption. `requires` lists exact checks that must be
@@ -154,7 +162,9 @@ CLAIMS = {
                                  (("entropy_rarefaction", NECESSARY, "on the spec's rarefaction data only"),
                                   # exact: its failure refutes; finding no steady step gives nothing
                                   ("steady_nonentropy_step", NECESSARY, _STEADY_STEP),
-                                  ("monotonicity", SUFFICIENT, _CRANDALL_MAJDA, ("conservation", "consistency")))),
+                                  ("monotonicity", SUFFICIENT, _CRANDALL_MAJDA, ("conservation", "consistency")),
+                                  # exact: its failure refutes; finding no fixed jump gives nothing
+                                  ("stationary_rh_violation", NECESSARY, _FIXED_JUMP_ENTROPY))),
     "consistent_order_p": ("the local truncation error is O(dx^p) at fixed dt/dx for the claimed p (linear schemes)",
                            (("truncation_order", EQUIVALENT, ""),)),
     "von_neumann_stable_under_cfl": ("|g(theta)| <= 1 for every theta and every nu = a*dt/dx in the claimed range",
@@ -172,8 +182,8 @@ CLAIMS = {
                               ("conservation", "consistency", "flux_lipschitz", "shock_scope_monotone")),
                              ("tvd_harten", SUFFICIENT, _HELLY_LW,
                               ("conservation", "consistency", "flux_lipschitz", "shock_scope_tvd")),
-                             # exact: its failure refutes; finding no fixed jump gives nothing
-                             ("stationary_rh_violation", NECESSARY, _FIXED_JUMP))),
+                             # exact: its failure refutes; finding no frozen Lax shock gives nothing
+                             ("stationary_shock_rh_violation", NECESSARY, _FIXED_SHOCK))),
     "limit_is_weak_solution": ("every bounded a.e. (L1_loc) limit of the scheme as dx -> 0 at fixed dt/dx is a weak "
                                "solution, so its discontinuities move at the Rankine-Hugoniot speed (conditional on "
                                "convergence)",

@@ -1,5 +1,6 @@
-"""The exact NECESSARY rows for limit_is_weak_solution and correct_shock_speed: a stationary jump that
-violates Rankine-Hugoniot (fixedjump.py)."""
+"""The exact NECESSARY rows for limit_is_weak_solution, selects_entropy_solution and correct_shock_speed:
+a stationary jump that violates Rankine-Hugoniot (fixedjump.py). The shock-speed row sees only frozen Lax
+shocks."""
 
 from __future__ import annotations
 
@@ -13,7 +14,10 @@ from physverify.schemes import checks, claims as C, fixedjump, limiters, load, p
 
 ROOT = Path(__file__).resolve().parents[1]
 S = ROOT / "schemes"
-CLAIMS = ("limit_is_weak_solution", "correct_shock_speed")
+CLAIMS = ("limit_is_weak_solution", "correct_shock_speed", "selects_entropy_solution")
+# freezes exactly the pairs with uL < uR (expansions): at (a, a, b) and (a, b, b) both min(., 0) terms are
+# min(b - a, 0), which is 0 iff a <= b; so 0 | 1 is a fixed point at every window, and 1 | 0 is not
+FROZEN_EXPANSION = "u0 - lam*((up1 - u0 - abs(up1 - u0))/2 + (u0 - um1 - abs(u0 - um1))/2)"
 
 
 def _burgers(**scheme) -> dict:
@@ -21,10 +25,11 @@ def _burgers(**scheme) -> dict:
 
 
 def _exact(spec: dict) -> list[dict]:
-    """Every exact check the two claims' rows look at."""
+    """Every exact check the claims' rows look at."""
     out = [checks.consistency(spec), checks.conservation(spec), shockspeed.flux_lipschitz(spec),
            shockspeed.shock_scope_monotone(spec), shockspeed.shock_scope_tvd(spec),
-           fixedjump.stationary_rh_violation(spec)]
+           fixedjump.stationary_rh_violation(spec), fixedjump.stationary_shock_rh_violation(spec),
+           checks.steady_nonentropy_step(spec)]
     if "monotone_cfl" in spec["claims"]:
         out.append(checks.monotonicity(spec))
     if "tvd_cfl" in spec["claims"]:
@@ -41,11 +46,63 @@ def test_quasilinear_upwind_burgers_is_refuted_with_the_pair():
     assert w["Rankine-Hugoniot speed"] == "1/2" and w["found_by"] == "shock-study pair"
     # the replay: H(1, 1, 0) = 1 and H(1, 0, 0) = 0 at the study's dt/dx
     assert w["replay"]["H(1, 1, 0) at dt/dx = 4/5"] == "1" and w["replay"]["H(1, 0, 0) at dt/dx = 4/5"] == "0"
-    for name in CLAIMS:
+    # 1 | 0 is a Lax shock of Burgers, so the shock-speed check refutes with the same pair
+    s = fixedjump.stationary_shock_rh_violation(spec)
+    assert s["status"] == checks.REFUTED
+    assert (s["witness"]["uL"], s["witness"]["uR"]) == ("1", "0")
+    assert s["witness"]["Lax shock"]["f'(uL)"] == "1" and s["witness"]["Lax shock"]["f'(uR)"] == "0"
+    for name, check in (("limit_is_weak_solution", "stationary_rh_violation"),
+                        ("selects_entropy_solution", "stationary_rh_violation"),
+                        ("correct_shock_speed", "stationary_shock_rh_violation")):
         v = C.judge([name], _exact(spec))[0]
         assert v["verdict"] == C.REFUTED and v["guarantee"] == C.EXACT
-        assert v["decided_by"] == ["stationary_rh_violation"]
+        assert v["decided_by"] == [check]
         assert any("stationary jump is a weak solution iff f(uL) = f(uR)" in a for a in v["assumes"])
+    v = C.judge(["correct_shock_speed"], _exact(spec))[0]
+    assert any("Lax shock" in a for a in v["assumes"])
+
+
+def test_frozen_expansion_refutes_the_weak_limit_but_not_the_shock_speed():
+    """0 | 1 for Burgers is an expansion (f'(0) = 0 < f'(1) = 1): the exact solution is a rarefaction, with no
+    shock in it. Freezing it gives a limit that is no weak solution (f(0) = 0 != f(1) = 1/2), so the weak-limit
+    and entropy claims are refuted, but it shows no shock at a wrong speed, so correct_shock_speed is not."""
+    spec = _burgers(update=FROZEN_EXPANSION)
+    spec["claims"] = {"shock_speed": {"cases": [{"uL": "0", "uR": "1", "T": "1", "lam": "1/2"}]}}
+    H = P.from_expr(checks.update(spec))
+    for lam in (Fraction(1, 3), Fraction(1, 2), Fraction(3)):        # 0 | 1 is a fixed point at every window
+        at = lambda a, b, c: P.evaluate(H, {"um1": Fraction(a), "u0": Fraction(b), "up1": Fraction(c), "lam": lam})
+        assert (at(0, 0, 0), at(0, 0, 1), at(0, 1, 1), at(1, 1, 1)) == (0, 0, 1, 1)
+        assert at(1, 1, 0) != 1                                       # 1 | 0 is not
+    r = fixedjump.stationary_rh_violation(spec)
+    assert r["status"] == checks.REFUTED
+    assert (r["witness"]["uL"], r["witness"]["uR"], r["witness"]["found_by"]) == ("0", "1", "shock-study pair")
+    assert fixedjump.stationary_shock_rh_violation(spec)["status"] == checks.NOT_APPLICABLE
+    verdicts = {v["claim"]: v for v in C.judge(CLAIMS, _exact(spec))}
+    assert verdicts["limit_is_weak_solution"]["verdict"] == C.REFUTED
+    assert verdicts["selects_entropy_solution"]["verdict"] == C.REFUTED
+    assert "stationary_rh_violation" in verdicts["selects_entropy_solution"]["decided_by"]
+    assert verdicts["correct_shock_speed"]["verdict"] not in C.FAILURES
+    # with monotonicity run too, the Crandall-Majda row cannot fire (not conservative): no INCONSISTENT
+    spec["claims"]["monotone_cfl"] = "1/3"
+    assert all(v["verdict"] != C.INCONSISTENT for v in C.judge(CLAIMS, _exact(spec)))
+
+
+def test_expansion_pair_is_not_a_lax_shock():
+    f = P.from_expr(checks.pde_flux(_burgers(update="u0")))
+    assert fixedjump.lax_shock(f, Fraction(1), Fraction(0)) is not None
+    assert fixedjump.lax_shock(f, Fraction(0), Fraction(1)) is None
+    # u^3 is convex on [0, 1] but not on [-1, 1]: 1 | -1 has f'(1) = f'(-1), and 1/2 | -1 has f'(1/2) < f'(-1)
+    g = P.from_expr(checks.pde_flux({"pde": {"flux": "u^3"}}))
+    assert fixedjump.lax_shock(g, Fraction(1), Fraction(0)) is not None
+    assert fixedjump.lax_shock(g, Fraction(1), Fraction(-1)) is None
+    assert fixedjump.lax_shock(g, Fraction(1), Fraction(-1, 2)) is None   # f' drops 3 > 3/4, but f'' < 0 on [-1/2, 0)
+
+
+def test_identity_update_freezes_shocks_too():
+    """u^{n+1} = u^n freezes every pair, a Lax shock among them, so the shock-speed row refutes."""
+    r = fixedjump.stationary_shock_rh_violation(_burgers(update="u0"))
+    assert r["status"] == checks.REFUTED
+    assert Fraction(r["witness"]["uL"]) > Fraction(r["witness"]["uR"])
 
 
 def test_the_jump_cell_by_hand():
@@ -71,6 +128,7 @@ def test_five_point_quasilinear_upwind_is_refuted():
 ], ids=["upwind-flux", "upwind-update", "lxf", "rusanov", "engquist-osher", "godunov"])
 def test_conservative_burgers_schemes_are_never_refuted(spec):
     assert fixedjump.stationary_rh_violation(spec)["status"] == checks.NOT_APPLICABLE
+    assert fixedjump.stationary_shock_rh_violation(spec)["status"] == checks.NOT_APPLICABLE
 
 
 def test_roe_transonic_expansion_is_a_fixed_jump_but_a_weak_solution():
