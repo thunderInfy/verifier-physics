@@ -41,18 +41,18 @@
      "cite": "LeVeque (2002) ch. 8 (local truncation error)",
      "formalization": [
       {
-       "unformalized": "no check computes the truncation error; the order studies measure global error on one problem"
+       "spec": "../../schemes/advection-lax-wendroff.json",
+       "claim": "consistent_order_p",
+       "relation": "same",
+       "expected": true,
+       "bridge": "the spec claims consistent_order = 2; the check verifies e_0..e_2 = 0 as identities in nu, i.e. tau = O(dx^2) at every fixed lam = dt/dx, which is the textbook meaning (an order that holds only at isolated nu, like upwind at nu = 1, would not count). The named claim is 'at least p'; the sentence's 'second-order' is read the same way"
       }
      ],
-     "gap": {
-      "kind": "missing check",
-      "note": "exact truncation-order check: Taylor-expand the update symbolically and compare with the PDE"
-     },
      "actual": {
-      "verdict": "UNFORMALIZED",
-      "result": "gap",
+      "verdict": "VERIFIED",
+      "result": "match",
       "components": [
-       "UNFORMALIZED"
+       "VERIFIED"
       ]
      }
     }
@@ -189,25 +189,21 @@
        "spec": "../../schemes/advection-upwind.json",
        "override": {
         "claims": {
-         "positive_cfl": [
+         "von_neumann_cfl": [
           "0",
           "2"
          ]
         }
        },
-       "claim": "positive_under_cfl",
-       "relation": "sufficient",
+       "claim": "von_neumann_stable_under_cfl",
+       "relation": "necessary",
        "expected": false,
-       "bridge": "non-negative coefficients summing to 1 give |g(theta)| <= sum_k c_k = 1, so positivity is sufficient for von Neumann stability, not necessary"
+       "bridge": "'every nu >= 0' implies the instance nu in [0, 2]; the von Neumann check decides |g| <= 1 exactly on that range, so a refutation there refutes the reading"
       }
      ],
-     "gap": {
-      "kind": "missing check",
-      "note": "von Neumann check: |g(theta)|^2 is a polynomial in cos theta and nu, decidable exactly with the Bernstein machinery already used for positivity; positivity alone only gives the sufficient direction"
-     },
      "actual": {
-      "verdict": "UNKNOWN",
-      "result": "gap",
+      "verdict": "REFUTED",
+      "result": "match",
       "components": [
        "REFUTED"
       ]
@@ -295,7 +291,7 @@
      ],
      "gap": {
       "kind": "inexpressible regime",
-      "note": "the spec can claim a CFL interval but not 'some interval (0, nu0]'; a check that a coefficient is negative on (0, eps) for all small eps (sign of the lowest-order term in nu) would decide it exactly"
+      "note": "the spec can claim a CFL interval but not 'some interval (0, nu0]'; a check that a coefficient is negative on (0, eps) for all small eps (sign of the lowest-order term in nu) would decide it exactly; the exact von Neumann check now exists, but it too takes one fixed interval (the broken FTCS spec is REFUTED on [0, 1]), so the existential stays open"
      },
      "actual": {
       "verdict": "UNKNOWN",
@@ -584,7 +580,7 @@
      ],
      "gap": {
       "kind": "missing table row",
-      "note": "order is empirical-only (see C01); and correct_shock_speed has only the empirical shock study, although the exact conservation check plus the Lax–Wendroff theorem is sufficient for it (premise: the scheme converges)"
+      "note": "order is empirical-only: the Lax–Richtmyer row covers linear schemes, and this one is nonlinear; and correct_shock_speed has only the empirical shock study, although the exact conservation check plus the Lax–Wendroff theorem is sufficient for it (premise: the scheme converges)"
      },
      "actual": {
       "verdict": "NOT_REFUTED",
@@ -876,27 +872,31 @@
    "pde": "linear advection, a = 1",
    "readings": [
     {
-     "reading": "converges at order 1 to smooth solutions (global error)",
+     "reading": "converges at order 1 to smooth solutions (global error in l2 or L1, refining dx at fixed dt/dx)",
      "expected": true,
-     "why": "standard; truncation error O(dx) and stable under CFL, so by Lax equivalence the global error is O(dx).",
-     "cite": "LeVeque (2002) ch. 8",
+     "why": "standard; truncation error O(dx) and von Neumann stable for 0 <= nu <= 1, so by Lax-Richtmyer the global error is O(dx) at fixed dt/dx.",
+     "cite": "LeVeque (2002) ch. 8; Lax and Richtmyer (1956) CPAM 9",
      "formalization": [
       {
        "spec": "../../schemes/advection-upwind.json",
+       "override": {
+        "claims": {
+         "order": {
+          "combined": 1
+         }
+        }
+       },
        "claim": "converges_order_p",
        "relation": "same",
-       "expected": true
+       "expected": true,
+       "bridge": "'first-order accurate' for a linear scheme usually means global error O(dx) under refinement at fixed dt/dx (the combined study); the override drops the separate space and time studies, which are another reading (next), so the Lax-Richtmyer row's scope check applies. The study's nu = 1/2 lies in the spec's von Neumann range [0, 1]. The row gives the order in l2 and L1, not L-infinity; the sentence names no norm, so we state the reading in l2/L1 (for upwind the max-norm order is also 1, by positivity, but no row here decides it)"
       }
      ],
-     "gap": {
-      "kind": "empirical-only check",
-      "note": "as C01; an exact truncation-order check plus the exact positivity (stability) check would make this VERIFIED via Lax equivalence"
-     },
      "actual": {
-      "verdict": "NOT_REFUTED",
-      "result": "gap",
+      "verdict": "VERIFIED",
+      "result": "match",
       "components": [
-       "NOT_REFUTED"
+       "VERIFIED"
       ]
      }
     },
@@ -929,18 +929,51 @@
      "cite": "LeVeque (2002) ch. 8",
      "formalization": [
       {
-       "unformalized": "no truncation-error check"
+       "spec": "../../schemes/advection-upwind.json",
+       "claim": "consistent_order_p",
+       "relation": "same",
+       "expected": true,
+       "bridge": "the spec claims consistent_order = 1; tau = O(dx) at every fixed lam, as an identity in nu (as C01 reading 2)"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED"
+      ]
+     }
+    },
+    {
+     "reading": "converges at order 1 in dx at fixed small dt and at order 1 in dt at fixed small dx (separate refinements)",
+     "expected": true,
+     "why": "the global error is O(dx + dt) under the CFL condition, so each refinement alone shows order 1 until the other error term dominates.",
+     "cite": "LeVeque (2002) ch. 8",
+     "formalization": [
+      {
+       "spec": "../../schemes/advection-upwind.json",
+       "override": {
+        "claims": {
+         "order": {
+          "space": 1,
+          "time": 1
+         }
+        }
+       },
+       "claim": "converges_order_p",
+       "relation": "same",
+       "expected": true
       }
      ],
      "gap": {
-      "kind": "missing check",
-      "note": "exact truncation-order check (see C01)"
+      "kind": "empirical-only check",
+      "note": "Lax-Richtmyer covers refinement at fixed dt/dx only, so separate space and time orders are decided only by the refinement studies; an exact route would bound the error by C1 dx + C2 dt from the truncation terms and stability, which is not a table row"
      },
      "actual": {
-      "verdict": "UNFORMALIZED",
+      "verdict": "NOT_REFUTED",
       "result": "gap",
       "components": [
-       "UNFORMALIZED"
+       "NOT_REFUTED"
       ]
      }
     }
