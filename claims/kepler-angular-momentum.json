@@ -1,0 +1,40 @@
+{
+  "name": "Kepler problem, rescaled and as d/dt(r^2 th') = 0",
+  "true": true,
+  "expect": "VERIFIED",
+  "why": "both equations multiplied by r^2; certificate matrix diag(m/r^2, m)",
+  "coordinates": [
+    "r",
+    "th"
+  ],
+  "symbols": {
+    "r": {
+      "dim": "L"
+    },
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "GM": {
+      "dim": "L^3 T^-2"
+    }
+  },
+  "lagrangian": "m/2*(r_dot^2 + r^2*th_dot^2) + GM*m/r",
+  "domain": [
+    "m > 0",
+    "r > 0",
+    "GM > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "r^2*r_ddot",
+      "rhs": "r^3*th_dot^2 - GM"
+    },
+    {
+      "lhs": "r^2*th_ddot + 2*r*r_dot*th_dot",
+      "rhs": "0"
+    }
+  ]
+}

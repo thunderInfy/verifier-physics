@@ -1,0 +1,40 @@
+{
+  "name": "Kepler problem, missing factor 2 in the Coriolis term",
+  "true": false,
+  "expect": "REFUTED",
+  "why": "th'' = -r' th'/r is off by r' th'/r, non-zero whenever r' th' != 0",
+  "coordinates": [
+    "r",
+    "th"
+  ],
+  "symbols": {
+    "r": {
+      "dim": "L"
+    },
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "GM": {
+      "dim": "L^3 T^-2"
+    }
+  },
+  "lagrangian": "m/2*(r_dot^2 + r^2*th_dot^2) + GM*m/r",
+  "domain": [
+    "m > 0",
+    "r > 0",
+    "GM > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "r_ddot",
+      "rhs": "r*th_dot^2 - GM/r^2"
+    },
+    {
+      "lhs": "th_ddot",
+      "rhs": "-r_dot*th_dot/r"
+    }
+  ]
+}

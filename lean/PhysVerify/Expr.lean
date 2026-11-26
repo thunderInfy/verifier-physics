@@ -1,4 +1,6 @@
-import Mathlib
+import Mathlib.Analysis.SpecialFunctions.Pow.Real
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
+import Mathlib.Analysis.SpecialFunctions.Sqrt
 
 /-!
 # Expressions, dimensions, and unit covariance

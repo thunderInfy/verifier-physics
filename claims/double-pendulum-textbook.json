@@ -1,0 +1,51 @@
+{
+  "name": "double pendulum, textbook form with double angles",
+  "true": true,
+  "expect": "UNKNOWN",
+  "why": "true, but equal to the EL equations only via double-angle identities our tactics do not try",
+  "coordinates": [
+    "a",
+    "b"
+  ],
+  "symbols": {
+    "a": {
+      "dim": "1"
+    },
+    "b": {
+      "dim": "1"
+    },
+    "m1": {
+      "dim": "M"
+    },
+    "m2": {
+      "dim": "M"
+    },
+    "l1": {
+      "dim": "L"
+    },
+    "l2": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "(m1 + m2)/2*l1^2*a_dot^2 + m2/2*l2^2*b_dot^2 + m2*l1*l2*a_dot*b_dot*cos(a - b) + (m1 + m2)*g*l1*cos(a) + m2*g*l2*cos(b)",
+  "domain": [
+    "m1 > 0",
+    "m2 > 0",
+    "l1 > 0",
+    "l2 > 0",
+    "g > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "a_ddot",
+      "rhs": "(-g*(2*m1 + m2)*sin(a) - m2*g*sin(a - 2*b) - 2*sin(a - b)*m2*(b_dot^2*l2 + a_dot^2*l1*cos(a - b)))/(l1*(2*m1 + m2 - m2*cos(2*a - 2*b)))"
+    },
+    {
+      "lhs": "b_ddot",
+      "rhs": "(2*sin(a - b)*(a_dot^2*l1*(m1 + m2) + g*(m1 + m2)*cos(a) + b_dot^2*l2*m2*cos(a - b)))/(l2*(2*m1 + m2 - m2*cos(2*a - 2*b)))"
+    }
+  ]
+}

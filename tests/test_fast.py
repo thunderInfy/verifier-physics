@@ -123,3 +123,58 @@ def test_planner_on_ppn_and_sme():
     for name, n in expect.items():
         cands = [c for c in plan(load_theory(T / f"{name}.json"), ev) if c.kind == "law_vs_evidence"]
         assert len(cands) == n, name
+
+
+# ---------------------------------------------------------------- derivation claims
+
+def _claims():
+    from physverify.derivation import load_claim
+    return [load_claim(p) for p in sorted((ROOT / "claims").glob("*.json"))]
+
+
+def test_claims_load_and_layout():
+    from physverify.derivation import load_claim
+    c = load_claim(ROOT / "claims/kepler-polar.json")
+    idx = c.index()
+    assert [idx[s] for s in ("r", "th", "r_dot", "th_dot", "r_ddot", "th_ddot")] == list(range(6))
+    assert idx["GM"] == 6 and idx["m"] == 7          # parameters from 3n, sorted
+    assert c.dims["r_ddot"] == units.parse_dim("L T^-2")
+
+
+def test_claim_dimension_mirror():
+    from physverify.derivation import dims_ok, load_claim
+    assert dims_ok(load_claim(ROOT / "claims/pendulum-rearranged.json"))[0]     # `= 0` is fine
+    assert not dims_ok(load_claim(ROOT / "claims/pendulum-wrong-dimension.json"))[0]
+
+
+def test_claim_rejects_acceleration_dependent_lagrangian():
+    from physverify.derivation import load_claim
+    spec = {"name": "x", "coordinates": ["x"], "symbols": {"x": {"dim": "L"}},
+            "lagrangian": "x*x_ddot", "eom": [{"lhs": "x_ddot", "rhs": "0"}]}
+    with pytest.raises(ValueError):
+        load_claim(spec)
+
+
+def test_planner_routes_true_and_false_claims():
+    """Untrusted planner: certificate attempts for true claims, counterexamples for false."""
+    from physverify.tools import eulerlagrange
+    for c in _claims():
+        kinds = {k for k, _ in eulerlagrange.propose(c)}
+        assert kinds == ({"verified"} if c.source["true"] else {"refuted"}), c.name
+
+
+def test_failed_certificates_give_unknown():
+    from physverify.derivation import UNKNOWN, judge
+    from physverify.lean_backend import LeanResult
+    from physverify.tools import eulerlagrange
+    for c in _claims()[:3]:
+        r = judge(c, eulerlagrange.propose(c), check=lambda s, p, **kw: LeanResult(False, set(), "no"))
+        assert r.verdict == UNKNOWN
+
+
+def test_judge_statement_is_independent_of_planner():
+    from physverify.derivation import load_claim, statement
+    c = load_claim(ROOT / "claims/pendulum.json")
+    s = statement("verified", c)
+    assert s.startswith("dimsOK ") and "NoAccel 1 " in s and "Verified 1 " in s
+    assert "Expr.eval env (.lit (0 : ℚ)) < Expr.eval env (.var 5)" in s   # domain m > 0

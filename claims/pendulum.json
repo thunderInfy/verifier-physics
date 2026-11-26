@@ -1,0 +1,35 @@
+{
+  "name": "simple pendulum",
+  "true": true,
+  "expect": "VERIFIED",
+  "why": "textbook: m l^2 th'' = -m g l sin th, divided by m l^2 > 0",
+  "coordinates": [
+    "th"
+  ],
+  "symbols": {
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "l": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "m*l^2*th_dot^2/2 + m*g*l*cos(th)",
+  "domain": [
+    "m > 0",
+    "l > 0",
+    "g > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "th_ddot",
+      "rhs": "-(g/l)*sin(th)"
+    }
+  ]
+}

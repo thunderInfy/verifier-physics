@@ -1,0 +1,44 @@
+{
+  "name": "charged particle, 2m in the magnetic term",
+  "true": false,
+  "expect": "REFUTED",
+  "why": "same dimension, half the Lorentz force; fails whenever q B x' != 0",
+  "coordinates": [
+    "x",
+    "y"
+  ],
+  "symbols": {
+    "x": {
+      "dim": "L"
+    },
+    "y": {
+      "dim": "L"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "qe": {
+      "dim": "I T"
+    },
+    "B": {
+      "dim": "M T^-2 I^-1"
+    },
+    "Ef": {
+      "dim": "M L T^-3 I^-1"
+    }
+  },
+  "lagrangian": "m/2*(x_dot^2 + y_dot^2) + qe*B/2*(x*y_dot - y*x_dot) + qe*Ef*x",
+  "domain": [
+    "m > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "x_ddot",
+      "rhs": "(qe*Ef + qe*B*y_dot)/m"
+    },
+    {
+      "lhs": "y_ddot",
+      "rhs": "-qe*B*x_dot/(2*m)"
+    }
+  ]
+}

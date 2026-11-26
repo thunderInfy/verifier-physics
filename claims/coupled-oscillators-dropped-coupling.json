@@ -1,0 +1,48 @@
+{
+  "name": "two coupled oscillators, coupling dropped in x1",
+  "true": false,
+  "expect": "REFUTED",
+  "why": "misses -kc (x1 - x2)/m1, non-zero whenever x1 != x2",
+  "coordinates": [
+    "x1",
+    "x2"
+  ],
+  "symbols": {
+    "x1": {
+      "dim": "L"
+    },
+    "x2": {
+      "dim": "L"
+    },
+    "m1": {
+      "dim": "M"
+    },
+    "m2": {
+      "dim": "M"
+    },
+    "k1": {
+      "dim": "M T^-2"
+    },
+    "k2": {
+      "dim": "M T^-2"
+    },
+    "kc": {
+      "dim": "M T^-2"
+    }
+  },
+  "lagrangian": "m1/2*x1_dot^2 + m2/2*x2_dot^2 - k1/2*x1^2 - k2/2*x2^2 - kc/2*(x1 - x2)^2",
+  "domain": [
+    "m1 > 0",
+    "m2 > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "x1_ddot",
+      "rhs": "-k1*x1/m1"
+    },
+    {
+      "lhs": "x2_ddot",
+      "rhs": "(-k2*x2 + kc*(x1 - x2))/m2"
+    }
+  ]
+}

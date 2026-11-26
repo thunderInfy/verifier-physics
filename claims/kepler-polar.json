@@ -1,0 +1,40 @@
+{
+  "name": "Kepler problem in polar coordinates",
+  "true": true,
+  "expect": "VERIFIED",
+  "why": "r'' = r th'^2 - GM/r^2, th'' = -2 r' th'/r; mass matrix diag(m, m r^2)",
+  "coordinates": [
+    "r",
+    "th"
+  ],
+  "symbols": {
+    "r": {
+      "dim": "L"
+    },
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "GM": {
+      "dim": "L^3 T^-2"
+    }
+  },
+  "lagrangian": "m/2*(r_dot^2 + r^2*th_dot^2) + GM*m/r",
+  "domain": [
+    "m > 0",
+    "r > 0",
+    "GM > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "r_ddot",
+      "rhs": "r*th_dot^2 - GM/r^2"
+    },
+    {
+      "lhs": "th_ddot",
+      "rhs": "-2*r_dot*th_dot/r"
+    }
+  ]
+}

@@ -42,13 +42,18 @@ def _env() -> dict:
     return env
 
 
-def check(statement: str, proof: str, preamble: str = "", timeout: int = 300) -> LeanResult:
-    """Compile `theorem physverify_certificate : <statement> := by <proof>`."""
+def check(statement: str, proof: str, preamble: str = "", timeout: int = 300,
+          module: str = "PhysVerify") -> LeanResult:
+    """Compile `theorem physverify_certificate : <statement> := by <proof>`.
+
+    `module` is the one PhysVerify module the certificate imports (judge-chosen). Importing
+    less than all of Mathlib matters on small machines: a full `import Mathlib` maps ~5 GB.
+    """
     if _DENY.search(proof):
         return LeanResult(False, set(), f"certificate rejected by sanitizer: {_DENY.search(proof)[0]!r}")
     body = "\n".join("  " + line for line in proof.strip().splitlines())
     src = (
-        "import PhysVerify\n"
+        f"import {module}\n"
         "open PhysVerify\n\n"
         f"{preamble}\n"
         f"theorem {THM} : {statement} := by\n{body}\n\n"

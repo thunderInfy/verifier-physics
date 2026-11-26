@@ -1,0 +1,51 @@
+{
+  "name": "double pendulum, solved by Cramer's rule",
+  "true": true,
+  "expect": "VERIFIED",
+  "why": "non-diagonal mass matrix; det = m2 l1^2 l2^2 (m1 + m2 sin^2(a - b)) > 0",
+  "coordinates": [
+    "a",
+    "b"
+  ],
+  "symbols": {
+    "a": {
+      "dim": "1"
+    },
+    "b": {
+      "dim": "1"
+    },
+    "m1": {
+      "dim": "M"
+    },
+    "m2": {
+      "dim": "M"
+    },
+    "l1": {
+      "dim": "L"
+    },
+    "l2": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "(m1 + m2)/2*l1^2*a_dot^2 + m2/2*l2^2*b_dot^2 + m2*l1*l2*a_dot*b_dot*cos(a - b) + (m1 + m2)*g*l1*cos(a) + m2*g*l2*cos(b)",
+  "domain": [
+    "m1 > 0",
+    "m2 > 0",
+    "l1 > 0",
+    "l2 > 0",
+    "g > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "a_ddot",
+      "rhs": "(m2*l2^2*(-m2*l1*l2*b_dot^2*sin(a - b) - (m1 + m2)*g*l1*sin(a)) - m2*l1*l2*cos(a - b)*(m2*l1*l2*a_dot^2*sin(a - b) - m2*g*l2*sin(b)))/(m2*l1^2*l2^2*(m1 + m2 - m2*cos(a - b)^2))"
+    },
+    {
+      "lhs": "b_ddot",
+      "rhs": "((m1 + m2)*l1^2*(m2*l1*l2*a_dot^2*sin(a - b) - m2*g*l2*sin(b)) - m2*l1*l2*cos(a - b)*(-m2*l1*l2*b_dot^2*sin(a - b) - (m1 + m2)*g*l1*sin(a)))/(m2*l1^2*l2^2*(m1 + m2 - m2*cos(a - b)^2))"
+    }
+  ]
+}

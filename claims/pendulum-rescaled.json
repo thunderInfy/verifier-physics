@@ -1,0 +1,35 @@
+{
+  "name": "simple pendulum, torque form",
+  "true": true,
+  "expect": "VERIFIED",
+  "why": "the equation times m l^2; certificate factor 1",
+  "coordinates": [
+    "th"
+  ],
+  "symbols": {
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "l": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "m*l^2*th_dot^2/2 + m*g*l*cos(th)",
+  "domain": [
+    "m > 0",
+    "l > 0",
+    "g > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "m*l^2*th_ddot",
+      "rhs": "-m*g*l*sin(th)"
+    }
+  ]
+}

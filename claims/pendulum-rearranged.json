@@ -1,0 +1,35 @@
+{
+  "name": "simple pendulum, rearranged",
+  "true": true,
+  "expect": "VERIFIED",
+  "why": "l th'' + g sin th = 0 is the same equation; certificate factor m l",
+  "coordinates": [
+    "th"
+  ],
+  "symbols": {
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "l": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "m*l^2*th_dot^2/2 + m*g*l*cos(th)",
+  "domain": [
+    "m > 0",
+    "l > 0",
+    "g > 0"
+  ],
+  "eom": [
+    {
+      "lhs": "l*th_ddot + g*sin(th)",
+      "rhs": "0"
+    }
+  ]
+}
