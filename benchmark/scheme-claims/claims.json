@@ -572,10 +572,10 @@
    "pde": "Burgers, f = u^2/2",
    "readings": [
     {
-     "reading": "order 1 on smooth solutions, flux form, and shocks at the Rankine–Hugoniot speed",
+     "reading": "order 1 on smooth solutions, flux form, and the scheme's own shocks move at the Rankine–Hugoniot speed (unconditional)",
      "expected": true,
-     "why": "Lax–Friedrichs is first order and in flux form; by the Lax–Wendroff theorem a convergent conservative consistent scheme converges to a weak solution, whose shocks satisfy Rankine–Hugoniot.",
-     "cite": "Lax and Wendroff (1960) CPAM 13; LeVeque (2002) ch. 12",
+     "why": "Lax–Friedrichs is first order and in flux form; it is monotone under max|u| dt/dx <= 1, so by Crandall–Majda it converges to the entropy solution, whose shocks satisfy Rankine–Hugoniot.",
+     "cite": "Crandall and Majda (1980) Math. Comp. 34; Lax and Wendroff (1960) CPAM 13; LeVeque (2002) ch. 12",
      "formalization": [
       {
        "spec": "../../schemes/burgers-lax-friedrichs.json",
@@ -598,7 +598,7 @@
      ],
      "gap": {
       "kind": "missing table row",
-      "note": "order is empirical-only: the Lax–Richtmyer row covers linear schemes, and this one is nonlinear; and correct_shock_speed has only the empirical shock study, although the exact conservation check plus the Lax–Wendroff theorem is sufficient for it (premise: the scheme converges)"
+      "note": "order is empirical-only: the Lax–Richtmyer row covers linear schemes, and this one is nonlinear; the other two components are exact (shock speed through the Crandall–Majda row for correct_shock_speed, reading 3)"
      },
      "actual": {
       "verdict": "NOT_REFUTED",
@@ -606,7 +606,56 @@
       "components": [
        "NOT_REFUTED",
        "VERIFIED",
-       "NOT_REFUTED"
+       "VERIFIED"
+      ]
+     }
+    },
+    {
+     "reading": "shock-speed clause, conditional: in flux form, so every bounded a.e. limit at fixed dt/dx is a weak solution and its discontinuities move at the Rankine–Hugoniot speed",
+     "expected": true,
+     "why": "the Lax–Wendroff theorem: a conservative scheme with a consistent, locally Lipschitz numerical flux can only converge (boundedly a.e.) to a weak solution; it does not say that the scheme converges.",
+     "cite": "Lax and Wendroff (1960) CPAM 13; LeVeque (2002) ch. 12",
+     "formalization": [
+      {
+       "spec": "../../schemes/burgers-lax-friedrichs.json",
+       "claim": "conservative",
+       "relation": "same",
+       "expected": true
+      },
+      {
+       "spec": "../../schemes/burgers-lax-friedrichs.json",
+       "claim": "limit_is_weak_solution",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED",
+       "VERIFIED"
+      ]
+     }
+    },
+    {
+     "reading": "shock-speed clause, unconditional: the scheme's shocks move at the Rankine–Hugoniot speed in the limit dx -> 0 at fixed dt/dx",
+     "expected": true,
+     "why": "monotone under max|u| dt/dx <= 1, conservative and consistent, so by Crandall–Majda the whole sequence converges to the entropy solution, whose shocks satisfy Rankine–Hugoniot; the shock study runs at dt/dx * max|u| <= 4/5, inside the certified range.",
+     "cite": "Crandall and Majda (1980) Math. Comp. 34; LeVeque (2002) ch. 12",
+     "formalization": [
+      {
+       "spec": "../../schemes/burgers-lax-friedrichs.json",
+       "claim": "correct_shock_speed",
+       "relation": "same",
+       "expected": true
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "result": "match",
+      "components": [
+       "VERIFIED"
       ]
      }
     }
@@ -618,7 +667,7 @@
    "pde": "Burgers, f = u^2/2",
    "readings": [
     {
-     "reading": "the non-conservative upwind scheme's shocks move at the Rankine–Hugoniot speed",
+     "reading": "unconditional: the non-conservative upwind scheme's shocks move at the Rankine–Hugoniot speed",
      "expected": false,
      "why": "non-conservative schemes converge to the wrong shock speed in general; here the step (1, 0) does not move at all (s = 1/2).",
      "cite": "Hou and LeFloch (1994) Math. Comp. 62; LeVeque (2002) ch. 12",
@@ -635,6 +684,31 @@
       "result": "match",
       "components": [
        "REFUTED_EMPIRICALLY"
+      ]
+     }
+    },
+    {
+     "reading": "conditional: every bounded a.e. limit of the non-conservative upwind scheme at fixed dt/dx is a weak solution, so its discontinuities move at the Rankine–Hugoniot speed",
+     "expected": false,
+     "why": "the step uL = 1 | uR = 0 is an exact fixed point of the update (the cell with u = 0 has zero speed, the one with u = 1 sees u - u_{i-1} = 0), so the scheme converges to that stationary step, which is not a weak solution: f(1) = 1/2 != f(0) = 0, so it would have to move at s = 1/2.",
+     "cite": "Hou and LeFloch (1994) Math. Comp. 62; LeVeque (2002) ch. 12",
+     "formalization": [
+      {
+       "spec": "../../schemes/broken-burgers-nonconservative.json",
+       "claim": "limit_is_weak_solution",
+       "relation": "same",
+       "expected": false
+      }
+     ],
+     "gap": {
+      "kind": "missing table row",
+      "note": "the only row for limit_is_weak_solution is the Lax–Wendroff one (SUFFICIENT from conservation), which says nothing when conservation fails; an exact NECESSARY row would be a stationary step uL | uR that is a fixed point of the update with f(uL) != f(uR) (the steady-step identities of checks.steady_nonentropy_step, without the uL < uR condition), not added here"
+     },
+     "actual": {
+      "verdict": "UNKNOWN",
+      "result": "gap",
+      "components": [
+       "UNKNOWN"
       ]
      }
     }
@@ -1024,9 +1098,9 @@
      }
     },
     {
-     "reading": "converges at order 1 in dx at fixed small dt and at order 1 in dt at fixed small dx (separate refinements)",
+     "reading": "converges at order 1 in dx when dx is refined at a fixed dt small enough that the CFL condition a dt/dx <= 1 holds at the finest dx, and at order 1 in dt when dt is refined at a fixed dx (separate refinements)",
      "expected": true,
-     "why": "the global error is O(dx + dt) under the CFL condition, so each refinement alone shows order 1 until the other error term dominates.",
+     "why": "the global error is O(dx + dt) while a dt/dx stays in [0, 1], so each refinement alone shows order 1 until the other error term dominates; refining dx at a fixed dt that violates the CFL condition at the finer grids makes upwind unstable, and then the reading is false.",
      "cite": "LeVeque (2002) ch. 8",
      "formalization": [
       {
