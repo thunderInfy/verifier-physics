@@ -1,0 +1,17 @@
+{
+ "name": "BROKEN: Rusanov for Burgers claimed monotone for dt/dx*max|u| <= 1 (the sharp bound is 1/3)",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uR^2)/4 - (sqrt(uL^2) + sqrt(uR^2) + sqrt((sqrt(uL^2) - sqrt(uR^2))^2))/4*(uR - uL)"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "monotone_under_cfl"
+ ],
+ "claims": {
+  "monotone_cfl": "1"
+ }
+}

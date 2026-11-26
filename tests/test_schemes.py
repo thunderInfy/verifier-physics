@@ -22,6 +22,7 @@ BROKEN = {"broken-advection-inconsistent-flux": {"consistency", "order/combined"
           "broken-burgers-roe-no-entropy-fix": {"entropy_stability", "entropy_rarefaction", "monotonicity"},
           "broken-advection-lax-friedrichs-wide-cfl": {"positivity", "monotonicity"},
           "broken-advection-lax-wendroff-monotone": {"monotonicity"},
+          "broken-burgers-rusanov-wide-cfl": {"monotonicity"},
           "broken-advection-downwind": {"positivity"},
           "broken-advection-fake-second-order": {"order/combined"}}
 
@@ -350,6 +351,7 @@ FAILING_CLAIMS = {"broken-advection-inconsistent-flux": {"consistent": C.REFUTED
                   "broken-advection-lax-friedrichs-wide-cfl": {"positive_under_cfl": C.REFUTED,
                                                                "monotone_under_cfl": C.REFUTED},
                   "broken-advection-lax-wendroff-monotone": {"monotone_under_cfl": C.REFUTED},
+                  "broken-burgers-rusanov-wide-cfl": {"monotone_under_cfl": C.REFUTED},
                   "broken-advection-downwind": {"positive_under_cfl": C.REFUTED},
                   "broken-advection-fake-second-order": {"converges_order_p": C.REFUTED_EMPIRICALLY}}
 
@@ -549,17 +551,55 @@ def _replay_decrease(spec, r):
 
 
 @pytest.mark.parametrize("name,c", [("burgers-lax-friedrichs", "11/10"), ("burgers-lax-friedrichs", "101/100"),
-                                    ("burgers-engquist-osher", "101/100"), ("burgers-rusanov", "1"),
-                                    ("burgers-rusanov", "334/1000"), ("advection-upwind", "11/10"),
+                                    ("burgers-engquist-osher", "101/100"), ("advection-upwind", "11/10"),
                                     ("advection-lax-wendroff", "1"), ("broken-burgers-roe-no-entropy-fix", "1/10"),
                                     ("burgers-roe-harten-fix", "1/2"), ("broken-burgers-nonconservative", "334/1000")])
 def test_monotonicity_refutations_replay(name, c):
-    """The CFL ranges in the specs are sharp: just above them each scheme is exactly REFUTED. Rusanov's
-    bound is 1/3, not 1: with alpha = max(|uL|, |uR|), dH/du0 = 1 - 2 w0 + (w_m1 + w_p1)/2 on a cell."""
+    """The CFL ranges in the specs are sharp: just above them each scheme is exactly REFUTED (Rusanov's
+    1/3 is tested in test_rusanov_monotone_bound_is_one_third)."""
     spec = _with_cfl(name, c)
     r = checks.monotonicity(spec)
     assert r["status"] == checks.REFUTED and r["guarantee"] == checks.EXACT
     _replay_decrease(spec, r)
+
+
+def _rusanov_h(um1, u0, up1, lam):
+    """Rusanov for Burgers written independently of the spec, with alpha = max(|uL|, |uR|) taken literally."""
+    F = lambda l, r: (l * l + r * r) / 4 - max(abs(l), abs(r)) * (r - l) / 2
+    return u0 - lam * (F(u0, up1) - F(um1, u0))
+
+
+def test_rusanov_monotone_bound_is_one_third(results):
+    """Regression for a reported counterexample: Rusanov is not monotone under lam*max|u| <= 1. At lam = 9/10,
+    raising u0 from 1 to 101/100 (lam*max|u| = 909/1000) lowers H from 751/4000 to 18011/100000, both in the
+    spec's normal form and in an independent max() implementation. alpha = |u0| on the cell up1 < 0 < u0,
+    |u0| >= |up1|, so dF/duL gains -(up1 - u0)/2. The bound is 1/3, sharper than 1/2: 1/2 is refuted too.
+    The checker must never verify above 1/3, and every refutation must replay in the independent H."""
+    H = P.from_expr(checks.update(load(S / "burgers-rusanov.json")))
+    at = lambda *s: P.evaluate(H, dict(zip(("um1", "u0", "up1", "lam"), s)))
+    one = Fraction(1)
+    lam, a, b = Fraction(9, 10), (one, one, Fraction(-9, 10)), (one, Fraction(101, 100), Fraction(-9, 10))
+    assert at(*a, lam) == _rusanov_h(*a, lam) == Fraction(751, 4000)
+    assert at(*b, lam) == _rusanov_h(*b, lam) == Fraction(18011, 100000)
+    assert lam * Fraction(101, 100) <= 1
+    assert results["broken-burgers-rusanov-wide-cfl"]["monotonicity"]["status"] == checks.REFUTED
+    assert results["burgers-rusanov"]["monotonicity"]["status"] == checks.VERIFIED
+    for c in ("1", "1/2", "334/1000"):                       # Rusanov's refutations live here, once each
+        r = (results["broken-burgers-rusanov-wide-cfl"]["monotonicity"] if c == "1" else
+             checks.monotonicity(_with_cfl("burgers-rusanov", c)))
+        assert r["status"] == checks.REFUTED, c
+        w = r["witness"]["counterexample"]
+        lam, s = Fraction(w["lam"]), [Fraction(x) for x in w["state (um1, u0, up1)"]]
+        t = s.copy()
+        t[checks.STENCIL.index(w["increased"])] += Fraction(w["by"])
+        assert lam * max(map(abs, s + t)) <= Fraction(c) and _rusanov_h(*t, lam) < _rusanov_h(*s, lam)
+    rng = random.Random(9)                                   # at 1/3 the independent H never decreases
+    for _ in range(400):
+        lam = Fraction(rng.randint(1, 9), rng.randint(1, 9))
+        s = [Fraction(rng.randint(-90, 90), 270) / lam for _ in range(3)]
+        k, t = rng.randrange(3), s.copy()
+        t[k] = min(t[k] + Fraction(rng.randint(1, 30), 270) / lam, Fraction(1, 3) / lam)
+        assert _rusanov_h(*t, lam) >= _rusanov_h(*s, lam)
 
 
 def test_lax_wendroff_is_not_monotone(results):

@@ -325,7 +325,7 @@ bound.
 |---|---|---|
 | Upwind, Lax-Friedrichs (advection, a = 1) | dt/dx <= 1 (the same range as positivity) | REFUTED at 11/10 |
 | Lax-Friedrichs, Engquist-Osher (Burgers) | lam*\|u\| <= 1 | REFUTED at 101/100 |
-| Rusanov (Burgers) | lam*\|u\| <= 1/3 | REFUTED at 334/1000 |
+| Rusanov (Burgers) | lam*\|u\| <= 1/3 | REFUTED at 334/1000, 1/2 and 1 (`broken-burgers-rusanov-wide-cfl`) |
 | Lax-Wendroff | never on (0, 1): the up1 coefficient is -lam(1 - lam)/2 | REFUTED |
 | Roe, no fix | under no bound: a transonic expansion breaks it | REFUTED at 1 and at 1/10 |
 | Roe + Harten fix (delta = 1/2) | not at any bound we tried down to 1/10 | REFUTED at 1, 1/2, 1/4, 1/10; UNKNOWN at 1/100 |
