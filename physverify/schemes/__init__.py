@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import checks, claims, convergence, entropy, limiters, linear, shock, shockspeed, systems
+from . import checks, claims, convergence, entropy, fixedjump, limiters, linear, shock, shockspeed, systems
 
 
 def load(path) -> dict:
@@ -41,6 +41,8 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
         out.append(checks.steady_nonentropy_step(spec))
     if "steady_nonentropy_step_semidiscrete" in wanted:
         out.append(checks.steady_nonentropy_step_semidiscrete(spec))
+    if "stationary_rh_violation" in wanted:
+        out.append(fixedjump.stationary_rh_violation(spec))
     if "entropy_rarefaction" in params:
         out.append(entropy.study(spec, rarefaction_grids))
     if "consistent_order" in params or "consistent_order_p" in names:
