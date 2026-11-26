@@ -565,8 +565,8 @@ F(uLL, uL, uR, uRR) = F_{i+1/2}(u_{i-1}, u_i, u_{i+1}, u_{i+2}). The expression 
 (max(a, b) = (a + b + |a - b|)/2, minmod(a, b) = max(0, min(a, b)) + min(0, max(a, b))), so the AST
 and its Lean mirror get no new node. Three-point specs are parsed and reported exactly as before. The
 flux recovery (`telescoping_wide`) and the consistency, truncation, von Neumann and positivity checks
-work on the wider stencil. Monotonicity and the steady-step check are still three-point only and give
-`UNKNOWN` on wider stencils. The examples are in `schemes/limiters/`, in Sweby's flux-limiter form
+work on the wider stencil, and so do monotonicity (linear advection only) and the steady-step checks
+(see "Monotonicity and the steady step on five points" below). The examples are in `schemes/limiters/`, in Sweby's flux-limiter form
 for u_t + u_x = 0: u_i^{n+1} = u_i - nu (F_{i+1/2} - F_{i-1/2}) with
 F_{i+1/2} = u_i + (1 - nu)/2 * L(Delta_{i+1/2}, Delta_{i-1/2}) and Delta_{i+1/2} = u_{i+1} - u_i. The
 slope L is a polynomial with min and max, so no ratio r appears. Minmod is L = minmod(Delta_{i+1/2},
@@ -678,8 +678,39 @@ still rising at N = 1600. We do not know whether it tends to 2, so the benchmark
 as unsettled. Without extrema both norms reach 2.0 once N >= 400. On coarser grids the max norm is
 still pre-asymptotic, which is why the extrema-free spec runs N = 50..800.
 
-Limits: one space dimension, scalar laws, three-point stencils for the entropy, monotonicity and
-steady-step checks (five points for the rest), limiter checks for linear advection only, periodic grids (the shock-speed and
+**Monotonicity and the steady step on five points** (`limiters.monotonicity_wide`, the wide branch of
+`checks.steady_nonentropy_step`). On each sign cell the limited update of u_t + a u_x = 0 is linear in
+the u's, so dH/du_k is a polynomial c_k(nu). It is certified >= 0 on [0, c] by Bernstein coefficients
+(with bisection). Otherwise the check looks for a real violation: two states u <= v, differing in one
+argument and both strictly inside one full-dimensional cell (every atom > 0, checked exactly), with
+H(u) > H(v) at a rational nu in the claimed range. The pair is replayed by evaluating the scheme's own
+expression, and only the pair counts as a refutation; a negative derivative at a kink is not evidence.
+Minmod and superbee are TVD on [0, 1] but not monotone, as Godunov's theorem (Harten, Hyman and Lax
+for nonlinear schemes) says they cannot be:
+
+| Spec, claim nu <= 1 | `monotone_under_cfl` | Witness (a = 1) |
+|---|---|---|
+| `broken-advection-minmod-monotone` | REFUTED | nu = 1/2: H(0, 4, 7, 8, 0) = 23/4 > H(0, 4, 7, 33/4, 0) = 183/32 (18 cells) |
+| `broken-advection-superbee-monotone` | REFUTED | nu = 1/2: H(0, 12, 17, 18, 0) = 31/2 > H(0, 12, 17, 73/4, 0) = 247/16 (50 cells) |
+| upwind with um2, up2 as unused arguments | VERIFIED | partials 0, nu, 1 - nu, 0, 0 |
+| Lax-Wendroff in flux-limiter form | REFUTED | nu = 1/2: H(0, 6, 0, -6, -2) = 3 > H(0, 6, 0, -11/2, -2) = 47/16 |
+
+Both witnesses sit in the Lax-Wendroff cell, where dH/du_{i+1} = -nu(1 - nu)/2. At nu = 1 minmod is
+upwind and every partial is >= 0, so the refutation needs nu < 1. Failing monotonicity decides nothing
+about `selects_entropy_solution`, whose monotonicity row is `sufficient`: for minmod that claim stays
+`UNKNOWN`. For Burgers the five-point monotonicity check is `UNKNOWN` (the sign cells are not linear).
+
+The steady non-entropy step works on all six windows of a five-point update across the jump,
+H(uL, uL, uL, uL, uL), H(uL, uL, uL, uL, uR), ..., H(uR, uR, uR, uR, uR), and on the five interface
+fluxes F(LLLL), ..., F(RRRR) for the method of lines. Minmod slopes vanish next to a step, so a MUSCL
+scheme keeps the steady steps of its two-point flux. With the Roe flux and no entropy fix
+(`broken-burgers-muscl-minmod-roe-no-entropy-fix`) the expansion shock -1 | 1 is exact (every
+interface flux is 1/2): both entropy claims are REFUTED. With the Rusanov flux
+(`burgers-muscl-minmod-rusanov`) no steady step is found and both claims stay `UNKNOWN`. Tadmor's check
+is for two-point fluxes and says `UNKNOWN` for four-point ones.
+
+Limits: one space dimension, scalar laws, three-point stencils for the entropy check (five points for the
+rest), limiter checks (TVD, monotonicity, truncation) for linear advection only, periodic grids (the shock-speed and
 rarefaction studies use transmissive boundaries), Riemann data with a single shock or a single fan.
 The exact entropy check needs a quadratic entropy, and the rarefaction study's exact fan is for
 Burgers only. Positivity of
@@ -814,13 +845,14 @@ the polarity of each tool's answer (delta-sat in dReal is only sound in one dire
 
 ### Claims as papers write them
 
-`benchmark/scheme-claims/` has 22 sentences phrased the way papers phrase them ("Lax–Wendroff is
+`benchmark/scheme-claims/` has 23 sentences phrased the way papers phrase them ("Lax–Wendroff is
 TVD", "our upwind scheme is unconditionally stable", "the minmod MUSCL scheme is second order").
 Each reading of each sentence is formalized into the named claims above, with an expected truth
 and a citation. `uv run python -m physverify.schemes.bench benchmark/scheme-claims/` prints
 expected against actual. It fails on a decisive verdict that contradicts the expectation and lists
-non-decisive results as gaps. Now: 32 of 43 readings decided correctly, 10 gaps, 1 unscored
-(expected truth unsettled), none wrong. The shock-speed rows split C12's shock clause into a
+non-decisive results as gaps. Now: 33 of 44 readings decided correctly, 10 gaps, 1 unscored
+(expected truth unsettled), none wrong. Five-point monotonicity added C23 (one match, below); before
+it the count was 32 of 43. The shock-speed rows split C12's shock clause into a
 conditional reading (every bounded limit is a weak solution) and an unconditional one (the scheme's
 shocks move at the RH speed), both VERIFIED for Lax–Friedrichs on Burgers, and added C13's
 conditional reading, a gap (see `GAPS.md`); before them it was 30 of 40 with 9 gaps. Before the limiter checks it was 24 of 34 with 10 gaps
@@ -832,7 +864,8 @@ the entropy solution"; the small-CFL check refutes "FTCS is stable for sufficien
 steps"). The limiter checks added six matches: minmod and superbee TVD on [0, 1] (VERIFIED),
 superbee TVD on [0, 3/2] and Lax–Wendroff in flux-limiter form TVD (REFUTED, exact), minmod's pointwise
 truncation order 2 at smooth extrema (REFUTED, exact), and its max-norm order 2 on sine data
-(REFUTED_EMPIRICALLY, at two dt/dx). "Order 2 in L1 without extrema" stays a gap (NOT_REFUTED: no
+(REFUTED_EMPIRICALLY, at two dt/dx). Five-point monotonicity added a seventh: "the minmod-limited
+scheme is monotone under nu <= 1" (C23) is REFUTED exactly. "Order 2 in L1 without extrema" stays a gap (NOT_REFUTED: no
 theorem turns a refinement study into a proof). `GAPS.md` there ranks the gaps. The largest
 remaining ones are order of accuracy and entropy claims for nonlinear schemes, and stability claims
 that need a global parameter or a regime the spec cannot state.

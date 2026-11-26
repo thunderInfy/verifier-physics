@@ -1246,6 +1246,35 @@
      }
     }
    ]
+  },
+  {
+   "id": "C23",
+   "sentence": "The minmod-limited scheme is monotone under the CFL condition ν ≤ 1.",
+   "pde": "linear advection, a = 1",
+   "readings": [
+    {
+     "reading": "the minmod flux-limited scheme (Sweby form) is monotone, H non-decreasing in each of u_{i-2}, ..., u_{i+2}, for every nu in (0, 1]",
+     "expected": false,
+     "why": "a monotone scheme is at most first-order accurate (Godunov for linear schemes, Harten-Hyman-Lax in general), and minmod is second order away from extrema; on the cell where both slopes are the downwind differences the update is Lax-Wendroff, with dH/du_{i+1} = -nu(1 - nu)/2 < 0 for nu in (0, 1). TVD, which minmod is, does not imply monotone.",
+     "cite": "Godunov (1959); Harten, Hyman & Lax (1976) CPAM 29; LeVeque (2002) ch. 6",
+     "formalization": [
+      {
+       "spec": "../../schemes/limiters/broken-advection-minmod-monotone.json",
+       "claim": "monotone_under_cfl",
+       "relation": "same",
+       "expected": false,
+       "bridge": "the named claim is this reading: H non-decreasing in each argument for lam > 0, nu = lam <= 1"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "result": "match",
+      "components": [
+       "REFUTED"
+      ]
+     }
+    }
+   ]
   }
  ]
 }

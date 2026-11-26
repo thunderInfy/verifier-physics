@@ -1,14 +1,14 @@
 # Paper-style scheme claims: what the verifier can and cannot decide
 
-`claims.json` holds 22 sentences about 1D linear-advection and Burgers schemes, written the way
-papers and models write them. They are split into 43 readings, each formalized into the named
+`claims.json` holds 23 sentences about 1D linear-advection and Burgers schemes, written the way
+papers and models write them. They are split into 44 readings, each formalized into the named
 claims of `physverify/schemes/claims.py` or marked unformalized. Run:
 
 ```
 uv run python -m physverify.schemes.bench benchmark/scheme-claims/          # about 45 s
 ```
 
-Result now: **32 match, 10 gaps, 1 unscored, 0 wrong decisive verdicts** over 43 readings. History: 14 match,
+Result now: **33 match, 10 gaps, 1 unscored, 0 wrong decisive verdicts** over 44 readings. History: 14 match,
 19 gaps before the monotonicity check and the Crandall–Majda row (gap 3); 17 match, 16 gaps before
 the exact order checks for linear schemes; 18 match, 15 gaps over 33 readings once those checks
 settled C01 reading 1. The steady non-entropy step check left the counts unchanged but made two
@@ -32,11 +32,12 @@ rows). C12 readings 2 and 3 are new matches (both VERIFIED); C12 reading 1 keeps
 its order clause alone (its shock component moved from NOT_REFUTED to VERIFIED). C13 reading 2 (the
 conditional reading for the non-conservative scheme, expected false) is a new gap, UNKNOWN. C19
 reading 4 was reworded (the CFL condition must hold at the finest dx); its verdict is unchanged.
-Result: 32 match, 10 gaps, 1 unscored.
+Result: 32 match, 10 gaps, 1 unscored. Monotonicity on five-point stencils then added C23 (minmod
+is monotone under ν ≤ 1: REFUTED, exact): 33 match, 10 gaps, 1 unscored over 44 readings.
 
 | | expected true | expected false | total |
 |---|---|---|---|
-| decisive and correct (match) | 17 (all VERIFIED) | 15 (13 REFUTED, 2 REFUTED_EMPIRICALLY) | 32 |
+| decisive and correct (match) | 17 (all VERIFIED) | 16 (14 REFUTED, 2 REFUTED_EMPIRICALLY) | 33 |
 | gap | 7 | 3 | 10 |
 | wrong | 0 | 0 | 0 |
 
@@ -79,7 +80,7 @@ non-conservative weak-limit row (gap 5, C13 reading 2), and the formula dependen
 The ranking is our judgement from reading the numerical-methods literature, not a measurement.
 Cost estimates are rough, for one person who knows this code base.
 
-### 1. High-resolution schemes can't be written down (CLOSED for limited schemes of linear advection: C18, C02 reading 2, C21, C22; open: global order, nonlinear fluxes, WENO)
+### 1. High-resolution schemes can't be written down (CLOSED for limited schemes of linear advection: C18, C02 reading 2, C21, C22, C23; open: global order, nonlinear fluxes, WENO)
 
 **Status.** Specs may use `um2, um1, u0, up1, up2` and fluxes F(uLL, uL, uR, uRR); the expression
 language has `abs`, `min`, `max` and `minmod` (as |x| = sqrt(x^2), so no new AST node). Conservation
@@ -103,6 +104,16 @@ checks give UNKNOWN) and an overlap check (cells agree where they meet). On thes
   incommensurate 0.37 (observed order 1.3). C18 reading 1 (L1 without extrema, on a C∞ monotone step
   with transmissive boundaries) is NOT_REFUTED at observed order 2.00, and stays a gap: a nonlinear
   scheme has no Lax–Richtmyer theorem.
+- `monotone_under_cfl` on five-point stencils (`limiters.monotonicity_wide`): on each sign cell
+  ∂H/∂u_k is a polynomial in ν, certified ≥ 0 on [0, c] by Bernstein coefficients, or refuted by two
+  states u ≤ v strictly inside one full-dimensional cell with H(u) > H(v), replayed from the scheme's
+  expression. Minmod and superbee are REFUTED on ν ≤ 1 (minmod at ν = 1/2: H(0, 4, 7, 8, 0) = 23/4 >
+  H(0, 4, 7, 33/4, 0) = 183/32), which is C23. This is Godunov's (and Harten, Hyman and Lax's) barrier: TVD
+  but not monotone. Linear advection only; for Burgers the check is UNKNOWN.
+- The steady non-entropy step checks cover five-point updates (six windows across the jump) and
+  four-point fluxes (five interfaces). MUSCL with minmod slopes and the Roe flux without an entropy fix
+  keeps the expansion shock -1 | 1 (REFUTED, both fully discrete and semi-discrete); with the Rusanov
+  flux no steady step is found (UNKNOWN). No benchmark sentence uses these yet.
 
 Still open: the global order of limited schemes (no exact route; a convergence proof for TVD schemes
 gives an order only under assumptions we cannot check), limiters on nonlinear fluxes (the Harten check

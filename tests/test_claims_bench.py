@@ -29,7 +29,7 @@ def test_bench_has_no_wrong_verdict_and_matches_what_is_recorded():
     data = json.loads((B / "claims.json").read_text())
     assert not bench.validate(data, B)
     rows = bench.evaluate(data, bench.run(data, B))
-    assert 15 <= len(data["claims"]) <= 22
+    assert 15 <= len(data["claims"]) <= 23
     assert not [r["id"] for r in rows if r["score"] in ("WRONG", "BUG")]
     assert not [(r["id"], c) for r in rows for c in r["components"] if c["score"] in ("WRONG", "BUG")]
     assert not [r["id"] for r in rows if (r["score"] == "gap") != bool(r["gap"])]
