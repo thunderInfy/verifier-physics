@@ -321,7 +321,9 @@ A check is evidence about a claim, and checks differ in how strongly they bear o
 lists the named claims it makes (`named_claims`), and a small trusted table in
 `physverify/schemes/claims.py` says, for each claim, which checks bear on it and how. The checks
 never decide what their result means for a claim. The table also fixes each check's guarantee,
-exact or empirical. An empirical study that returned `VERIFIED` would still count as empirical.
+exact or empirical. An empirical study that returned `VERIFIED` would still count as empirical,
+and an empirical pass never verifies a claim, whatever relation the table gives it: it only fails
+to refute.
 
 | Claim | Check | Relation | Guarantee |
 |---|---|---|---|
@@ -330,12 +332,16 @@ exact or empirical. An empirical study that returned `VERIFIED` would still coun
 | | shock_speed (late window) | necessary | empirical |
 | `positive_under_cfl` | positivity (Bernstein) | equivalent | exact |
 | `entropy_stable_tadmor` | entropy_stability (Tadmor) | equivalent | exact (semi-discrete) |
-| `selects_entropy_solution` | entropy_stability (Tadmor) | sufficient | exact (semi-discrete) |
-| | entropy_rarefaction | necessary | empirical |
+| `selects_entropy_solution_semidiscrete` | entropy_stability (Tadmor) | sufficient | exact (semi-discrete) |
+| `selects_entropy_solution` | entropy_rarefaction | necessary | empirical |
 | `converges_order_p` | order/combined, order/space, order/time | necessary | empirical |
 | `correct_shock_speed` | shock_speed | necessary | empirical |
 
-A passing sufficient or equivalent check verifies the claim, and a failing necessary or
+Tadmor's inequality is about the method of lines and says nothing about time stepping, so it
+bears only on the semi-discrete claim. For the fully discrete scheme we have only the
+rarefaction study, so the best that claim can get is `NOT_REFUTED`.
+
+A passing exact sufficient or equivalent check verifies the claim, and a failing necessary or
 equivalent check refutes it. A passing necessary check only fails to refute it, and a failing
 sufficient check says nothing (`UNKNOWN`). With the guarantee this gives `VERIFIED`/`REFUTED` from
 exact checks and `NOT_REFUTED`/`REFUTED_EMPIRICALLY` from empirical ones. When several checks bear
@@ -347,13 +353,15 @@ inequality is semi-discrete only, the scheme must converge, and for a convex sca
 strictly convex entropy singles out the entropy solution.
 
 Roe with Harten's fix is the case the table exists for. Tadmor's check fails on it exactly (at
-(-1, 1), Q = -1/6), yet its limit on the rarefaction data is the fan.
+(-1, 1), Q = -1/6), yet its limit on the rarefaction data is the fan. A failed sufficient
+condition proves nothing, so both Roe schemes are `UNKNOWN` on the semi-discrete claim; for Roe
+without a fix the exact refutation shows up on `entropy_stable_tadmor`.
 
-| Spec | Tadmor (raw) | Rarefaction (raw) | `entropy_stable_tadmor` | `selects_entropy_solution` |
-|---|---|---|---|---|
-| Roe + Harten fix | REFUTED | NOT_REFUTED | not claimed | NOT_REFUTED (empirical, rarefaction) |
-| Roe, no fix | REFUTED | REFUTED_EMPIRICALLY | REFUTED (exact) | REFUTED_EMPIRICALLY (rarefaction) |
-| Engquist-Osher, Rusanov, Lax-Friedrichs | VERIFIED | NOT_REFUTED | VERIFIED | VERIFIED (exact, under the premises above) |
+| Spec | Tadmor (raw) | Rarefaction (raw) | `entropy_stable_tadmor` | `selects_entropy_solution_semidiscrete` | `selects_entropy_solution` |
+|---|---|---|---|---|---|
+| Roe + Harten fix | REFUTED | NOT_REFUTED | not claimed | UNKNOWN | NOT_REFUTED (empirical, rarefaction) |
+| Roe, no fix | REFUTED | REFUTED_EMPIRICALLY | REFUTED (exact) | UNKNOWN | REFUTED_EMPIRICALLY (rarefaction) |
+| Engquist-Osher, Rusanov, Lax-Friedrichs | VERIFIED | NOT_REFUTED | VERIFIED | VERIFIED (exact, under the premises above) | NOT_REFUTED (empirical, rarefaction) |
 
 Reported as the verdict on "the claim", the raw `REFUTED` would have said Harten's fix picks the
 wrong solution. Likewise for `broken-burgers-nonconservative` the exact conservation check
