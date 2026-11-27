@@ -1831,6 +1831,8 @@ replay states `TVD H` itself for every lam in the claimed range and proves it th
 `Scheme.tvd_of_incremental`, which is `harten_tvd_of_form` on `ZMod (k + 1)`, with the certificate's
 C and D (`lean_planner.harten_proof`). Replayed so far (`tests/test_lean.py -k harten`): minmod in Sweby
 form, Harten's Q(x) = x^2 + 1/4 scheme (`harten_1982_highres:05`, C, D > 0), first-order Lax-Friedrichs.
+Superbee's TVD theorem is stated but does not replay (rejected in the full pass; alone it did not finish
+in 20 minutes), so superbee keeps the per-cell label of its sign-cell theorems.
 That theorem states TVD only, so it labels `tvd_under_cfl` and `correct_shock_speed` (whose row uses
 TVD) and not `local_max_principle_under_cfl`, which keeps the cell label where the sign-cell
 certificate also holds and replays, and is exact Python otherwise. `tvd_under_cfl` still has no
