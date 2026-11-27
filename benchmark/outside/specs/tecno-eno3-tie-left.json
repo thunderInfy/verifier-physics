@@ -1,0 +1,10 @@
+{
+ "kind": "eno",
+ "name": "ENO interpolation of point values, k = 3, ties to the left",
+ "source": "Fjordholm, Mishra and Tadmor, SIAM J. Numer. Anal. 50 (2012), Sec. 3.5: k-th order ENO reconstruction of point values (Harten et al. [13]), w^+_i = p_i(x_{i+1/2}), w^-_{i+1} = p_{i+1}(x_{i+1/2})",
+ "reconstruction": {
+  "order": 3,
+  "selection": "eno",
+  "tie": "left"
+ }
+}

@@ -12,6 +12,9 @@ physverify/schemes/bench.py (`same`, `necessary`, `sufficient`). A component may
 relation: a decisive verdict flips (VERIFIED <-> REFUTED), an empirical refutation of the claim
 gives only NOT_REFUTED for its negation, and NOT_REFUTED gives UNKNOWN.
 
+A reading with `tuned_on` uses a claim kind that was chosen by its coverage of the dev items themselves
+(reconstruction v3); the summary counts those readings and the matches resting only on them.
+
 Scores per item and expected field (TRUE / FALSE / UNSURE):
     MATCH     VERIFIED on TRUE, REFUTED or REFUTED_EMPIRICALLY on FALSE
     WRONG     a decisive verdict against a TRUE/FALSE expectation
@@ -201,6 +204,9 @@ def summary(rows: list[dict]) -> dict:
         "verdicts": dict(Counter(a["verdict"] for _, _, a in readings)),
         "scores": {f: dict(Counter(r["score"][f] for r in rows)) for f in FIELDS},
         "wrong": [(r["id"], f) for r in rows for f in FIELDS if r["score"][f] in ("WRONG", "BUG")],
+        "tuned_readings": sum(1 for _, rd, _ in readings if rd.get("tuned_on")),
+        "tuned_matches": sum(1 for r in rows for f in FIELDS if r["score"][f] == "MATCH" and all(
+            rd.get("tuned_on") for rd in r["_e"]["readings"] if f in fields_of(rd))),
         "narrowed_matches": sum(1 for r in rows for f in FIELDS if r["score"][f] == "MATCH" and all(
             rd["narrowing"] for rd in r["_e"]["readings"] if f in fields_of(rd))),
         "gaps_primary": dict(gaps_primary.most_common()),

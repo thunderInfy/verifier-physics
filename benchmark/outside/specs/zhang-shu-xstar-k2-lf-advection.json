@@ -1,0 +1,38 @@
+{
+ "kind": "cell_average",
+ "name": "Degree-2 polynomials, hypothesis on p(x*) defined by the averaging identity, and the edge values",
+ "source": "Zhang and Shu, Proc. R. Soc. A 467 (2011), (2.4), (5.1): p_j(x*_j) = (ubar - w_1 u^+_{j-1/2} - w_N u^-_{j+1/2})/(1 - 2 w_1), w_1 = w_N = 1/6; Lax-Friedrichs, f(u) = u, a = 1",
+ "reconstruction": {
+  "degree": 2,
+  "values": {
+   "ubar": [
+    0,
+    "avg"
+   ],
+   "um1r": [
+    -1,
+    "1/2"
+   ],
+   "u0l": [
+    0,
+    "-1/2"
+   ],
+   "u0r": [
+    0,
+    "1/2"
+   ],
+   "up1l": [
+    1,
+    "-1/2"
+   ]
+  },
+  "update": "ubar - lam*((u0r + up1l)/2 - (up1l - u0r)/2 - ((um1r + u0l)/2 - (u0l - um1r)/2))",
+  "hypotheses": [
+   "(ubar - u0l/6 - u0r/6)/(2/3)",
+   "u0l",
+   "u0r",
+   "um1r",
+   "up1l"
+  ]
+ }
+}

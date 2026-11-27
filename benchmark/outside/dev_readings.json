@@ -3,19 +3,64 @@
  "items": [
   {
    "id": "jiang_shu_1995_weno:01",
-   "readings": [],
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "where f' != 0, the WENO schemes of Liu, Osher and Chan (smoothness measurement (2.18)) built from the r-th order ENO stencils are of order at least r + 1, for r = 2 and r = 3, eps negligible",
+     "narrowing": "r = 2 and r = 3, the cases the source writes out (Tables 1-2); for r = 2, (2.18) is (f[j+k-1, 1])^2, the same as (2.19), and for r = 3 it is (2.20). One split flux component, the order as the truncation error of (f^_{j+1/2} - f^_{j-1/2})/dx at one grid point, eps -> 0 written eps = 0 (the item's hypothesis), as for jiang_shu_1995_weno:05. '(r+1)th order accurate' read as 'at least r + 1', its usual sense; for r = 3 the leading order is in fact 5 (see jiang_shu_1995_weno:02, with hypotheses), which this reading does not need",
+     "instance_from_justification": false,
+     "found_by": "the reconstruction v3 survey; the checker is unchanged (reconstruction_order_p as in v2)",
+     "formalization": [
+      {
+       "spec": "jiang-shu-weno3-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 3,
+        "form": "flux_difference",
+        "regime": "generic",
+        "eps": "0"
+       }
+      },
+      {
+       "spec": "jiang-shu-weno5-liu-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 4,
+        "form": "flux_difference",
+        "regime": "generic",
+        "eps": "0"
+       }
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
+    }
+   ],
    "unformalized": [
     {
-     "fields": "both",
+     "fields": "alone",
      "reasons": [
-      "reconstruction"
+      "family_unspecified"
      ],
-     "note": "order of WENO schemes (nonlinear weights, smoothness indicators); no spec holds a WENO reconstruction"
+     "note": "as jiang_shu_1995_weno:02 and :05 alone: the bare sentence's truth at critical points depends on how eps scales with dx. Run once, not stored: with eps = 0 (or eps = dx^4) and n_cp = 1, reconstruction_order_p on the flux difference is REFUTED for p = r + 1 (r = 3: leading order 2, the face value alone order 3, the source's 'only 3rd order'; r = 2: order 1); with eps = 10^-6 fixed it is VERIFIED at n_cp = 1. The FALSE value rests on the eps << IS_k family, so a reading in that family alone would be the family that makes the checker match (team rule for eps-family choices). Before reconstruction v3 this field was `reconstruction`"
     }
    ],
    "score": {
     "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "with_hypotheses": "MATCH"
    }
   },
   {
@@ -326,19 +371,71 @@
   },
   {
    "id": "zhang_shu_2010_maxprinciple:05",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "for the cell-average scheme (2.1) with the Lax-Friedrichs flux and polynomials p_j of degree k, if every Gauss-Lobatto value of p_j, the edge values from the neighbours and the average are in [m, M], the new average is in [m, M] for every lambda a in [0, min w_alpha]",
+     "narrowing": "f(u) = u, so a = max|f'| = 1 and the Lax-Friedrichs flux is h(u, v) = u; degrees k = 1, 2, 3 (N = 2, 3, 3 Gauss-Lobatto points, rational: min w_alpha = 1/2, 1/6, 1/6, Table 2.1); one step, cell 0",
+     "instance_from_justification": false,
+     "tuned_on": "reconstruction v3: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md)",
+     "formalization": [
+      {
+       "spec": "zhang-shu-gl-k1-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/2"
+        ]
+       }
+      },
+      {
+       "spec": "zhang-shu-gl-k2-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/6"
+        ]
+       }
+      },
+      {
+       "spec": "zhang-shu-gl-k3-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/6"
+        ]
+       }
+      }
      ],
-     "note": "cell-average scheme with degree-k polynomials and Gauss-Lobatto point values"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {
@@ -636,19 +733,86 @@
   },
   {
    "id": "zhang_shu_2011_survey:04",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "Theorem 1: Gauss-Lobatto values of p_j and the edge values in [m, M] give u^{n+1}_j in [m, M] under lambda a <= w_1, for a monotone flux",
+     "narrowing": "f(u) = u; two monotone fluxes: Lax-Friedrichs with alpha = 1 (a = 1, the upwind flux) for k = 1, 2, 3 on [0, w_1], and Lax-Friedrichs with alpha = 2 (monotone under 2 lambda <= 1, so a = 2) for k = 2 on [0, 1/12] = [0, w_1 / a]; one step, cell 0",
+     "instance_from_justification": false,
+     "tuned_on": "reconstruction v3: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md)",
+     "formalization": [
+      {
+       "spec": "zhang-shu-gl-k1-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/2"
+        ]
+       }
+      },
+      {
+       "spec": "zhang-shu-gl-k2-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/6"
+        ]
+       }
+      },
+      {
+       "spec": "zhang-shu-gl-k3-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/6"
+        ]
+       }
+      },
+      {
+       "spec": "zhang-shu-gl-k2-lf-alpha2.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/12"
+        ]
+       }
+      }
      ],
-     "note": "Gauss-Lobatto point values of degree-k polynomials, any monotone flux"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {
@@ -799,19 +963,56 @@
   },
   {
    "id": "zhang_shu_2011_survey:13",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "with p_j(x*_j) and the edge values in [m, M], u^{n+1}_j is in [m, M] under lambda a <= w_1",
+     "narrowing": "f(u) = u with the Lax-Friedrichs flux (a = 1); degrees k = 2, 3 (N = 3, w_1 = 1/6); p_j(x*_j) taken as the value its defining identity gives, (u^n_j - w_1 u^+_{j-1/2} - w_N u^-_{j+1/2})/(1 - 2 w_1), the second form in the item's scheme field (its existence as a point value is not needed); the edge values entering this flux are u^+_{j-1/2}, u^-_{j+1/2} and u^-_{j-1/2}",
+     "instance_from_justification": false,
+     "tuned_on": "reconstruction v3: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md)",
+     "formalization": [
+      {
+       "spec": "zhang-shu-xstar-k2-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/6"
+        ]
+       }
+      },
+      {
+       "spec": "zhang-shu-xstar-k3-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/6"
+        ]
+       }
+      }
      ],
-     "note": "polynomial point value p_j(x*_j) and endpoint values"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {
@@ -1977,16 +2178,63 @@
   },
   {
    "id": "fjordholm_mishra_tadmor_2012_tecno:06",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "the k-th order ENO reconstruction of point values has the sign property, for k = 2 and 3",
+     "narrowing": "k = 2, 3 (the claim is for every k); either tie rule of the stencil selection (the paper fixes none); the sign property read in its weak form, J (w_{i+1} - w_i) >= 0 and J = 0 where w_{i+1} = w_i (as the paper uses it: (3.10) asks only for a diagonal B >= 0); the strict sign(J) = sign(w_{i+1} - w_i) with sign(0) = 0 fails for every k >= 2 on linear data, where J = 0 (tests/test_eno.py)",
+     "instance_from_justification": false,
+     "tuned_on": "reconstruction v3: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md)",
+     "formalization": [
+      {
+       "spec": "tecno-eno2-tie-left.json",
+       "claim": "eno_sign_property",
+       "relation": "same",
+       "params": {}
+      },
+      {
+       "spec": "tecno-eno2-tie-right.json",
+       "claim": "eno_sign_property",
+       "relation": "same",
+       "params": {}
+      },
+      {
+       "spec": "tecno-eno3-tie-left.json",
+       "claim": "eno_sign_property",
+       "relation": "same",
+       "params": {}
+      },
+      {
+       "spec": "tecno-eno3-tie-right.json",
+       "claim": "eno_sign_property",
+       "relation": "same",
+       "params": {}
+      }
      ],
-     "note": "ENO sign property"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
     "alone": "UNSCORED",
     "with_hypotheses": "UNSCORED"
@@ -1994,16 +2242,71 @@
   },
   {
    "id": "fjordholm_mishra_tadmor_2012_tecno:07",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "for k = 2 and 3, (w^-_{i+1} - w^+_i)/(w_{i+1} - w_i) <= C_k with C_2 = 2 and C_3 = 7/2",
+     "narrowing": "k = 2, 3; either tie rule; the constants are the suprema the checker computes (sup_ratio in physverify/eno.py), which shows that a constant exists for these k (relation sufficient)",
+     "instance_from_justification": false,
+     "tuned_on": "reconstruction v3: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md)",
+     "formalization": [
+      {
+       "spec": "tecno-eno2-tie-left.json",
+       "claim": "eno_jump_ratio_at_most",
+       "relation": "sufficient",
+       "params": {
+        "c": "2"
+       }
+      },
+      {
+       "spec": "tecno-eno2-tie-right.json",
+       "claim": "eno_jump_ratio_at_most",
+       "relation": "sufficient",
+       "params": {
+        "c": "2"
+       }
+      },
+      {
+       "spec": "tecno-eno3-tie-left.json",
+       "claim": "eno_jump_ratio_at_most",
+       "relation": "sufficient",
+       "params": {
+        "c": "7/2"
+       }
+      },
+      {
+       "spec": "tecno-eno3-tie-right.json",
+       "claim": "eno_jump_ratio_at_most",
+       "relation": "sufficient",
+       "params": {
+        "c": "7/2"
+       }
+      }
      ],
-     "note": "ENO jump bound"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
     "alone": "UNSCORED",
     "with_hypotheses": "UNSCORED"
@@ -2011,19 +2314,70 @@
   },
   {
    "id": "fjordholm_mishra_tadmor_2012_tecno:08",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "the ENO reconstruction of the scaled entropy variables has the sign property, scalar case, k = 2, 3",
+     "narrowing": "a scalar law (R^T_{i+1/2} = r_{i+1/2} > 0, numbers); k = 2, 3; either tie rule; the sign property read in its weak form, J (w_{i+1} - w_i) >= 0 and J = 0 where w_{i+1} = w_i (as the paper uses it: (3.10) asks only for a diagonal B >= 0); the strict sign(J) = sign(w_{i+1} - w_i) with sign(0) = 0 fails for every k >= 2 on linear data, where J = 0 (tests/test_eno.py)",
+     "instance_from_justification": false,
+     "tuned_on": "reconstruction v3: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md)",
+     "formalization": [
+      {
+       "spec": "tecno-eno2-tie-left.json",
+       "claim": "eno_sign_property",
+       "relation": "same",
+       "params": {},
+       "bridge": "in the scalar case the data nu^i of q_i and mu^{i+1} of p_{i+1} are the same sequence (nu^i_i = r_{i+1/2} v_i = mu^{i+1}_{i+1} - delta_{i+1/2}, both extended by the same jumps delta), so ~w^-_{i+1} - ~w^+_i is the plain ENO jump of that sequence at x_{i+1/2}, and its difference there is delta_{i+1/2} = <<w>>_{i+1/2} ((3.20), the paper's proof, p. 556); the map (v, r > 0) -> mu is onto, so the scaled property for all data is the plain property for all data"
+      },
+      {
+       "spec": "tecno-eno2-tie-right.json",
+       "claim": "eno_sign_property",
+       "relation": "same",
+       "params": {},
+       "bridge": "in the scalar case the data nu^i of q_i and mu^{i+1} of p_{i+1} are the same sequence (nu^i_i = r_{i+1/2} v_i = mu^{i+1}_{i+1} - delta_{i+1/2}, both extended by the same jumps delta), so ~w^-_{i+1} - ~w^+_i is the plain ENO jump of that sequence at x_{i+1/2}, and its difference there is delta_{i+1/2} = <<w>>_{i+1/2} ((3.20), the paper's proof, p. 556); the map (v, r > 0) -> mu is onto, so the scaled property for all data is the plain property for all data"
+      },
+      {
+       "spec": "tecno-eno3-tie-left.json",
+       "claim": "eno_sign_property",
+       "relation": "same",
+       "params": {},
+       "bridge": "in the scalar case the data nu^i of q_i and mu^{i+1} of p_{i+1} are the same sequence (nu^i_i = r_{i+1/2} v_i = mu^{i+1}_{i+1} - delta_{i+1/2}, both extended by the same jumps delta), so ~w^-_{i+1} - ~w^+_i is the plain ENO jump of that sequence at x_{i+1/2}, and its difference there is delta_{i+1/2} = <<w>>_{i+1/2} ((3.20), the paper's proof, p. 556); the map (v, r > 0) -> mu is onto, so the scaled property for all data is the plain property for all data"
+      },
+      {
+       "spec": "tecno-eno3-tie-right.json",
+       "claim": "eno_sign_property",
+       "relation": "same",
+       "params": {},
+       "bridge": "in the scalar case the data nu^i of q_i and mu^{i+1} of p_{i+1} are the same sequence (nu^i_i = r_{i+1/2} v_i = mu^{i+1}_{i+1} - delta_{i+1/2}, both extended by the same jumps delta), so ~w^-_{i+1} - ~w^+_i is the plain ENO jump of that sequence at x_{i+1/2}, and its difference there is delta_{i+1/2} = <<w>>_{i+1/2} ((3.20), the paper's proof, p. 556); the map (v, r > 0) -> mu is onto, so the scaled property for all data is the plain property for all data"
+      }
      ],
-     "note": "sign property of the scaled ENO reconstruction"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {
