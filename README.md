@@ -1656,7 +1656,9 @@ them.
 
 `physverify/reconstruction.py` decides `reconstruction_order_p`: a WENO-type reconstruction, written as
 expressions over the stencil values (candidates q_k, linear weights d_k, indicators beta_k,
-alpha_k = d_k/(eps + beta_k)^q), has error O(dx^p) for every smooth f in a regime: f' != 0, or a critical
+alpha_k = d_k/(eps + beta_k)^q; or WENO-Z, alpha_k = d_k (1 + (tau/(eps + beta_k))^q) with
+tau = |beta_i - beta_j|; or WENO-M, the Jiang–Shu weights through Henrick's mapping), has error O(dx^p) for
+every smooth f in a regime: f' != 0, or a critical
 point of order n_cp (f' = ... = f^(n_cp) = 0 at x_i). The claim names eps = c dx^m (rational m) or eps = 0, and
 a form: one reconstruction at x_i + s dx, or the conservative difference (R - T at i+1/2 minus R - T at i-1/2,
 over dx). Data are point values (target f, or the primitive h of the finite-difference flux form) or cell averages.
@@ -1668,8 +1670,9 @@ the zero polynomial; no jet is sampled. REFUTED gives a rational jet, the order 
 coefficient. Tests re-check every REFUTED witness, and every eps = 0 VERIFIED row on sampled jets, by evaluating
 the formulas directly at rational dx.
 
-`uv run python -m physverify.reconstruction` runs `benchmark/reconstruction/` (43 claims, expected verdicts
-committed before the checker existed; all 43 agree). Leading orders for WENO5-JS (Jiang–Shu indicators), flux
+`uv run python -m physverify.reconstruction` runs `benchmark/reconstruction/` (70 claims, expected verdicts
+committed before the checker supported them: 43 for v1, 27 WENO-Z/M rows for v2; all 70 agree, including the 7
+marked unsure). Leading orders for WENO5-JS (Jiang–Shu indicators), flux
 form:
 
 | form | regime | eps | leading order |
@@ -1686,6 +1689,35 @@ d_k (f'''/f'')(4/5 - 4(k-1)) dx cancel against the candidate errors (1/4, -1/12,
 is eventually small against eps. Other rows: WENO3-JS drops to 1 at critical points (eps = 0), the linear
 weights give 5 everywhere, and a typo of 1/3 for 1/4 in beta_1 is invisible with fixed eps but gives order 3
 with eps = 0 where f' != 0.
+
+**WENO-Z and WENO-M** (same candidates and Jiang–Shu indicators, flux form, leading orders):
+
+| weights | f' != 0, eps = 0 | n_cp = 1, eps = 0 | n_cp = 1, other eps | n_cp = 2, eps = 0 |
+|---|---|---|---|---|
+| WENO-M (Henrick, Aslam and Powers) | 5 | 5 (one reconstruction 5) | 5 for eps = dx^4 | 2 (one reconstruction 3) |
+| WENO-Z, q = 1 (Borges, Carmona, Costa and Don) | 5 | **4** (one reconstruction 5) | 5 for dx^3 and 10^-6; 4 for dx^4 | 2 (one reconstruction 4) |
+| WENO-Z, q = 2 | 5 | 5 | | 2 |
+
+These match the papers' statements: Henrick et al. read directly (5 at n_cp = 1, p. 557; rate 2 at n_cp = 2 for
+r = 3, eq. (60) and Table 10); Borges et al. (q = 1 gives 4 at n_cp = 1, q = 2 gives 5) and Don and Borges's eps
+range (eps of order at least dx^3 for q = 1) only through secondary sources, as the paper was not accessible to us.
+
+The map is rational in the weights, so WENO-M needs no new mechanism: the mapped weights are cleared the same way,
+and their denominator is positive because each g_k is a positive-definite form in (omega, 1) for 0 < d_k < 4/5.
+WENO-Z needs one: tau = |beta_i - beta_j| is not a power series. For one f, beta_i - beta_j has the sign of its
+first non-zero term for all small dx, so |beta_i - beta_j| = sigma (beta_i - beta_j) with sigma = +1 or -1. The
+checker decides every sign branch (two for one reconstruction, four for the difference), dropping only branches the
+leading term rules out by form; VERIFIED needs every branch, and no branch is picked by sampling. A REFUTED jet is
+checked exactly to lie in its branch. This needs tau of order at least every eps + beta_k (true for WENO5-Z in
+every regime above: beta_0 - beta_2 = dx^5 (-13/3 f'' f''' + f' f'''' + ...)), and an even q needs no split. At
+n_cp = 1 the sign of -13/3 f'' f''' is open, and all four branches give 4; at n_cp = 2 the shifted stencil's
+leading term 13/3 f'''^2 dx^6 is positive by form, which removes two branches, and it is of the same order as the
+indicators there, which is why WENO-Z also falls to 2.
+
+The original Jiang–Shu measurement (2.20) is fifth order where f' != 0 (v1). Why, and what the report's numerical
+tables show, is in `benchmark/outside/notes/jiang-shu-tables.md`: the O(h) weight errors d_k (4/5 - 4(k-1))
+(f''/f') h cancel against the candidate errors at O(h^4), and the tables' sub-fifth orders come from the critical
+points of their data on grids where eps = 10^-6 does not yet dominate the indicators there.
 
 ## Class theorems
 
