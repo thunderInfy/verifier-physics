@@ -595,6 +595,26 @@ def test_junk_multiplier_rejected():
 
 
 @needs_lean
+@pytest.mark.parametrize("ld_pot, junk", [
+    ("1/sqrt(x_0^2 + y_0^2) + 1/sqrt(x_1^2 + y_1^2)", "division by zero at the origin"),
+    ("1/sqrt(x_0^2 + y_0^2 - a^2) + 1/sqrt(x_1^2 + y_1^2 - a^2)", "sqrt of a negative number"),
+])
+def test_junk_discrete_lagrangian_not_verified(ld_pot, junk):
+    """Kepler-like L_d whose domain does not exclude the junk region: rotation invariance still
+    gives the identity where L_d is defined, but L_d is not physOK on all of D, so no VERIFIED."""
+    import json
+    from physverify.variational import VERIFIED, judge_file, load_variational
+    spec = json.loads((ROOT / "benchmark/variational/kepler-trapezoid.json").read_text())
+    spec["symbols"]["a"] = {"dim": "L"}
+    spec["discrete_lagrangian"] = (
+        f"h*(m/2*(((x_1 - x_0)/h)^2 + ((y_1 - y_0)/h)^2) + GM*m/2*({ld_pot}))")
+    spec["domain"] = ["m > 0", "GM > 0", "a > 0"]
+    spec["claims"] = spec["claims"][:1]
+    (r,) = judge_file(load_variational(spec))
+    assert r.verdict != VERIFIED, (junk, r.detail)
+
+
+@needs_lean
 def test_variational_judge_rejects_planner_tricks():
     from physverify.tools import variational as P
     from physverify.variational import UNKNOWN, judge

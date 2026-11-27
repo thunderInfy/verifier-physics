@@ -548,3 +548,38 @@ def judge_file(I: Integrator, propose=None, batch: bool = True) -> list[Result]:
                     res.detail = " ".join(r.log.split())[:400]
                 out[i] = res
     return out
+
+
+def guarantee(c: VClaim, r: Result) -> str:
+    if r.verdict == UNKNOWN:
+        return "none"
+    return EXACT_PY if c.kind == "consistent_order_p" else "proven (Lean)"
+
+
+def main(argv=None) -> int:
+    """`python -m physverify.variational benchmark/variational/`: the verdict table."""
+    import sys
+    paths = []
+    for a in (argv if argv is not None else sys.argv[1:]) or ["benchmark/variational"]:
+        p = Path(a)
+        paths += sorted(p.glob("*.json")) if p.is_dir() else [p]
+    rows, wrong, t0 = [], 0, time.monotonic()
+    for p in paths:
+        I = load_variational(p)
+        for c, r in zip(I.claims, judge_file(I)):
+            ok = r.verdict == c.expect
+            wrong += not ok
+            claim = c.kind + (f" {c.p}" if c.kind == "consistent_order_p" else "")
+            rows.append((p.stem, claim, c.expect, r.verdict + ("" if ok else "  (WRONG)"),
+                         guarantee(c, r)))
+    print("| integrator | claim | expected | verdict | guarantee |\n|---|---|---|---|---|")
+    for row in rows:
+        print("| " + " | ".join(row) + " |")
+    counts = {v: sum(r[3].startswith(v) for r in rows) for v in (VERIFIED, REFUTED, UNKNOWN)}
+    print(f"\n{len(rows)} claims: " + ", ".join(f"{n} {v}" for v, n in counts.items())
+          + f", {wrong} not as expected; {time.monotonic() - t0:.0f}s")
+    return 1 if wrong else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

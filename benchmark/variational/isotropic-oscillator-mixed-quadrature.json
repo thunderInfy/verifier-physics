@@ -1,0 +1,26 @@
+{
+  "kind": "variational",
+  "name": "isotropic oscillator in 2D, mixed quadrature",
+  "coordinates": ["x", "y"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "h": {"dim": "T"}, "m": {"dim": "M"},
+              "k": {"dim": "M T^-2"}},
+  "discrete_lagrangian": "h*(m/2*(((x_1 - x_0)/h)^2 + ((y_1 - y_0)/h)^2) - k/2*(x_0^2 + y_0*y_1))",
+  "lagrangian": "m/2*(x_dot^2 + y_dot^2) - k/2*(x^2 + y^2)",
+  "domain": ["m > 0", "k > 0"],
+  "claims": [
+    {
+      "claim": "discrete_momentum_conserved",
+      "quantity": "m*(x_0*y_1 - x_1*y_0)/h",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: L is rotation invariant but this L_d is not (x by the rectangle rule, y by y_0*y_1): the step treats x and y differently, so the discrete angular momentum of the symmetric case is not conserved"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 2,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "both coordinates get a centred DEL (force k x_1 in x, k (y_0 + y_2)/2 in y), so the broken symmetry costs exactness of J, not the order"
+    }
+  ]
+}
