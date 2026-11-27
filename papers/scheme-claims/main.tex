@@ -98,9 +98,8 @@ cells of width $\Delta x$ and advances cell averages $u_i^n$ by time steps $\Del
 \emph{conservative form} has the update
 \begin{equation}\label{eq:update}
 u_i^{n+1} = H(u_{i-1}^n, u_i^n, u_{i+1}^n) = u_i^n - \lambda\bigl(F(u_i^n, u_{i+1}^n) - F(u_{i-1}^n, u_i^n)\bigr),
-\qquad \lambda = \Delta t/\Delta x,
 \end{equation}
-where $F(u_L, u_R)$, the \emph{numerical flux}, approximates $f$ at the interface between two cells.
+with $\lambda = \Delta t/\Delta x$, where $F(u_L, u_R)$, the \emph{numerical flux}, approximates $f$ at the interface between two cells.
 Rusanov's flux \cite{rusanov1961} (also called local Lax--Friedrichs) is
 \[
 F(u_L, u_R) = \tfrac12\bigl(f(u_L) + f(u_R)\bigr) - \tfrac12\,\alpha\,(u_R - u_L),\qquad
@@ -131,7 +130,7 @@ rational arithmetic, $\lambda = 1$ and the state $(u_{i-1}, u_i, u_{i+1})$ =
 (\rn{$39/40, 19/20, 1/40$}{paper_numbers.py::rusanov_bounds}): raising $u_i$ by
 $1/100$ lowers $H$ from \rn{$2433/3200$}{paper_numbers.py::rusanov_bounds} to
 \rn{$60481/80000$}{paper_numbers.py::rusanov_bounds}. All states lie in the CFL box, so the claim is
-false. Before the check existed we had found a different counterexample by hand, at
+false. We had also found a different counterexample by hand, at
 $\lambda = 9/10$:
 \[
 H(1, 1, -\tfrac{9}{10}) = \text{\rn{$\tfrac{751}{4000}$}{tests/test_schemes.py::test_rusanov_monotone_bound_is_one_third}}
@@ -309,8 +308,8 @@ claim. Each reading has an expected truth value (true, false, or ``unsettled'', 
 The reading's verdict is the conjunction of its components' verdicts.
 
 \paragraph{C12: three readings of one sentence.} ``The Lax--Friedrichs scheme for Burgers' equation is
-first-order accurate, conservative, and captures shocks at the correct speed.'' The shock clause can
-mean two different things:
+first-order accurate, conservative, and captures shocks at the correct speed.'' It has three
+readings, because the shock clause alone can mean two different things:
 \begin{enumerate}
 \item \emph{All three clauses, unconditionally}: order 1 on smooth solutions, flux form, and the
   scheme's own shocks move at the Rankine--Hugoniot speed. Expected true; verdict \NR, a gap. The order
@@ -396,7 +395,7 @@ row cannot fire.\repro{tests/test_schemes.py::test_lax_richtmyer_never_fires_for
 \paragraph{Selected rows.} The full table has \rn{21}{paper_numbers.py::table_size} named claims
 and \rn{37}{paper_numbers.py::table_size} rows. Some of the rows used in this paper:
 \begin{center}\small
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}X l l@{}}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{4.7cm}>{\raggedright\arraybackslash}X l l@{}}
 \toprule
 claim & check (premise) & relation & guarantee \\ \midrule
 \code{conservative} & telescoping & \EQV & exact \\
@@ -499,15 +498,17 @@ main. The counts:\repro{paper_numbers.py::bench_counts}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
  & expected true & expected false & total \\ \midrule
-decisive and correct (match) & \rn{17}{paper_numbers.py::bench_counts} (all \V)
-  & \rn{17}{paper_numbers.py::bench_counts} (16 \R, 1 \RE) & \rn{34}{paper_numbers.py::bench_counts} \\
+decisive and correct (match) & \rn{17}{paper_numbers.py::bench_counts}
+  & \rn{17}{paper_numbers.py::bench_counts} & \rn{34}{paper_numbers.py::bench_counts} \\
 gap & \rn{7}{paper_numbers.py::bench_counts} & \rn{2}{paper_numbers.py::bench_counts}
   & \rn{9}{paper_numbers.py::bench_counts} \\
 wrong & 0 & 0 & \rn{0}{paper_numbers.py::bench_counts} \\
 \bottomrule
 \end{tabular}
 \end{center}
-One more reading (C18, reading 4) is ``unsettled'' and not scored. The 9 gaps by verdict:
+The expected-true matches are all \V; the expected-false ones are
+\rn{16}{paper_numbers.py::bench_counts} \R{} and \rn{1}{paper_numbers.py::bench_counts} \RE. One
+more reading (C18, reading 4) is ``unsettled'' and not scored. The 9 gaps by verdict:
 \rn{4}{paper_numbers.py::bench_counts} \UF, \rn{1}{paper_numbers.py::bench_counts} \U,
 \rn{4}{paper_numbers.py::bench_counts} \NR. A run takes under a minute:
 \code{uv run python -m physverify.schemes.bench benchmark/scheme-claims/}. A test fails if any verdict
