@@ -125,11 +125,8 @@ def test_cell_cap_gives_unknown_not_a_verdict(monkeypatch):
     with pytest.raises(L.TooMany):
         L._cells(checks.update(spec), cap=5)
     monkeypatch.setattr(L, "MAX_CELLS", 5)
-    L._CACHE.clear()
-    try:
-        r = L.tvd_harten(spec)
-    finally:
-        L._CACHE.clear()
+    monkeypatch.setattr(L, "_CACHE", {})        # an empty cache for this test; the session's is put back after
+    r = L.tvd_harten(spec)
     assert r["status"] == checks.UNKNOWN and "giving up" in r["detail"]
 
 

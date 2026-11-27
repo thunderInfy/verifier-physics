@@ -22,8 +22,8 @@ def _spec(name):
     return load(S / f"{name}.json")
 
 
-def _claims(spec, names):
-    return {v["claim"]: v for v in check({**spec, "named_claims": names}, (100, 200), (200, 400))["claims"]}
+def _claims(checked, spec, names):
+    return {v["claim"]: v for v in checked({**spec, "named_claims": names}, (100, 200), (200, 400))["claims"]}
 
 
 # ---------------------------------------------------------------- Part A: semi-discrete steady step
@@ -50,8 +50,8 @@ def test_roe_semidiscrete_step_is_exact_and_replays():
     assert any("expansion-shock weak solution" in a for a in r["assumptions"])
 
 
-def test_roe_semidiscrete_claim_refuted_exactly():
-    v = _claims(_spec("broken-burgers-roe-no-entropy-fix"), ["selects_entropy_solution_semidiscrete"])
+def test_roe_semidiscrete_claim_refuted_exactly(checked):
+    v = _claims(checked, _spec("broken-burgers-roe-no-entropy-fix"), ["selects_entropy_solution_semidiscrete"])
     s = v["selects_entropy_solution_semidiscrete"]
     assert s["verdict"] == C.REFUTED and s["guarantee"] == C.EXACT
     assert s["decided_by"] == ["steady_nonentropy_step_semidiscrete"]
@@ -61,7 +61,7 @@ def test_roe_semidiscrete_claim_refuted_exactly():
 
 
 @pytest.mark.parametrize("path", SPECS, ids=lambda p: p.stem)
-def test_tadmor_verified_flux_has_no_steady_step(path):
+def test_tadmor_verified_flux_has_no_steady_step(path, checked):
     """Cross-check of two exact checks. For a consistent flux, a steady step has F = f(uL) = f(uR), so
     [psi] = F [v] - [q], F - F* = [q]/[v] and Tadmor's Q = -[q]. For uL < uR with convex f the step is an
     expansion shock, which violates the entropy inequality for a strictly convex entropy: [q] > 0, so
@@ -73,17 +73,17 @@ def test_tadmor_verified_flux_has_no_steady_step(path):
     if t["status"] == checks.VERIFIED:
         assert st["status"] != checks.REFUTED
     if checks.numerical_flux(spec) is not None and "u^2" in spec["pde"]["flux"]:
-        v = _claims(spec, ["selects_entropy_solution_semidiscrete"])["selects_entropy_solution_semidiscrete"]
+        v = _claims(checked, spec, ["selects_entropy_solution_semidiscrete"])["selects_entropy_solution_semidiscrete"]
         assert v["verdict"] != C.INCONSISTENT
 
 
-def test_tadmor_verified_specs_on_disk():
+def test_tadmor_verified_specs_on_disk(checked):
     """The cross-check above has real cases: the three monotone Burgers fluxes (and the benchmark's
     variants) are Tadmor-VERIFIED, and the step check finds nothing, so they stay VERIFIED."""
     for name in TADMOR_OK:
         st = checks.steady_nonentropy_step_semidiscrete(_spec(name))
         assert st["status"] == checks.UNKNOWN and "proves nothing" in st["detail"] and "0 not decided" in st["detail"]
-        v = _claims(_spec(name), ["selects_entropy_solution_semidiscrete"])["selects_entropy_solution_semidiscrete"]
+        v = _claims(checked, _spec(name), ["selects_entropy_solution_semidiscrete"])["selects_entropy_solution_semidiscrete"]
         assert v["verdict"] == C.VERIFIED and v["decided_by"] == ["entropy_stability"]
 
 
@@ -99,7 +99,7 @@ def test_harten_fix_and_lax_friedrichs_viscosity_break_the_semidiscrete_step():
                                                        "F(uR, uR) - F(uL, uR)": "lam^-1"}
 
 
-def test_semidiscrete_needs_no_consistency_and_labels_the_search():
+def test_semidiscrete_needs_no_consistency_and_labels_the_search(checked):
     """An inconsistent flux (F(u, u) = f(u) + 1) whose interface fluxes are equal on a step: refuted
     without a consistency precondition. A flux steady only at (-1/3, 3/2): found by the labelled search."""
     spec = {"name": "inconsistent", "pde": {"flux": "u^2/2"},
@@ -108,7 +108,7 @@ def test_semidiscrete_needs_no_consistency_and_labels_the_search():
     assert checks.consistency(spec)["status"] == checks.REFUTED
     r = checks.steady_nonentropy_step_semidiscrete(spec)
     assert r["status"] == checks.REFUTED and (r["witness"]["uL"], r["witness"]["uR"]) == ("-1", "1")
-    assert _claims(spec, ["selects_entropy_solution_semidiscrete"])["selects_entropy_solution_semidiscrete"][
+    assert _claims(checked, spec, ["selects_entropy_solution_semidiscrete"])["selects_entropy_solution_semidiscrete"][
         "verdict"] == C.REFUTED
     off = {**spec, "scheme": {"numerical_flux": "uL^2/2 + (uR - uL)*(uL + 1/3)*(uR - 3/2)*(uR - uL - 11/6)"}}
     # F(u, u) = f(u); F(uL, uR) = f(uL) needs uL = -1/3 or uR = 3/2 or uR - uL = 11/6, and f(uL) = f(uR) needs uR = -uL
@@ -190,14 +190,14 @@ def test_refutation_bound_holds_on_a_grid():
 
 
 @pytest.mark.parametrize("name", ["advection-upwind", "advection-lax-friedrichs", "advection-lax-wendroff"])
-def test_stable_schemes_verified(name):
+def test_stable_schemes_verified(name, checked):
     spec = _spec(name)
     r = linear.von_neumann_small_cfl(spec)
     assert r["status"] == checks.VERIFIED and r["witness"]["nu0"] == "1"
     cert = r["witness"]["certificate"]
     assert all(Fraction(x) >= 0 for b in cert["boxes"] for row in b["bernstein"] for x in row)
     assert min(Fraction(b["nu"][0]) for b in cert["boxes"]) == 0
-    v = _claims(spec, ["stable_for_small_cfl"])["stable_for_small_cfl"]
+    v = _claims(checked, spec, ["stable_for_small_cfl"])["stable_for_small_cfl"]
     assert v["verdict"] == C.VERIFIED and v["decided_by"] == ["von_neumann_small_cfl"]
 
 
