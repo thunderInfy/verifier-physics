@@ -1,7 +1,7 @@
 # Outside benchmark, dev half: what the checker can state and decide
 
 The 99 dev items (9 sources, split in `FROZEN.md`) were read against the checker as it was on main
-(physverify/schemes, no changes). **Re-scored after a checker fix** (commit COMMIT): exact univariate
+(physverify/schemes, no changes). **Re-scored after a checker fix** (commit 055abd1): exact univariate
 nonnegativity in `positivity` and the linear TVD equivalence `tvd_linear`, both general, closed the two gaps on
 `harten_1982_highres:05`; no reading, spec or expected value changed, and no other verdict moved. Before the fix:
 12 of 14 readings decided, 7 / 6 MATCH, 0 WRONG. Readings and reasons are in `dev_readings.json`, following the rules and the gap
@@ -168,7 +168,7 @@ whether their hypotheses matter.
 
 ## Proposals
 
-The two small, general proposals from the gaps above are implemented (commit COMMIT), in a different form from
+The two small, general proposals from the gaps above are implemented (commit 055abd1), in a different form from
 the one first proposed:
 
 1. `checks.positivity`: subdividing the Bernstein test would not have been enough (an interior double root is
