@@ -458,7 +458,7 @@ def test_every_exact_verdict_in_scope_is_proven(certified):
     missing = [(s["name"], r["check"], r.get("lean")) for s, rep in pairs for r in rep["checks"]
                if _in_scope(r) and not r["guarantee"].startswith(LABELS)]
     assert not missing, missing
-    assert all(v.ok for v in results.values())
+    assert all(v.ok for v in results.values()), [n for n, v in results.items() if not v.ok]
 
 
 def test_verdicts_unchanged_and_claims_carry_the_label(certified):
@@ -534,8 +534,9 @@ def test_harten_tvd_replays_with_the_whole_statement_label(harten_certified):
 
 
 def test_harten_wrong_coefficient_is_rejected():
-    """A D larger than the scheme's (2 nu instead of nu in the upwind split) breaks the form identity;
-    the row keeps its exact-Python label and its status."""
+    """A D larger than the scheme's (2 nu instead of nu in the upwind split) breaks the form identity:
+    the TVD theorem is rejected, so the row keeps its status and only the label of its cell theorems
+    (minmod also holds on the sign cells), which reach every claim the row decides."""
     def bad(spec, r):
         return lean_planner.harten_proof(spec, r).replace("=> (((1 : ℝ) * lam) * (x2 - x1)", "=> ((2 * ((1 : ℝ) * lam)) * (x2 - x1)", 1)
     planner = types.SimpleNamespace(**{k: getattr(lean_planner, k) for k in dir(lean_planner) if not k.startswith("__")})
@@ -545,7 +546,10 @@ def test_harten_wrong_coefficient_is_rejected():
     r = next(x for x in rep["checks"] if x["check"] == "tvd_harten")
     assert bad(spec, r) != lean_planner.harten_proof(spec, r)
     lean_cert.certify([(spec, rep)], planner=planner)
-    assert (r["status"], r["guarantee"]) == (checks.VERIFIED, checks.EXACT)
+    assert (r["status"], r["guarantee"]) == (checks.VERIFIED, lean_cert.LEAN_CELLS)
+    assert "lean_claims" not in r and "TVD through Harten's lemma: not proven" in r["lean"]
+    v = next(x for x in rep["claims"] if x["claim"] == "tvd_under_cfl")
+    assert v["guarantee"] == lean_cert.LEAN_CELLS
 
 
 # ---------------------------------------------------------------- variational integrators

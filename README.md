@@ -41,7 +41,7 @@ installed, the result is `UNKNOWN` and the theory is not rejected.
 | Obligations: statement, guarantee, assumptions | yes | `physverify/obligations.py` |
 | Judge | yes | `physverify/judge.py` |
 | Lean definitions and theorems | kernel-checked | `lean/PhysVerify/` |
-| Class theorems (Harten's lemma, monotone ⇒ TVD) | proven in Lean; not yet used by the verdict path | `lean/PhysVerify/Harten.lean` |
+| Class theorems (Harten's lemma, monotone ⇒ TVD) | proven in Lean; `harten_tvd_of_form` backs the TVD verdicts certified in Harten's form with general C, D (through `Scheme.tvd_of_incremental`); the others are not used by verdicts | `lean/PhysVerify/Harten.lean` |
 | Scheme statements for Lean (from the spec) | yes | `physverify/schemes/lean_cert.py` |
 | Scheme proofs for Lean (from the witness) | no | `physverify/schemes/lean_planner.py` |
 | Interval replay checker for trajectories | validated numerics | `physverify/tools/enclosure.py` |
@@ -1826,7 +1826,15 @@ ubar in [m, M], which the sources assume.
 The checks above decide a property of one concrete scheme. A theorem about every scheme with a
 property needs the scheme's coefficients as variables, so it is a Lean theorem, not a check.
 `lean/PhysVerify/Harten.lean` has the first ones. They are proven (no `sorry`, standard axioms
-only), but no verdict calls them yet, so `tvd_under_cfl` still has no Lean meaning.
+only). One is used by verdicts: when `tvd_harten` holds in Harten's form with general C, D, the Lean
+replay states `TVD H` itself for every lam in the claimed range and proves it through
+`Scheme.tvd_of_incremental`, which is `harten_tvd_of_form` on `ZMod (k + 1)`, with the certificate's
+C and D (`lean_planner.harten_proof`). Replayed so far (`tests/test_lean.py -k harten`): minmod in Sweby
+form, Harten's Q(x) = x^2 + 1/4 scheme (`harten_1982_highres:05`, C, D > 0), first-order Lax-Friedrichs.
+That theorem states TVD only, so it labels `tvd_under_cfl` and `correct_shock_speed` (whose row uses
+TVD) and not `local_max_principle_under_cfl`, which keeps the cell label where the sign-cell
+certificate also holds and replays, and is exact Python otherwise. `tvd_under_cfl` still has no
+registry meaning theorem: its `tvd_linear` and cell paths do not go through `harten_tvd_of_form`.
 
 Setting: the periodic grid `ZMod N`, any `N ≥ 1` (`[NeZero N]`), values in any linearly ordered
 field (`ℚ` and `ℝ` both work), `TV u = Σ_i |u (i+1) - u i|`. Both coefficients of the interface
