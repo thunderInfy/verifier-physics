@@ -291,7 +291,24 @@ one oscillator (false); the constraint example above (true, expected `UNKNOWN`);
 energy divided by `l` with `l` left out of the domain (ill-posed, `UNKNOWN`: at `l = 0` Lean's
 `x/0 = 0` would make `dQ/dt = 0`).
 
-CONSERVED_TABLE
+```
+$ uv run python -m physverify.claims claims/conserved/
+|  constraint-multiplier-position         |  true   |  UNKNOWN   |  UNKNOWN   |   0s |
+|  coupled-oscillators-energy             |  true   |  VERIFIED  |  VERIFIED  |  14s |
+|  coupled-oscillators-one-energy         |  false  |  REFUTED   |  REFUTED   |  17s |
+|  kepler-angular-momentum-wrong-power    |  false  |  REFUTED   |  REFUTED   |  13s |
+|  kepler-angular-momentum                |  true   |  VERIFIED  |  VERIFIED  |  11s |
+|  kepler-energy-wrong-potential-sign     |  false  |  REFUTED   |  REFUTED   |  15s |
+|  kepler-energy                          |  true   |  VERIFIED  |  VERIFIED  |  13s |
+|  kepler-lrl-x                           |  true   |  VERIFIED  |  VERIFIED  |  13s |
+|  magnetic-canonical-momentum            |  true   |  VERIFIED  |  VERIFIED  |  11s |
+|  magnetic-kinetic-momentum              |  false  |  REFUTED   |  REFUTED   |  14s |
+|  pendulum-energy-over-length            |  ill    |  UNKNOWN   |  UNKNOWN   |  16s |
+|  pendulum-energy-wrong-sign             |  false  |  REFUTED   |  REFUTED   |  18s |
+|  pendulum-energy                        |  true   |  VERIFIED  |  VERIFIED  |  30s |
+
+13 claims: 6 VERIFIED, 5 REFUTED, 2 UNKNOWN, 0 wrong
+```
 
 Measured on our 2-CPU / 7–8 GB VMs, with other jobs running alongside:
 
@@ -303,9 +320,11 @@ Measured on our 2-CPU / 7–8 GB VMs, with other jobs running alongside:
 | same, warm: our build outputs deleted, Mathlib in the page cache | 1 min 29 s |
 | `lake build` with nothing to rebuild (hashes 2679 jobs) | 1 min 3 s |
 | one derivation certificate (`import PhysVerify.EulerLagrange`), warm | 6–28 s, typically about 10 s |
+| one conserved-quantity certificate (`import PhysVerify.Conserved`), warm | 6–30 s, typically 8–15 s |
 | same, after the page cache was evicted | 80–103 s |
 | whole benchmark (23 claims), warm | 4 min 24 s to 7 min |
-| `pytest tests/test_lean.py` (50 tests), warm | 19–20 min |
+| conserved-quantity benchmark (13 claims), warm | about 3 min |
+| `pytest tests/test_lean.py` (50 tests), warm | 19–20 min; the 17 conserved-quantity tests added since take about 4 min more |
 
 The difference between the first two rows is why no module imports all of Mathlib any more
 (`Expr`, `Deriv`, `Interval`, `Orbit` and `WellPosed` import only the modules they use),
