@@ -24,9 +24,9 @@ from fractions import Fraction
 
 import numpy as np
 
-from ..expr import intern, parse
+from ..expr import parse
 from . import checks, poly as P
-from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, UNKNOWN, _steps, ev, transmissive
+from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, UNKNOWN, _steps, evaluator, transmissive
 
 ORDER = 0.3
 GRIDS = (200, 400, 800, 1600)
@@ -40,14 +40,14 @@ def fan(x: np.ndarray, t: float, uL: float, uR: float, x0: float) -> np.ndarray:
 
 
 def run(H, uL: float, uR: float, x0: float, T: float, lam: float, n: int) -> dict:
-    H, dx = intern(H), 1 / n
+    f, dx = evaluator(H), 1 / n
     assert abs(x0 * n - round(x0 * n)) < 1e-9, "x0 must be a cell interface"
     x =(np.arange(n) + 0.5) * dx
     u = np.where(x < x0, uL, uR)
     steps, dt = _steps(T, lam * dx)
     with np.errstate(all="ignore"):
         for _ in range(steps):
-            u = ev(H, transmissive(u).with_lam(dt / dx))
+            u = f(transmissive(u).with_lam(dt / dx))
     d = np.abs(u - fan(x, T, uL, uR, x0))
     return {"N": n, "L1": float(np.sum(d) * dx), "Linf": float(np.max(d)),
             "max_jump": float(np.max(np.abs(np.diff(u)))), "ends": (float(u[0]), float(u[-1])),

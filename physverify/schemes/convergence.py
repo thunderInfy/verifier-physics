@@ -55,6 +55,41 @@ def ev(e: E, env: dict, memo: dict | None = None):
     return out
 
 
+_INFIX = {"add": "+", "sub": "-", "mul": "*", "div": "/"}
+
+
+def evaluator(e: E):
+    """`lambda env: ev(e, env)`, compiled once: a straight-line function with one line per distinct
+    subexpression of e, doing the same numpy operations on the same operands as ev (so the same values,
+    bit for bit) without the per-node recursion. Studies call it once per time step. Expressions ev
+    would reject fall back to ev itself, so they fail exactly as before."""
+    e = intern(e)
+    order, index = [], {}
+
+    def visit(x):
+        if id(x) not in index:
+            for y in x.args:
+                visit(y)
+            index[id(x)] = len(order)
+            order.append(x)
+    visit(e)
+    if any(x.kind not in _OPS | {"var", "lit", "pi"} or x.kind == "app" and x.name not in _F for x in order):
+        return lambda env: ev(e, env)
+    consts, lines = [], []
+    for i, x in enumerate(order):
+        k, a = x.kind, [f"t{index[id(y)]}" for y in x.args]
+        if k in ("lit", "powi", "rpow"):
+            consts.append(float(x.q))
+        rhs = (f"env[{x.name!r}]" if k == "var" else f"c[{len(consts) - 1}]" if k == "lit" else "pi" if k == "pi"
+               else f"-{a[0]}" if k == "neg" else f"{a[0]} {_INFIX[k]} {a[1]}" if k in _INFIX
+               else f"{a[0]} ** c[{len(consts) - 1}]" if k in ("powi", "rpow")
+               else f"sqrt({a[0]})" if k == "sqrt" else f"F[{x.name!r}]({a[0]})")
+        lines.append(f"    t{i} = {rhs}\n")
+    ns = {"c": consts, "pi": math.pi, "sqrt": np.sqrt, "F": _F}
+    exec("def f(env):\n" + "".join(lines) + f"    return t{len(order) - 1}\n", ns)
+    return ns["f"]
+
+
 def exact(problem: dict, x: np.ndarray, t: float) -> np.ndarray:
     """Exact solutions on the periodic unit interval."""
     amp = problem.get("amplitude", 1.0)
@@ -113,8 +148,8 @@ def transmissive(u) -> dict:
     return _Neighbours(lambda k: pad[2 + k: len(pad) - 2 + k])
 
 
-def _stencil(H: E, u, lam):
-    return ev(H, periodic(u).with_lam(lam))
+def _stencil(f, u, lam):
+    return f(periodic(u).with_lam(lam))
 
 
 def _grid(n):
@@ -126,9 +161,8 @@ def _errors(u, ref, dx):
     return float(np.sum(d) * dx), float(np.max(d))
 
 
-def _rk4(H: E, u, dx, dt, steps):
-    H = intern(H)
-    rhs = lambda v: (_stencil(H, v, 1.0) - v) / dx
+def _rk4(f, u, dx, dt, steps):
+    rhs = lambda v: (_stencil(f, v, 1.0) - v) / dx
     for _ in range(steps):
         k1 = rhs(u); k2 = rhs(u + dt / 2 * k1); k3 = rhs(u + dt / 2 * k2); k4 = rhs(u + dt * k3)
         u = u + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
@@ -141,40 +175,40 @@ def _steps(T, dt):
 
 
 def combined(H: E, problem: dict, T: float, lam: float, boundary: str = "periodic", grids=GRIDS) -> list:
-    H, rows = intern(H), []
+    f, rows = evaluator(H), []
     for n in grids:
         x, dx = _grid(n), 1 / n
         steps, dt = _steps(T, lam * dx)
         u = exact(problem, x, 0)
         for _ in range(steps):
             if boundary == "periodic":
-                u = _stencil(H, u, dt / dx)
+                u = _stencil(f, u, dt / dx)
             else:
-                u = ev(H, transmissive(u).with_lam(dt / dx))
+                u = f(transmissive(u).with_lam(dt / dx))
         rows.append((n, *_errors(u, exact(problem, x, T), dx)))
     return rows
 
 
 def space(H: E, problem: dict, T: float) -> list:
-    rows = []
+    f, rows = evaluator(H), []
     for n in GRIDS:
         x, dx = _grid(n), 1 / n
         steps, dt = _steps(T, 0.2 * dx)
-        rows.append((n, *_errors(_rk4(H, exact(problem, x, 0), dx, dt, steps), exact(problem, x, T), dx)))
+        rows.append((n, *_errors(_rk4(f, exact(problem, x, 0), dx, dt, steps), exact(problem, x, T), dx)))
     return rows
 
 
 def time(H: E, problem: dict, T: float, n: int = 200) -> list:
-    H = intern(H)
+    f = evaluator(H)
     x, dx = _grid(n), 1 / n
     steps, dt = _steps(T, dx / 20)
-    ref = _rk4(H, exact(problem, x, 0), dx, dt, steps)
+    ref = _rk4(f, exact(problem, x, 0), dx, dt, steps)
     rows = []
     for nu in (0.8, 0.4, 0.2, 0.1, 0.05):
         steps, dt = _steps(T, nu * dx)
         u = exact(problem, x, 0)
         for _ in range(steps):
-            u = u + dt * (_stencil(H, u, 1.0) - u) / dx
+            u = u + dt * (_stencil(f, u, 1.0) - u) / dx
         rows.append((steps, *_errors(u, ref, dx)))
     return rows
 

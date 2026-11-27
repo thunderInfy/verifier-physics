@@ -33,10 +33,10 @@ from itertools import product
 
 import numpy as np
 
-from ..expr import E, intern, lit, parse, substitute, var, variables as expr_variables
+from ..expr import E, lit, parse, substitute, var, variables as expr_variables
 from . import checks, poly as P
 from .checks import NOT_APPLICABLE, REFUTED, UNKNOWN, VERIFIED, result
-from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, _steps, ev
+from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, _steps, evaluator
 
 SLOTS = ("m1", "0", "p1")
 
@@ -367,7 +367,7 @@ def _shallow_water(spec: dict) -> bool:
 
 def run(Hs: list, case: tuple, g: float, x0: float, T: float, lam: float, n: int) -> dict:
     hL, uL, hR, uR = case
-    Hs, dx = [intern(H) for H in Hs], 1 / n
+    fs, dx = [evaluator(H) for H in Hs], 1 / n
     assert abs(x0 * n - round(x0 * n)) < 1e-9, "x0 must be a cell interface"
     x = (np.arange(n) + 0.5) * dx
     h, m = np.where(x < x0, hL, hR), np.where(x < x0, hL * uL, hR * uR)
@@ -378,7 +378,7 @@ def run(Hs: list, case: tuple, g: float, x0: float, T: float, lam: float, n: int
             cfl = max(cfl, float(np.max(np.abs(m / h) + np.sqrt(g * h))) * dt / dx)
             sh = lambda a: (np.concatenate(([a[0]], a[:-1])), a, np.concatenate((a[1:], [a[-1]])))
             env = {"lam": dt / dx, **dict(zip(("hm1", "h0", "hp1"), sh(h))), **dict(zip(("mm1", "m0", "mp1"), sh(m)))}
-            h, m = [np.broadcast_to(ev(H, env), h.shape).astype(float) for H in Hs]
+            h, m = [np.broadcast_to(f(env), h.shape).astype(float) for f in fs]
             low = float(np.min(h)) if np.all(np.isfinite(h)) else float("nan")
             min_h = min(min_h, low) if math.isfinite(low) else low
             if not low > 0:

@@ -42,9 +42,8 @@ from fractions import Fraction
 
 import numpy as np
 
-from ..expr import intern
 from . import checks, poly as P
-from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, UNKNOWN, _steps, ev, transmissive
+from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, UNKNOWN, _steps, evaluator, transmissive
 
 TOL = 0.5
 LEVELS = (0.2, 0.5, 0.8)
@@ -74,7 +73,7 @@ def crossing(u: np.ndarray, mid: float, dx: float) -> tuple[float, int]:
 
 
 def run(H, uL: float, uR: float, x0: float, T: float, lam: float, n: int) -> dict:
-    H, dx = intern(H), 1 / n
+    f, dx = evaluator(H), 1 / n
     assert abs(x0 * n - round(x0 * n)) < 1e-9, "x0 must be a cell interface"
     u = np.where((np.arange(n) + 0.5) * dx < x0, uL, uR)
     mid = (uL + uR) / 2
@@ -90,7 +89,7 @@ def run(H, uL: float, uR: float, x0: float, T: float, lam: float, n: int) -> dic
                 ts.append(k * dt)
                 xs.append([crossing(u, c, dx)[0] for c in levels])
             if k < steps:
-                u = ev(H, transmissive(u).with_lam(dt / dx))
+                u = f(transmissive(u).with_lam(dt / dx))
     ts, xs = np.array(ts), np.array(xs)
     finite = bool(np.all(np.isfinite(u)) and np.all(np.isfinite(xs)))
     late = list(np.polyfit(ts, xs, 1)[0]) if finite and len(ts) > 1 else [float("nan")] * len(LEVELS)
