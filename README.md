@@ -543,6 +543,7 @@ Timings on the same 2-CPU VM, a fresh worktree:
 | variational bench with the update maps (38 claims, 20 Lean certificates in one batch per file), warm | 2 min 18 s |
 | `lake build`, cold after `lake exe cache get`: `PhysVerify.Update` alone | 4.0 s |
 | `pytest tests/test_lean.py -k update` (5 tests), warm | 1 min 41 s |
+| `pytest tests/test_lean.py -k "variational or discrete or Discrete or dmomentum or update"` (25 tests, both file kinds), warm | 6 min 13 s |
 | `pytest tests/test_lean.py -k "variational or discrete or Discrete or dmomentum"` (15 tests), warm | about 4 min 20 s |
 
 ## Discrete schemes
