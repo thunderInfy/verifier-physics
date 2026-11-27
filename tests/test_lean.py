@@ -854,3 +854,34 @@ def test_kernel_judge_rejects_planner_tricks():
     assert judge(K, H, [v]).verdict == UNKNOWN              # the true claim's certificate
     assert judge(K, Hmod, [P.propose(K, H)[0], ("verified", "sorry"), ("refuted", "simp_all"),
                            ("verified", "decide")]).verdict == UNKNOWN
+
+
+# ---------------------------------------------------------------- class theorems (Harten)
+HARTEN_MOD = "PhysVerify.Harten"
+
+
+@needs_lean
+def test_harten_builds_and_instances_use_standard_axioms():
+    """PhysVerify.Harten builds, and instances over ℚ and ℝ, on grids of 1, 2 and 7 cells, rest
+    only on the standard axioms (so no theorem they use has a sorry)."""
+    import subprocess
+    r = subprocess.run(["lake", "build", HARTEN_MOD], cwd=lean_backend.LEAN_DIR,
+                       env=lean_backend._env(), capture_output=True, text=True, timeout=1800)
+    assert r.returncode == 0, (r.stdout + r.stderr)[-3000:]
+    assert "sorry" not in r.stdout + r.stderr
+    items = [
+        ("harten_q1", "∀ (u C D : ZMod 1 → ℚ), (∀ j, 0 ≤ C j) → (∀ j, 0 ≤ D j) → "
+                      "(∀ j, C j + D j ≤ 1) → TV (hartenStep u C D) ≤ TV u",
+         "intro u C D hC hD hCD\nexact harten_tvd u C D hC hD hCD"),
+        ("linear_r2", "∀ u : ZMod 2 → ℝ, TV (linStep (1/4 : ℝ) (1/2) (1/4) u) ≤ TV u",
+         "intro u\nexact linear_tvd (by norm_num) (by norm_num) (by norm_num) (by norm_num) u"),
+        ("upwind_q7", "∀ u : ZMod 7 → ℚ, TV (upwindStep (1 : ℚ) u) ≤ TV u",
+         "intro u\nexact upwind_tvd (by norm_num) le_rfl u"),
+        ("monotone_r7", "∀ (F : ℝ → ℝ → ℝ) (lam : ℝ), Monotone3 F lam → "
+                        "∀ u : ZMod 7 → ℝ, TV (consStep F lam u) ≤ TV u",
+         "intro F lam h u\nexact monotone_tvd F lam h u"),
+    ]
+    out = lean_backend.check_batch(items, preamble="open PhysVerify.Harten", module=HARTEN_MOD,
+                                   opens="PhysVerify")
+    for name, res in out.items():
+        assert res.ok, (name, res.axioms, res.log[-2000:])
