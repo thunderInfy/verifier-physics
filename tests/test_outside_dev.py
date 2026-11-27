@@ -55,7 +55,7 @@ def test_no_wrong_verdict_and_every_gap_reading_is_explained(rows):
 
 def test_headline_numbers_in_dev_results(rows):
     s = run_dev.summary(rows)
-    assert (s["stated"], s["readings"], s["decided"]) == (9, 14, 14)
+    assert (s["stated"], s["readings"], s["decided"]) == (11, 16, 15)
     text = (B / "DEV_RESULTS.md").read_text()
     for needle in (f"{s['stated']} of {s['items']}", f"{s['decided']} of {s['readings']}"):
         assert needle in text

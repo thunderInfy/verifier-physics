@@ -1,0 +1,19 @@
+{
+ "name": "Burgers with eta = exp(u), q = (u - 1) exp(u) (a true pair, outside the rational fragment)",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uL*uR + uR^2)/6"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "entropy_pair",
+   "eta": "exp(u)",
+   "q": "(u - 1)*exp(u)"
+  }
+ }
+}

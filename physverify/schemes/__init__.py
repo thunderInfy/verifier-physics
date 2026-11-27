@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import checks, claims, convergence, entropy, fixedjump, limiters, linear, shock, shockspeed, systems
+from . import checks, claims, convergence, entropy, fixedjump, identity, limiters, linear, shock, shockspeed, systems
 
 
 def load(path) -> dict:
@@ -59,6 +59,8 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
         out += [limiters.tvd_harten(spec), limiters.tv_increase(spec), linear.tvd_linear(spec)]
     if "local_max_principle_under_cfl" in names:
         out += [limiters.max_principle_violation(spec), linear.max_principle_linear(spec)]
+    if "stated_identity" in params or "stated_identity" in names:
+        out.append(identity.stated_identity(spec))
     if "smooth_truncation" in params or "truncation_order_smooth_data" in names:
         out += [limiters.truncation_branches(spec), limiters.truncation_smooth_data(spec)]
     # preconditions of the convergence rows for correct_shock_speed and limit_is_weak_solution

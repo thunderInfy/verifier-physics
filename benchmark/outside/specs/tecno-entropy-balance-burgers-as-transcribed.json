@@ -1,0 +1,28 @@
+{
+ "name": "Lemma 3.1, identity (3.3) with ^Q as transcribed (^Q = ~Q + (1/2) v_bar D [[v]]), scalar instance: Burgers' equation, eta = u^2/2 (v = u), the two-point entropy conservative flux ~F = (uL^2 + uL uR + uR^2)/6 with ~Q = v_bar ~F - psi_bar (2.3), psi = u^3/6, and D = 1 in (3.2)",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uL*uR + uR^2)/6 - (uR - uL)/2"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "entropy_balance",
+   "eta": "u^2/2",
+   "let": {
+    "Ft": "(uL^2 + uL*uR + uR^2)/6",
+    "vbar": "(uL + uR)/2",
+    "psibar": "(uL^3 + uR^3)/12",
+    "Qt": "vbar*Ft - psibar",
+    "jv": "uR - uL",
+    "Dm": "1"
+   },
+   "entropy_flux": "Qt + vbar*Dm*jv/2",
+   "dissipation": "-((up1 - u0)*Dm*(up1 - u0) + (u0 - um1)*Dm*(u0 - um1))/4"
+  }
+ }
+}

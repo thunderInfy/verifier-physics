@@ -152,6 +152,21 @@ KINDS: dict[str, dict] = {
         "gloss": "the scheme converges in L1 to the exact (entropy) Riemann solution",
         "quantifier": "on the spec's Riemann data: ||u_dx - u_exact||_L1 -> 0 as dx -> 0 at fixed dt/dx",
         "layers": ["schemes"], "meaning": None, "params": {}},
+    "stated_identity": {
+        "gloss": "a formula the source prints (numerical entropy flux, entropy pair, viscosity coefficient Q, "
+                 "amplification factor g) satisfies the identity that defines it (scalar 1D laws)",
+        "quantifier": "for all states (and lam, nu, theta) in the stated domain with every denominator non-zero: "
+                      "LHS - RHS = 0, as a rational function (Laurent polynomial in z = e^{i theta} for g)",
+        "layers": ["schemes"], "meaning": None,
+        "params": {"form": {"schemes": "claims.stated_identity.form"},
+                   "eta": {"schemes": "claims.stated_identity.eta?"},
+                   "q": {"schemes": "claims.stated_identity.q?"},
+                   "entropy_flux": {"schemes": "claims.stated_identity.entropy_flux?"},
+                   "dissipation": {"schemes": "claims.stated_identity.dissipation?"},
+                   "Q": {"schemes": "claims.stated_identity.Q?"},
+                   "g": {"schemes": "claims.stated_identity.g?"},
+                   "let": {"schemes": "claims.stated_identity.let?"},
+                   "domain": {"schemes": "claims.stated_identity.domain?"}}},
     # variational integrators and explicit update maps (physverify/variational.py)
     "del_equations": {
         "gloss": "the claimed update is the discrete Euler–Lagrange equations of L_d",

@@ -45,6 +45,7 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "order_l1/combined": EMPIRICAL, "order_linf/combined": EMPIRICAL}
 GUARANTEE.update({"flux_lipschitz": EXACT, "shock_scope_monotone": EXACT, "shock_scope_tvd": EXACT})  # shockspeed.py
 GUARANTEE.update({"stationary_rh_violation": EXACT, "stationary_shock_rh_violation": EXACT})  # fixedjump.py
+GUARANTEE.update({"stated_identity": EXACT})  # identity.py
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -234,6 +235,9 @@ CLAIMS = {
                                   ("depth_positivity_exact", EQUIVALENT, _DEPTH_STEP))),
     "converges_to_riemann_solution": ("the scheme converges in L1 to the exact (entropy) Riemann solution",
                                       (("riemann_l1", NECESSARY, "on the spec's Riemann data, grids and dt/dx only"),)),
+    # printed formulas (identity.py): the check decides the stated identity both ways
+    "stated_identity": ("the stated expressions satisfy the stated identity: LHS - RHS = 0 for all states in the "
+                        "stated domain", (("stated_identity", EQUIVALENT, ""),)),
 }
 claimkinds.require("schemes", CLAIMS)            # one reading per name, shared with the other layers
 

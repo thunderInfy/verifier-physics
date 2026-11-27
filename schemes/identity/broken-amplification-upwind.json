@@ -1,0 +1,21 @@
+{
+ "name": "Upwind, linear advection a = 1, with the sign of nu flipped: g = 1 + nu (1 - e^{-i theta})",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "amplification",
+   "g": "1 + nu*(1 - z^-1)"
+  }
+ }
+}

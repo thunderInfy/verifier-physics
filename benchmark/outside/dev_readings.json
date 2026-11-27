@@ -1794,17 +1794,38 @@
   },
   {
    "id": "fjordholm_mishra_tadmor_2012_tecno:02",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "system",
-      "claim-kind-missing"
+     "field": "both",
+     "reading": "the scheme with flux ~F is second-order accurate AND entropy conservative with the numerical entropy flux (2.3): d/dt E(u_i) + (~Q_{i+1/2} - ~Q_{i-1/2})/dx = 0, ~Q = v_bar ~F - psi_bar",
+     "narrowing": "scalar Burgers' equation with eta = u^2/2 (the sentence is about systems; the UNSURE expectation comes from the non-uniqueness of (2.2) for systems, which a scalar law does not have)",
+     "gap": "the entropy-conservation conjunct is VERIFIED; second-order accuracy of a semi-discrete flux difference has no named claim, so the conjunction is UNKNOWN",
+     "formalization": [
+      {
+       "unformalized": "second-order accurate: no named claim for semi-discrete order of accuracy"
+      },
+      {
+       "spec": "tecno-entropy-conservative-burgers.json",
+       "claim": "stated_identity",
+       "relation": "same"
+      }
      ],
-     "note": "every entropy conservative flux of a system; no named claim for entropy conservation (equality) or for semi-discrete order"
+     "actual": {
+      "verdict": "UNKNOWN",
+      "components": [
+       {
+        "named": "UNFORMALIZED",
+        "reading": "UNFORMALIZED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
     "alone": "UNSCORED",
     "with_hypotheses": "UNSCORED"
@@ -1855,19 +1876,34 @@
   },
   {
    "id": "fjordholm_mishra_tadmor_2012_tecno:04",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "claim-kind-missing"
+     "field": "both",
+     "reading": "the identity (3.3) holds for the scheme with flux (3.2), with the numerical entropy flux ^Q as the sentence defines it (plus sign); the sentence's content is this identity, so the reading is the identity itself (its '<= 0' part is a separate, true clause and does not rescue a false identity)",
+     "narrowing": "scalar Burgers' equation, eta = u^2/2 (v = u, psi = u^3/6), its two-point entropy conservative flux ~F = (uL^2 + uL uR + uR^2)/6 with ~Q = v_bar ~F - psi_bar from (2.3), and D = 1; the identity is FALSE on this instance as on the justification's (f = 0), since the residual (u_{i+1}^2 - 2 u_i^2 + u_{i-1}^2)/2 does not depend on the flux",
+     "transcription": "checked against the rendered p. 551 of the publisher PDF (see notes/tecno04-transcription.md)",
+     "formalization": [
+      {
+       "spec": "tecno-entropy-balance-burgers-as-transcribed.json",
+       "claim": "stated_identity",
+       "relation": "same"
+      }
      ],
-     "note": "an identity for a printed numerical entropy flux (with a sign misprint; the justification's counterexample is scalar, so 'system' does not block); entropy_stable_tadmor checks Tadmor's inequality, which does not involve the printed ^Q: on Burgers with D = 1 it gives VERIFIED, so the reading 'the scheme (3.2) is entropy stable' would be WRONG on a sentence that is FALSE as printed"
+     "actual": {
+      "verdict": "REFUTED",
+      "components": [
+       {
+        "named": "REFUTED",
+        "reading": "REFUTED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {

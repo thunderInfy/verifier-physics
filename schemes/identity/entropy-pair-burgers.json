@@ -1,0 +1,19 @@
+{
+ "name": "Burgers entropy pair eta = u^2/2, q = u^3/3",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uL*uR + uR^2)/6"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "entropy_pair",
+   "eta": "u^2/2",
+   "q": "u^3/3"
+  }
+ }
+}

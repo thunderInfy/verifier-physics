@@ -24,6 +24,7 @@ papers.
   plus `refutation` (source, URL, location, verbatim quote) and `original_source`. Never mixed into `items.jsonl`.
 - `FROZEN.md`: the dev/heldout split (by source hash) and the tallies at freeze time.
 - `ERRATA.md`: corrections after the freeze, with before/after values. Empty at freeze.
+- `notes/`: checks of individual transcriptions against the sources (e.g. `tecno04-transcription.md`).
 
 ## Reading the expected values
 

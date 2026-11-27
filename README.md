@@ -1203,6 +1203,7 @@ to refute.
 | `positive_depth_under_cfl` (systems) | depth_positivity (Riemann runs) | necessary | empirical |
 | | depth_positivity_exact (induction step on the stencil) | equivalent | exact |
 | `converges_to_riemann_solution` (systems) | riemann_l1 (against the exact Riemann solution) | necessary | empirical |
+| `stated_identity` | stated_identity (LHS - RHS as a rational function; a rational witness point) | equivalent | exact Python (the poly.py normal form is trusted); no Lean meaning |
 
 Tadmor's inequality is about the method of lines and says nothing about time stepping, so it
 bears only on the semi-discrete claim. For the fully discrete scheme, monotonicity verifies the
@@ -1332,6 +1333,37 @@ scheme is monotone under nu <= 1" (C23) is REFUTED exactly. "Order 2 in L1 witho
 theorem turns a refinement study into a proof). `GAPS.md` there ranks the gaps. The largest
 remaining ones are order of accuracy and entropy claims for nonlinear schemes, and stability claims
 that need a global parameter or a regime the spec cannot state.
+
+### Printed formulas: stated identities
+
+The other checks decide properties of a scheme. They say nothing about whether a formula a paper
+prints is right: a paper can print its numerical entropy flux with a wrong sign while the scheme
+is entropy stable all the same. `stated_identity` (`physverify/schemes/identity.py`) checks the
+printed object. A spec gives the printed expressions in `claims.stated_identity` and picks the
+identity they must satisfy (`form`):
+
+| form | identity (scalar 1D) | stated keys |
+|---|---|---|
+| `entropy_balance` | eta'(u_i) (-(F_{i+1/2} - F_{i-1/2})) = -(Qh_{i+1/2} - Qh_{i-1/2}) + D on the 3-point stencil (the semi-discrete entropy balance times dx; D defaults to 0, entropy conservation) | `eta`, `entropy_flux` (Qh in uL, uR), `dissipation` (D in um1, u0, up1) |
+| `entropy_pair` | q'(u) = eta'(u) f'(u) | `eta`, `q` |
+| `viscosity_form` | F(uL, uR) = (f(uL) + f(uR))/2 - Q (uR - uL)/2 | `Q` (in uL, uR, lam; `nu` = lam*a for a linear f) |
+| `amplification` | the stated g equals the symbol sum_k c_k(nu) z^k of a linear update, z = e^{i theta} | `g` (in nu, z) |
+
+`let` names subexpressions (the paper's ~F, ~Q, v-bar, ...), and `domain` lists conditions
+`p > 0` or `p >= 0`. LHS - RHS is brought to N/Dn over the normal form of `poly.py`. Division by a
+sum is allowed here, and the identity then holds wherever every denominator is non-zero. VERIFIED
+means N normalises to 0. REFUTED means an exact rational point in the domain, with Dn != 0, where
+N/Dn != 0. For `amplification` that point is a rational nu and a rational point
+((1 - t^2) + 2ti)/(1 + t^2) on the unit circle, evaluated in exact complex rationals. Everything
+else is UNKNOWN: exp, log, non-integer powers, or a non-zero N with no witness found. No verdict
+comes from floating-point sampling. The rows are in `schemes/identity/` and `tests/test_stated_identity.py`.
+In `benchmark/outside`, the identity (3.3) of `fjordholm_mishra_tadmor_2012_tecno:04` as
+transcribed is REFUTED (residual (up1^2 - 2 u0^2 + um1^2)/2, the difference across the cell of
+v-bar [v]), and it is VERIFIED with the minus sign that the paper's Lemma 3.2 uses.
+
+Not covered: systems (matrix D, vector entropy variables), fully discrete identities (energy
+identities summed over the grid, such as E^{n+1} = E^n + ...), stencils wider than three points for
+the balance form, and non-rational entropies (exp, log).
 
 ### Systems
 
@@ -1494,6 +1526,7 @@ Params gives where each layer reads a parameter (see `params` in the module docs
 | `hyperbolic` | the system is strictly hyperbolic on the stated domain | for all q in the domain: df/dq has real, distinct eigenvalues | schemes | none | gloss only |
 | `positive_depth_under_cfl` | the water depth h stays positive under the claimed CFL number (shallow water) | for all positive data and every step at which the CFL condition holds on every stencil: h_i^{n+1} > 0 | schemes | c: `claims.riemann.cfl` | gloss only |
 | `converges_to_riemann_solution` | the scheme converges in L1 to the exact (entropy) Riemann solution | on the spec's Riemann data: \|\|u_dx - u_exact\|\|_L1 -> 0 as dx -> 0 at fixed dt/dx | schemes | none | gloss only |
+| `stated_identity` | a formula the source prints (numerical entropy flux, entropy pair, viscosity coefficient Q, amplification factor g) satisfies the identity that defines it (scalar 1D laws) | for all states (and lam, nu, theta) in the stated domain with every denominator non-zero: LHS - RHS = 0, as a rational function (Laurent polynomial in z = e^{i theta} for g) | schemes | form: `claims.stated_identity.form`; eta: `claims.stated_identity.eta?`; q: `claims.stated_identity.q?`; entropy_flux: `claims.stated_identity.entropy_flux?`; dissipation: `claims.stated_identity.dissipation?`; Q: `claims.stated_identity.Q?`; g: `claims.stated_identity.g?`; let: `claims.stated_identity.let?`; domain: `claims.stated_identity.domain?` | gloss only |
 | `del_equations` | the claimed update is the discrete Euler–Lagrange equations of L_d | for every triple (q_k, q_k+1, q_k+2) in D: DEL(L_d) = 0 iff the claimed update holds | variational | none | `del_verified_meaning` |
 | `discrete_momentum_conserved` | J(q0, q1) is constant, exactly, along every solution of the DEL equations that stays in D (a Noether momentum or any other such J) | for every N and every discrete trajectory q_0..q_N+1 in D solving the DEL: J(q_N, q_N+1) = J(q_0, q_1) | variational | none | `dmomentum_meaning` |
 | `update_conserves` | the explicit update map z' = Phi(z) conserves J exactly | for all z in D: J(Phi(z)) = J(z); so along every orbit in D, J(z_N) = J(z_0) | variational | none | `update_conserves_meaning` |
@@ -1535,6 +1568,9 @@ To check certificates on a remote GCP machine instead, set `PHYSVERIFY_LEAN=vm` 
   such as those on HEPData, are not supported yet.
 - The hyperbolicity check for systems decides 2x2 systems only (the discriminant tr^2 - 4 det).
   For n > 2 it returns UNKNOWN.
+- Stated identities (`stated_identity`) are scalar only. Systems with matrix dissipation and
+  vector entropy variables are out of scope, as are summed fully discrete identities and entropies
+  outside the rational fragment (exp, log).
 - The orbit check is deliberately weak. A 1/r³ force, the borderline case, is not rejected.
 - Two steps are assumptions rather than Lean proofs: the radial equation of motion for a central
   force, and the translation from a theory file to the Lean expression. Both are listed on every

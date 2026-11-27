@@ -1,0 +1,24 @@
+{
+ "name": "Theorem 2.1, entropy identity (2.1) with ~Q = v_bar ~F - psi_bar (2.3), scalar instance: Burgers' equation, eta = u^2/2, the two-point entropy conservative flux ~F = (uL^2 + uL uR + uR^2)/6 (the unique solution of (2.2) for a scalar law), psi = u^3/6",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uL*uR + uR^2)/6"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "entropy_balance",
+   "eta": "u^2/2",
+   "let": {
+    "Ft": "(uL^2 + uL*uR + uR^2)/6",
+    "vbar": "(uL + uR)/2",
+    "psibar": "(uL^3 + uR^3)/12"
+   },
+   "entropy_flux": "vbar*Ft - psibar"
+  }
+ }
+}

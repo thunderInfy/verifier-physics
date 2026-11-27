@@ -1,0 +1,21 @@
+{
+ "name": "Lax-Friedrichs, linear advection a = 1: numerical viscosity Q = 1/lam",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + uR)/2 - (uR - uL)/(2*lam)"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "viscosity_form",
+   "Q": "1/lam"
+  }
+ }
+}

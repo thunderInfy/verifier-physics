@@ -1,0 +1,24 @@
+{
+ "name": "Entropy conservation (D = 0) of Burgers' two-point entropy conservative flux, eta = u^2/2, ~Q = vbar ~F - psibar",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uL*uR + uR^2)/6"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "entropy_balance",
+   "eta": "u^2/2",
+   "let": {
+    "Ft": "(uL^2 + uL*uR + uR^2)/6",
+    "vbar": "(uL + uR)/2",
+    "psibar": "(uL^3 + uR^3)/12"
+   },
+   "entropy_flux": "vbar*Ft - psibar"
+  }
+ }
+}

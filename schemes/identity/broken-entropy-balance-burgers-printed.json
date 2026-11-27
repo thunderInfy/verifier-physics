@@ -1,0 +1,28 @@
+{
+ "name": "Semi-discrete entropy balance (3.3) for Burgers, eta = u^2/2, entropy conservative flux ~F = (uL^2 + uL uR + uR^2)/6 plus diffusion D = 1; numerical entropy flux as transcribed (plus sign)",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uL*uR + uR^2)/6 - (uR - uL)/2"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "entropy_balance",
+   "eta": "u^2/2",
+   "let": {
+    "Ft": "(uL^2 + uL*uR + uR^2)/6",
+    "vbar": "(uL + uR)/2",
+    "psibar": "(uL^3 + uR^3)/12",
+    "Qt": "vbar*Ft - psibar",
+    "jv": "uR - uL",
+    "Dm": "1"
+   },
+   "entropy_flux": "Qt + vbar*Dm*jv/2",
+   "dissipation": "-((up1 - u0)*Dm*(up1 - u0) + (u0 - um1)*Dm*(u0 - um1))/4"
+  }
+ }
+}

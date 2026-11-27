@@ -1,0 +1,27 @@
+{
+ "name": "Semi-discrete entropy balance (3.3) of a first-order entropy stable flux, scalar instance f = 0, eta = u^2/2, D = 1 (so ~F = ~Q = 0 and F = -(uR - uL)/2); numerical entropy flux with the minus sign of Lemma 3.2",
+ "pde": {
+  "flux": "0"
+ },
+ "scheme": {
+  "numerical_flux": "-(uR - uL)/2"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "entropy_balance",
+   "eta": "u^2/2",
+   "let": {
+    "Ft": "0",
+    "Qt": "0",
+    "vbar": "(uL + uR)/2",
+    "jv": "uR - uL",
+    "Dm": "1"
+   },
+   "entropy_flux": "Qt - vbar*Dm*jv/2",
+   "dissipation": "-((up1 - u0)*Dm*(up1 - u0) + (u0 - um1)*Dm*(u0 - um1))/4"
+  }
+ }
+}
