@@ -115,7 +115,7 @@ $ uv run python -m physverify.claims claims/
 | kepler-missing-factor-2    | false | REFUTED  | REFUTED  | ok       |    10s |
 | pendulum-empty-domain      | ill   | UNKNOWN  | UNKNOWN  | ok       |     0s |
 ...
-22 claims: 10 VERIFIED, 8 REFUTED, 4 UNKNOWN, 0 wrong
+23 claims: 10 VERIFIED, 8 REFUTED, 5 UNKNOWN, 0 wrong
 ```
 
 A claim file (`claims/*.json`, format in `physverify/derivation.py`) gives coordinates, symbols
@@ -227,8 +227,8 @@ Measured on our 2-CPU / 7–8 GB VMs, with other jobs running alongside:
 | `lake build` with nothing to rebuild (hashes 2679 jobs) | 1 min 3 s |
 | one derivation certificate (`import PhysVerify.EulerLagrange`), warm | 6–28 s, typically about 10 s |
 | same, after the page cache was evicted | 80–103 s |
-| whole benchmark (22 claims), warm | 4 min 24 s |
-| `pytest tests/test_lean.py` (47 tests), warm | 20 min |
+| whole benchmark (23 claims), warm | 4 min 24 s to 7 min |
+| `pytest tests/test_lean.py` (50 tests), warm | 19–20 min |
 
 The difference between the first two rows is why no module imports all of Mathlib any more
 (`Expr`, `Deriv`, `Interval`, `Orbit` and `WellPosed` import only the modules they use),
