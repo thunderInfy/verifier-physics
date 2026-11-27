@@ -534,7 +534,7 @@ def test_variational_bench(var_results, path):
     for raw, c, r in zip(I.source["claims"], I.claims, var_results[path.stem]):
         assert r.verdict != ("REFUTED" if raw["true"] else "VERIFIED"), (r.claim, r.detail)
         assert r.verdict == c.expect, (r.claim, r.detail)
-        if c.kind != "consistent_order_p" and r.verdict != "UNKNOWN":
+        if c.kind not in ("consistent_order_p", "exact_order_p") and r.verdict != "UNKNOWN":
             assert "; axioms: " in r.detail and "sorryAx" not in r.detail
 
 

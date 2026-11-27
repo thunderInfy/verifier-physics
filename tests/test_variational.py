@@ -32,12 +32,13 @@ def test_bench_has_the_required_cases_and_labels():
     claims = [(I, c) for I in bs for c in I.claims]
     assert len(claims) >= 15
     assert {c.kind for _, c in claims} == {"del_equations", "discrete_momentum_conserved",
-                                           "consistent_order_p"}
+                                           "consistent_order_p", "exact_order_p"}
     for I in bs:
         for raw, c in zip(I.source["claims"], I.claims):
             assert (raw["true"], c.expect) in {(True, "VERIFIED"), (False, "REFUTED"), (True, "UNKNOWN")}
     traps = [c for _, c in claims if c.why.startswith("TRAP")]
-    assert {c.kind for c in traps} == {"del_equations", "discrete_momentum_conserved", "consistent_order_p"}
+    assert {c.kind for c in traps} == {"del_equations", "discrete_momentum_conserved", "consistent_order_p",
+                                       "exact_order_p"}
 
 
 def test_loader_rejects_bad_claims():
@@ -120,7 +121,7 @@ def test_order_verdicts(path):
     from physverify.variational import judge_order, load_variational
     I = load_variational(path)
     for c in I.claims:
-        if c.kind == "consistent_order_p":
+        if c.kind in ("consistent_order_p", "exact_order_p"):
             r = judge_order(I, c)
             assert r.verdict == c.expect, (I.name, c.p, r.detail)
             if r.verdict != "UNKNOWN":
@@ -152,6 +153,23 @@ def test_empty_domain_is_never_verified():
     assert propose(I, I.claims[0]) == []         # and the planner finds no sample point either
 
 
+def test_order_at_least_versus_exact():
+    """`consistent_order_p` is order at least p (as in the scheme layer); `exact_order_p` also
+    needs the h^p coefficient not to vanish. The rectangle-rule DEL is exactly second order."""
+    from physverify.variational import VClaim, judge_order
+    I = _by_name()["harmonic oscillator, rectangle rule V(q0)"]
+    want = {("consistent_order_p", 1): "VERIFIED", ("consistent_order_p", 2): "VERIFIED",
+            ("consistent_order_p", 3): "REFUTED", ("exact_order_p", 1): "REFUTED",
+            ("exact_order_p", 2): "VERIFIED", ("exact_order_p", 3): "REFUTED"}
+    for (kind, p), v in want.items():
+        r = judge_order(I, VClaim(kind, p=p))
+        assert r.verdict == v, (kind, p, r.detail)
+    r = judge_order(I, VClaim("exact_order_p", p=1))
+    assert "vanishes" in r.detail and "at least 2" in r.detail
+    r = judge_order(I, VClaim("consistent_order_p", p=3))      # the nonzero h^2 coefficient
+    assert "the h^2 coefficient" in r.detail and "order 2 < 3" in r.detail
+
+
 def test_order_outside_fragment_is_unknown():
     from physverify.variational import judge_order, load_variational
     I = load_variational(_spec(discrete_lagrangian="h*m/2*((x_1 - x_0)/h)^2 - h*m*cos(x_0/x_1)",
@@ -166,7 +184,7 @@ def test_planner_routes_true_and_false_claims(path):
     from physverify.variational import load_variational
     I = load_variational(path)
     for raw, c in zip(I.source["claims"], I.claims):
-        if c.kind == "consistent_order_p":
+        if c.kind in ("consistent_order_p", "exact_order_p"):
             continue
         kinds = [k for k, _ in propose(I, c)]
         assert kinds == (["verified"] if raw["true"] else ["refuted"]), (I.name, c.kind)

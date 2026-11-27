@@ -29,11 +29,18 @@
       "why": "the rectangle-rule L_d is first order as a one-step map (symplectic Euler) but its two-step DEL is Stormer-Verlet, centred and second order"
     },
     {
-      "claim": "consistent_order_p",
+      "claim": "exact_order_p",
       "p": 1,
       "true": false,
       "expect": "REFUTED",
-      "why": "the exact order of the DEL is 2, not 1"
+      "why": "TRAP: the exact order of the DEL is 2, not 1 (the h^1 coefficient vanishes identically)"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 1,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "order at least 1: the DEL is second order, so it is in particular first-order consistent"
     }
   ]
 }

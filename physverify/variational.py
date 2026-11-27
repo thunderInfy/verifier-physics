@@ -17,7 +17,8 @@ Claim file (`benchmark/variational/*.json`), one integrator and the claims made 
   "claims": [
     {"claim": "del_equations", "update": [{"lhs": "x_2", "rhs": "..."}], "expect": ..., "why": ...},
     {"claim": "discrete_momentum_conserved", "quantity": "J(x_0, x_1, ...)", "expect": ..., ...},
-    {"claim": "consistent_order_p", "p": 2, "expect": ..., ...}
+    {"claim": "consistent_order_p", "p": 2, "expect": ..., ...},   # order at least p
+    {"claim": "exact_order_p", "p": 2, "expect": ..., ...}         # at least p, and not p + 1
   ]
 }
 
@@ -48,7 +49,8 @@ from .derivation import REFUTED, UNKNOWN, VERIFIED, Result, find_witness, lean_p
 from .expr import E, diff, lit, parse, simplify, substitute, to_lean, var, variables
 from .theory import Malformed
 
-KINDS = ("del_equations", "discrete_momentum_conserved", "consistent_order_p")
+KINDS = ("del_equations", "discrete_momentum_conserved", "consistent_order_p", "exact_order_p")
+ORDER_KINDS = ("consistent_order_p", "exact_order_p")
 _ATOM = re.compile(r"^(.*?)(>|<|!=)(.*)$")
 EXACT_PY = "exact (Python)"
 
@@ -60,7 +62,7 @@ class VClaim:
     why: str = ""
     update: list[tuple[E, E]] = field(default_factory=list)   # del_equations: lhs = rhs
     quantity: E | None = None                                 # discrete_momentum_conserved
-    p: int = 0                                                # consistent_order_p
+    p: int = 0                                                # consistent/exact_order_p
 
 
 @dataclass
@@ -195,7 +197,7 @@ def _validate(I: Integrator) -> None:
 
 
 def claim_name(I: Integrator, c: VClaim) -> str:
-    extra = f" {c.p}" if c.kind == "consistent_order_p" else ""
+    extra = f" {c.p}" if c.kind in ORDER_KINDS else ""
     return f"{I.name}: {c.kind}{extra}"
 
 
@@ -421,7 +423,7 @@ def truncation(I: Integrator, p: int) -> dict[int, list[Poly]]:
     return out
 
 
-def _nonzero_point(I: Integrator, a: Poly) -> dict[str, Fraction]:
+def _nonzero_point(a: Poly) -> dict[str, Fraction]:
     import random
     rng = random.Random(0)
     names = sorted({v for m in a for v, _ in m})
@@ -433,6 +435,30 @@ def _nonzero_point(I: Integrator, a: Poly) -> dict[str, Fraction]:
     return {}
 
 
+def order_verdict(c: VClaim, coeffs: dict[int, list[Poly]], labels: list[str], what: str,
+                  lowest: int = 0) -> tuple[str, str]:
+    """Shared by every order claim. `coeffs[e]` are the h^e coefficients (one per label) of
+    `what`, which must vanish for e = lowest … lowest + p − 1. `consistent_order_p` (and
+    `update_conserves_order_p`) mean order AT LEAST p, as in the scheme layer: those
+    coefficients vanish identically. `exact_order_p` also needs the next one not to."""
+    top = lowest + c.p                     # first coefficient allowed to be nonzero
+    order = next((e for e in sorted(coeffs) if e < top and any(coeffs[e])), None)
+    if order is not None:
+        k = next(i for i, x in enumerate(coeffs[order]) if x)
+        pt = _nonzero_point(coeffs[order][k])
+        return REFUTED, (f"{EXACT_PY}: the h^{order} coefficient of {what} [{labels[k]}] is "
+                         f"{p_str(coeffs[order][k])}, = {p_eval(coeffs[order][k], pt)} at "
+                         f"{ {v: str(x) for v, x in pt.items()} }; order {order - lowest} < {c.p}")
+    lead = [x for x in coeffs.get(top, []) if x]
+    if c.kind == "exact_order_p" and not lead:
+        return REFUTED, (f"{EXACT_PY}: every coefficient of {what} up to h^{top} vanishes "
+                         f"identically: the order is at least {c.p + 1}, not exactly {c.p}")
+    k = next((i for i, x in enumerate(coeffs.get(top, [])) if x), None)
+    tail = (f"; h^{top} coefficient [{labels[k]}] = {p_str(coeffs[top][k])}" if k is not None
+            else f"; the h^{top} coefficient vanishes too (order at least {c.p + 1})")
+    return VERIFIED, f"{EXACT_PY}: {what} has vanishing coefficients below h^{top}{tail}"
+
+
 def judge_order(I: Integrator, c: VClaim) -> Result:
     t0 = time.monotonic()
     res = Result(claim_name(I, c), UNKNOWN, "n/a")
@@ -442,24 +468,8 @@ def judge_order(I: Integrator, c: VClaim) -> Result:
         res.detail = f"outside v1 (polynomial L_d and L only): {ex}"
         res.seconds = time.monotonic() - t0
         return res
-    order = next((e for e in sorted(coeffs) if any(coeffs[e])), None)
-    sign = "(1/h)·DEL + EL with q_j = q(t + (j-1)h)"
-    if order == c.p:
-        k = next(i for i, x in enumerate(coeffs[order]) if x)
-        res.verdict = VERIFIED
-        res.detail = (f"{EXACT_PY}: {sign} has vanishing coefficients below h^{c.p} and h^{c.p} "
-                      f"coefficient [{I.coords[k]}] = {p_str(coeffs[order][k])}")
-    elif order is not None:
-        k = next(i for i, x in enumerate(coeffs[order]) if x)
-        pt = _nonzero_point(I, coeffs[order][k])
-        res.verdict = REFUTED
-        res.detail = (f"{EXACT_PY}: the h^{order} coefficient of {sign} [{I.coords[k]}] is "
-                      f"{p_str(coeffs[order][k])}, = {p_eval(coeffs[order][k], pt)} at "
-                      f"{ {v: str(x) for v, x in pt.items()} }; exact order {order} < {c.p}")
-    else:
-        res.verdict = REFUTED
-        res.detail = (f"{EXACT_PY}: every coefficient of {sign} up to h^{c.p} vanishes "
-                      f"identically: the order is at least {c.p + 1}, not exactly {c.p}")
+    res.verdict, res.detail = order_verdict(c, coeffs, I.coords,
+                                            "(1/h)·DEL + EL with q_j = q(t + (j-1)h)")
     res.seconds = time.monotonic() - t0
     return res
 
@@ -485,7 +495,7 @@ def judge(I: Integrator, c: VClaim, candidates: list[tuple[str, str]], check=Non
     """Candidates are (kind, tactic) pairs from the untrusted planner; kind ∈ verified/refuted.
     The order claim is decided in exact Python and takes no candidates. Without an accepted
     certificate the verdict is UNKNOWN, never REFUTED."""
-    if c.kind == "consistent_order_p":
+    if c.kind in ORDER_KINDS:
         return judge_order(I, c)
     from . import lean_backend
     check = check or lean_backend.check
@@ -519,7 +529,7 @@ def judge_file(I: Integrator, propose=None, batch: bool = True) -> list[Result]:
     pending, items = {}, []
     witness = find_witness(I)
     for i, c in enumerate(I.claims):
-        if c.kind == "consistent_order_p":
+        if c.kind in ORDER_KINDS:
             out[i] = judge_order(I, c)
             continue
         cands = propose(I, c)
@@ -553,7 +563,7 @@ def judge_file(I: Integrator, propose=None, batch: bool = True) -> list[Result]:
 def guarantee(c: VClaim, r: Result) -> str:
     if r.verdict == UNKNOWN:
         return "none"
-    return EXACT_PY if c.kind == "consistent_order_p" else "proven (Lean)"
+    return EXACT_PY if c.kind in ORDER_KINDS else "proven (Lean)"
 
 
 def main(argv=None) -> int:
@@ -569,7 +579,7 @@ def main(argv=None) -> int:
         for c, r in zip(I.claims, judge_file(I)):
             ok = r.verdict == c.expect
             wrong += not ok
-            claim = c.kind + (f" {c.p}" if c.kind == "consistent_order_p" else "")
+            claim = c.kind + (f" {c.p}" if c.kind in ORDER_KINDS else "")
             rows.append((p.stem, claim, c.expect, r.verdict + ("" if ok else "  (WRONG)"),
                          guarantee(c, r)))
     print("| integrator | claim | expected | verdict | guarantee |\n|---|---|---|---|---|")
