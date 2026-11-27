@@ -3,7 +3,7 @@ when the Lean replay upgrades it. Fast: the accepted Lean labels are written by 
 
 from pathlib import Path
 
-from physverify.schemes import checks, claims as C, lean_cert as L, load
+from physverify.schemes import check, checks, claims as C, lean_cert as L, load
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -103,6 +103,37 @@ def test_tvd_verified_by_a_replayed_harten_row_and_an_exact_linear_row():
     rep = _report("tvd_under_cfl", ["tvd_harten", "tvd_linear"], {"tvd_harten": L.LEAN, "tvd_linear": checks.EXACT})
     L.relabel_claims(rep)
     assert rep["claims"][0]["guarantee"] == L.LEAN and rep["claims"][0]["lean_check"] == "tvd_harten"
+
+
+def test_a_tvd_only_theorem_does_not_label_the_maximum_principle():
+    """tvd_harten replayed through Harten's lemma states TVD H, not the convex combination the
+    maximum-principle row rests on: there it counts only with its cell label, else as exact Python."""
+    for cells, want in ((None, C.EXACT), (L.LEAN_CELLS, L.LEAN_CELLS)):
+        rep = _report("local_max_principle_under_cfl", ["tvd_harten"], {"tvd_harten": L.LEAN})
+        rep["checks"][0].update(lean_claims=L.HARTEN_FORM_CLAIMS, **({"cells_guarantee": cells} if cells else {}))
+        L.relabel_claims(rep)
+        assert rep["claims"][0]["guarantee"] == want
+        rep = _report("tvd_under_cfl", ["tvd_harten"], {"tvd_harten": L.LEAN})
+        rep["checks"][0].update(lean_claims=L.HARTEN_FORM_CLAIMS)
+        L.relabel_claims(rep)
+        assert rep["claims"][0]["guarantee"] == L.LEAN
+
+
+def test_harten_form_rows_state_tvd_and_the_cells(monkeypatch):
+    """With Lean stubbed to accept everything: minmod (both certificates) gets TVD itself for its TVD
+    verdict and the cell label for its maximum principle; nothing else changes."""
+    from physverify import lean_backend
+    stated = []
+    monkeypatch.setattr(lean_backend, "check_batch", lambda items, **kw: stated.extend(items) or {
+        n: lean_backend.LeanResult(True, set(), "stub") for n, _, _ in items})
+    spec = load(ROOT / "schemes/limiters/advection-minmod.json")
+    rep = check(spec)
+    L.certify([(spec, rep)])
+    names = [n for n, _, _ in stated if "_tvd_harten" in n]
+    assert "s0_tvd_harten" in names and any(n[len("s0_tvd_harten_"):].isdigit() for n in names)
+    v = {x["claim"]: x for x in rep["claims"]}
+    assert v["tvd_under_cfl"]["guarantee"] == L.LEAN
+    assert v["local_max_principle_under_cfl"]["guarantee"] == L.LEAN_CELLS
 
 
 def test_every_row_decides_alone():

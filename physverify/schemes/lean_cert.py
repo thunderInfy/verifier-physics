@@ -326,6 +326,19 @@ def _harten_form(r: dict) -> bool:
     return r["check"] == "tvd_harten" and bool(r["witness"].get("incremental_form", {}).get("verified"))
 
 
+# The claims whose tvd_harten row uses only TVD of the update, which is what `harten_obligations` states.
+# The maximum-principle row rests on the convex combination, which that theorem does not state: there
+# the check keeps its cell label (if the cell certificate also holds and replays) or exact Python.
+HARTEN_FORM_CLAIMS = ("tvd_under_cfl", "correct_shock_speed")
+
+
+def check_guarantee(r: dict, claim: str) -> str:
+    """The guarantee check result r gives the verdict on `claim` ("" if it did not run)."""
+    if "lean_claims" in r and claim not in r["lean_claims"]:
+        return r.get("cells_guarantee") or checks.EXACT
+    return r.get("guarantee") or ""
+
+
 def cell_obligations(spec: dict, r: dict, tag: str, planner=None) -> list[tuple[str, str, str]]:
     if planner is None:
         from . import lean_planner as planner
@@ -420,22 +433,26 @@ def certify(pairs: list[tuple[dict, dict]], timeout: int | None = None, planner=
         for r in report["checks"]:
             cell = r["check"] in CELL_SCOPE and r["status"] == checks.VERIFIED
             if cell and _harten_form(r):
-                make, cell = harten_obligations, False
+                # TVD itself; and the cells too where that certificate also holds, since only they give
+                # the maximum-principle row a Lean label (HARTEN_FORM_CLAIMS)
+                jobs = [(harten_obligations, LEAN)] + ([(cell_obligations, LEAN_CELLS)] if "cells" in r["witness"] else [])
             elif cell:
-                make = cell_obligations
+                jobs = [(cell_obligations, LEAN_CELLS)]
             elif r["check"] in SCOPE and r["status"] in (checks.VERIFIED, checks.REFUTED):
-                make = obligations
+                jobs = [(obligations, LEAN)]
             elif r["check"] in REF_SCOPE and r["status"] == checks.REFUTED:
-                make = refutation_obligations
+                jobs = [(refutation_obligations, LEAN)]
             else:
                 continue
-            try:
-                obs = make(spec, r, f"s{i}", planner)
-            except (Unsupported, checks.NotLinear, P.Undecided, KeyError, ValueError) as ex:
-                r["lean"] = f"not stated: {ex}"
-                continue
-            items += obs
-            owner.append((r, [n for n, _, _ in obs], LEAN_CELLS if cell else LEAN))
+            r.pop("lean", None)
+            for make, label in jobs:
+                try:
+                    obs = make(spec, r, f"s{i}", planner)
+                except (Unsupported, checks.NotLinear, P.Undecided, KeyError, ValueError) as ex:
+                    r["lean"] = f"{r['lean']}; not stated: {ex}" if r.get("lean") else f"not stated: {ex}"
+                    continue
+                items += obs
+                owner.append((r, [n for n, _, _ in obs], label, make is harten_obligations))
     # one file for the whole run; the limit grows with it (about 1 s per theorem when warm, 1.4 s on the first run
     # after a build, more under load: README, costs of a full pass)
     timeout = timeout or 600 + 10 * len(items)
@@ -443,13 +460,20 @@ def certify(pairs: list[tuple[dict, dict]], timeout: int | None = None, planner=
     # its sign cases (superbee: ten facts of nine square roots each), so the cap is 4M rather than 1M
     results = lean_backend.check_batch(items, preamble=PREAMBLE, timeout=timeout,
                                        module="PhysVerify.Scheme", opens="PhysVerify PhysVerify.Scheme") if items else {}
-    for r, names, label in owner:
-        if names and all(results[n].ok for n in names):
+    for r, names, label, tvd_only in owner:
+        ok = names and all(results[n].ok for n in names)
+        what = ("TVD through Harten's lemma: " if tvd_only else "cells: ") if _harten_form(r) else ""
+        msg = what + (f"{len(names)} theorems accepted" if ok else "not proven: " + ", ".join(n for n in names if not results[n].ok))
+        r["lean"] = f"{r['lean']}; {msg}" if what and r.get("lean") else msg
+        if not ok:
+            continue
+        if not tvd_only and _harten_form(r):
+            r["cells_guarantee"] = label                 # used where the TVD theorem does not reach
+        if tvd_only:
+            r["lean_claims"] = HARTEN_FORM_CLAIMS
+        if tvd_only or not r["guarantee"].startswith("proven (Lean"):
             # keep a check's own caveat (the entropy check's "semi-discrete inequality only")
             r["guarantee"] = label + r["guarantee"][len(checks.EXACT):] if r["guarantee"].startswith(checks.EXACT) else label
-            r["lean"] = f"{len(names)} theorems accepted"
-        else:
-            r["lean"] = "not proven: " + ", ".join(n for n in names if not results[n].ok)
     for _, report in pairs:
         relabel_claims(report)
     return results
@@ -482,12 +506,13 @@ def lean_carrier(claim: str, decided_by: list, guarantee_of) -> tuple[str, str] 
 
 def relabel_claims(report: dict) -> None:
     """A claim decided exactly gets a Lean guarantee when, for one of its deciding checks, that check
-    and the exact checks its row requires all have one (`lean_carrier`); `lean_check` names it."""
+    and the exact checks its row requires all have one (`lean_carrier`); `lean_check` names it. A check
+    whose Lean theorem reaches only some claims (`lean_claims`) counts as Lean only for those."""
     from . import claims as C
     by = {r["check"]: r for r in report["checks"]}
     for v in report["claims"]:
         if not v["guarantee"].startswith(C.EXACT):
             continue
-        got = lean_carrier(v["claim"], v["decided_by"], lambda c: by.get(c, {}).get("guarantee") or "")
+        got = lean_carrier(v["claim"], v["decided_by"], lambda c: check_guarantee(by.get(c, {}), v["claim"]))
         if got:
             v["guarantee"], v["lean_check"] = got

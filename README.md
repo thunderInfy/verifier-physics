@@ -1377,7 +1377,7 @@ to refute.
 | | stationary_shock_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR) that is a Lax shock: f'' >= 0 on [uR, uL], f'(uL) > f'(uR)) | necessary | exact |
 | `limit_is_weak_solution` | conservation (Lax-Wendroff theorem), only if consistency and flux_lipschitz are VERIFIED | sufficient | exact |
 | | stationary_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR)) | necessary | exact |
-| `tvd_under_cfl` | tvd_harten (Harten's incremental form on sign cells) | sufficient | exact |
+| `tvd_under_cfl` | tvd_harten (Harten's incremental form: upwind split on sign cells, or general C, D read off the flux) | sufficient | exact |
 | | tv_increase (an explicit periodic state whose TV grows) | necessary | exact |
 | | tvd_linear (linear schemes with sum_k c_k = 1: TVD iff every c_k >= 0; the refutation needs a periodic grid of N >= 2w cells, or the line) | equivalent | exact |
 | `local_max_principle_under_cfl` | tvd_harten (a convex combination of two stencil values) | sufficient | exact |

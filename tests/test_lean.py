@@ -517,11 +517,20 @@ def harten_certified():
 
 def test_harten_tvd_replays_with_the_whole_statement_label(harten_certified):
     pairs, results = harten_certified
+    tvd = 0
     for spec, rep in pairs:
         r = next(x for x in rep["checks"] if x["check"] == "tvd_harten")
         assert r["status"] == checks.VERIFIED and r["guarantee"] == lean_cert.LEAN, (spec["name"], r.get("lean"))
-        v = next(x for x in rep["claims"] if x["claim"] == "tvd_under_cfl")
-        assert v["guarantee"] == lean_cert.LEAN and v["lean_check"] == "tvd_harten", spec["name"]
+        assert r["lean_claims"] == lean_cert.HARTEN_FORM_CLAIMS
+        v = {x["claim"]: x for x in rep["claims"]}
+        if "tvd_under_cfl" in v:            # the Lax-Friedrichs spec names only the maximum principle
+            tvd += 1
+            assert v["tvd_under_cfl"]["guarantee"] == lean_cert.LEAN, spec["name"]
+            assert v["tvd_under_cfl"]["lean_check"] == "tvd_harten", spec["name"]
+        mp = v.get("local_max_principle_under_cfl")
+        if mp and mp.get("lean_check") == "tvd_harten":   # only through the cell theorems, never TVD alone
+            assert mp["guarantee"] == lean_cert.LEAN_CELLS == r["cells_guarantee"], spec["name"]
+    assert tvd == 2
 
 
 def test_harten_wrong_coefficient_is_rejected():
