@@ -200,6 +200,182 @@ def lean_replay() -> dict:
     return out
 
 
+def _stating_lean(pairs: list) -> list:
+    """Run lean_cert.certify on (spec, report) pairs without Lean: every theorem the judge states is
+    taken as accepted, which is what the full --lean pass on the example specs gives (532 of 532).
+    Returns the stated (name, statement, proof) items; the reports' labels are upgraded in place."""
+    from physverify import lean_backend
+    from physverify.schemes import lean_cert
+    stated, real = [], lean_backend.check_batch
+    lean_backend.check_batch = lambda items, **kw: stated.extend(items) or {
+        n: lean_backend.LeanResult(True, set(), "assumed accepted, not run") for n, _, _ in items}
+    try:
+        lean_cert.certify(pairs)
+    finally:
+        lean_backend.check_batch = real
+    return stated
+
+
+def bench_lean_labels() -> dict:
+    """How many of the benchmark's verdicts would carry a Lean label after the replay, if Lean accepts
+    every theorem the judge states for them (Lean is not run here). A VERIFIED reading carries one if
+    every component's named-claim verdict does; a REFUTED reading if one of its refuting components does.
+    Also: the readings whose decisive named claims all have a meaning theorem in physverify/claimkinds.py."""
+    from physverify.claimkinds import KINDS
+    data = json.loads((B / "claims.json").read_text())
+    groups: dict = {}
+    for c in bench.components(data):
+        if "unformalized" not in c:
+            groups.setdefault(bench._key(c), (c, []))[1].append(c["claim"])
+    pairs, keys = [], []
+    for key, (c, names) in groups.items():
+        spec = bench._spec(B, c["spec"], c.get("override", {}), list(dict.fromkeys(names)))
+        pairs.append((spec, check(spec)))
+        keys.append(key)
+    stated = _stating_lean(pairs)
+    verdicts = {k: {v["claim"]: v for v in rep["claims"]} for k, (_, rep) in zip(keys, pairs)}
+    rows = bench.evaluate(data, verdicts)
+    decisive = [r for r in rows if r["score"] == "match"]
+
+    def comps(r):
+        return [(c, verdicts[bench._key(c)][c["claim"]]) for c in r["_r"]["formalization"] if "unformalized" not in c]
+
+    def deciding(r):
+        cs = comps(r)
+        return cs if r["verdict"] == "VERIFIED" else [(c, v) for c, v in cs if v["verdict"] == r["verdict"]]
+
+    lean = lambda v: v["guarantee"].startswith("proven (Lean")
+    label = [r for r in decisive if (all if r["verdict"] == "VERIFIED" else any)(lean(v) for _, v in deciding(r))]
+    whole = [r for r in label if (all if r["verdict"] == "VERIFIED" else any)(
+        lean(v) and not v["guarantee"].startswith("proven (Lean, per cell") for _, v in deciding(r))]
+    meaning = [r for r in decisive if all(KINDS[c["claim"]]["meaning"] for c, _ in deciding(r))]
+    return {"readings": str(len(rows)), "decisive verdicts": str(len(decisive)),
+            "theorems stated": str(len(stated)),
+            "decisive with a Lean label": str(len(label)),
+            "of which proven (Lean), not per cell": str(len(whole)),
+            "of which per cell": str(len(label) - len(whole)),
+            "decisive VERIFIED with a Lean label": str(sum(r["verdict"] == "VERIFIED" for r in label)),
+            "decisive REFUTED with a Lean label": str(sum(r["verdict"] == "REFUTED" for r in label)),
+            "without a Lean label": "; ".join(f"{r['id']} {r['reading'][:40]}" for r in decisive if r not in label),
+            "decisive whose claims all have a meaning theorem": str(len(meaning))}
+
+
+def claim_kinds() -> dict:
+    """The claim-kind registry (physverify/claimkinds.py): kinds, and those with a Lean meaning theorem."""
+    from physverify.claimkinds import KINDS
+    with_meaning = [n for n, k in KINDS.items() if k["meaning"]]
+    schemes = [n for n, k in KINDS.items() if "schemes" in k["layers"]]
+    return {"kinds": str(len(KINDS)), "with a meaning theorem": str(len(with_meaning)),
+            "scheme kinds": str(len(schemes)),
+            "scheme kinds with a meaning theorem": str(sum(n in with_meaning for n in schemes)),
+            "names with a meaning theorem": ", ".join(with_meaning)}
+
+
+_TEX = {"\\": "\\textbackslash{}", "_": "\\_", "^": "\\^{}", "&": "\\&", "%": "\\%", "#": "\\#", "$": "\\$",
+        "{": "\\{", "}": "\\}", "~": "\\~{}", "<=": "$\\le$", ">=": "$\\ge$", "->": "$\\to$", "·": "$\\cdot$",
+        "–": "--", "<": "$<$", ">": "$>$", "|": "$|$"}
+
+
+def _tex(s: str) -> str:
+    """Plain text from claimkinds.py as LaTeX text, in one pass so nothing is escaped twice."""
+    import re
+    return re.sub("|".join(map(re.escape, sorted(_TEX, key=len, reverse=True))), lambda m: _TEX[m.group()], s)
+
+
+CLAIM_KINDS_TEX = Path(__file__).resolve().parent / "claim_kinds_table.tex"
+
+
+def _claim_kinds_tex() -> str:
+    """The rows of the glossary's claim-kind table, generated from physverify/claimkinds.py. main.tex
+    inputs claim_kinds_table.tex (written by `paper_numbers.py --write-table`); tests/test_paper_numbers.py
+    fails if that file drifts from this function."""
+    from physverify.claimkinds import KINDS
+    code = lambda s: "\\code{" + _tex(s).replace("\\_", "\\_\\allowbreak{}").replace(".", ".\\allowbreak{}") + "}"
+    out = ["% generated from physverify/claimkinds.py by `paper_numbers.py --write-table`; do not edit"]
+    for name, k in KINDS.items():
+        params = f" ({', '.join(k['params'])})" if k["params"] else ""
+        meaning = code(k["meaning"]) if k["meaning"] else "gloss only"
+        out.append(f"{code(name)}{_tex(params)} & {_tex(k['gloss'])} & {_tex(k['quantifier'])} & {meaning} \\\\")
+    # the closing rule is part of the file: after \input, \bottomrule would be a misplaced \noalign
+    return "\n".join(out + ["\\bottomrule"]) + "\n"
+
+
+def outside_dev() -> dict:
+    """The dev half of the outside benchmark (benchmark/outside/run_dev.py summary; about 5 s). The heldout
+    half is never run here."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("run_dev", ROOT / "benchmark" / "outside" / "run_dev.py")
+    rd = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rd)
+    data, items = rd.load(), rd.dev_items()
+    rows = rd.evaluate(data, items, rd.run(data))
+    s = rd.summary(rows)
+    all_items = [json.loads(x) for x in (ROOT / "benchmark" / "outside" / "items.jsonl").read_text().splitlines()]
+    out = {"items, all": str(len(all_items)), "sources, all": str(len({i["source_id"] for i in all_items})),
+           "items, dev": str(s["items"]), "sources, dev": str(len({i["source_id"] for i in items.values()})),
+           "items, heldout": str(sum(rd.half(i["source_id"]) == "heldout" for i in all_items)),
+           "stated": str(s["stated"]), "stated alone": str(s["stated_by_field"]["alone"]),
+           "stated with hypotheses": str(s["stated_by_field"]["with_hypotheses"]),
+           "readings": str(s["readings"]), "decided": str(s["decided"]), "wrong": str(len(s["wrong"])),
+           "fields differ": str(s["fields_differ"]), "fields differ, stated": str(len(s["fields_differ_stated"])),
+           "narrowed matches": str(s["narrowed_matches"]),
+           "instance from justification": ", ".join(
+               e["id"] for e in data["items"] for r in e["readings"] if r.get("instance_from_justification"))}
+    for k, v in s["verdicts"].items():
+        out[f"verdict {k}"] = str(v)
+    for p, (a, b) in s["stated_by_property"].items():
+        out[f"property {p}"] = f"{a}/{b}"
+    for f in rd.FIELDS:
+        out[f"TRUE/FALSE fields {f}"] = str(sum(i[f"expected_{f}"] != "UNSURE" for i in items.values()))
+        for k, v in s["scores"][f].items():
+            out[f"score {f} {k}"] = str(v)
+    for k, v in s["gaps_any"].items():
+        out[f"gap any {k}"] = str(v)
+    for k, v in s["gaps_primary"].items():
+        out[f"gap primary entries {k}"] = str(v)
+    for k, v in s["gaps_primary_by_field"].items():
+        out[f"gap primary {k}"] = str(v)
+    for k, v in s["fields_differ_pairs"].items():
+        out[f"differ {k}"] = str(v)
+    out["differ, stated"] = "; ".join(f"{i}: {a} {sa}, {h} {sh}" for i, a, sa, h, sh in s["fields_differ_stated"])
+    return out
+
+
+def outside_naive_readings() -> dict:
+    """The two naive readings of DEV_RESULTS.md that we rejected because they would have been WRONG. Neither
+    is in dev_readings.json; this runs them, plus the exact arithmetic behind tecno:04's printed identity."""
+    out = {}
+    # fjordholm_mishra_tadmor_2012_tecno:04, read as "the scheme with flux (3.2) is entropy stable" on Burgers:
+    # entropy conservative flux (uL^2 + uL uR + uR^2)/6 for eta = u^2/2 (v = u), D = 1
+    spec = {"name": "tecno:04 naive", "pde": {"flux": "u^2/2"},
+            "scheme": {"numerical_flux": "(uL^2 + uL*uR + uR^2)/6 - (uR - uL)/2"},
+            "named_claims": ["consistent", "entropy_stable_tadmor"], "claims": {"entropy_stability": {}}}
+    for v in check(spec)["claims"]:
+        out[f"tecno:04 {v['claim']}"] = f"{v['verdict']} ({v['guarantee']})"
+    # the printed identity (3.3) at f = 0 (so ~F = ~Q = 0), E = u^2/2, D = 1, dx = 1, (u_{i-1}, u_i, u_{i+1}) = (0, 0, 1)
+    u = [Fraction(0), Fraction(0), Fraction(1)]
+    flux = lambda a, b: -(b - a) / 2                                # F = ~F - D [v] / 2 with ~F = 0
+    dE = u[1] * -(flux(u[1], u[2]) - flux(u[0], u[1]))              # dE(u_i)/dt = v_i du_i/dt
+    jump = lambda a, b: b - a
+    Q = lambda a, b, s: s * (a + b) / 2 * jump(a, b) / 2            # ^Q = ~Q + s (1/2) vbar D [v]
+    rhs = -(jump(u[1], u[2]) ** 2 + jump(u[0], u[1]) ** 2) / 4
+    for s, name in ((1, "printed (+)"), (-1, "corrected (-)")):
+        out[f"tecno:04 dE/dt the identity requires, {name}"] = str(rhs - (Q(u[1], u[2], s) - Q(u[0], u[1], s)))
+    out["tecno:04 dE/dt of the scheme"] = str(dE)
+    # mfa_oslo_notes:02, read as "the central scheme is not von Neumann stable": FTCS on linear advection
+    spec = load(S / "broken-advection-ftcs.json")
+    spec["named_claims"] = ["von_neumann_stable_under_cfl", "stable_for_small_cfl"]
+    spec.pop("test", None)
+    for v in check(spec)["claims"]:
+        out[f"mfa:02 {v['claim']} on [{', '.join(spec['claims']['von_neumann_cfl'])}]"] = \
+            f"{v['verdict']} ({v['guarantee']}), so the negated reading is {'VERIFIED' if v['verdict'] == 'REFUTED' else '?'}"
+    # the literal sentence fails: U_j = (-1)^j on an even periodic grid is a fixed point of FTCS
+    U = [(-1) ** j for j in range(8)]
+    nxt = [U[j] - Fraction(1, 2) * (U[(j + 1) % 8] - U[j - 1]) for j in range(8)]
+    out["mfa:02 energy before, after one step of (-1)^j at nu = 1"] = f"{sum(x * x for x in U)}, {sum(x * x for x in nxt)}"
+    return out
+
+
 def product_rule() -> dict:
     """The telescoping trap in its scalar form: centred quasi-linear Burgers, u_i - (lam/2) u_i (u_{i+1} - u_{i-1})."""
     spec = {"name": "centred quasi-linear Burgers", "pde": {"flux": "u^2/2"},
@@ -220,6 +396,9 @@ ALL = {k: f for k, f in list(globals().items())
        if callable(f) and not k.startswith("_") and getattr(f, "__module__", "") == __name__}
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--write-table"]:
+        CLAIM_KINDS_TEX.write_text(_claim_kinds_tex())
+        sys.exit(0)
     for name in sys.argv[1:] or ALL:
         for k, v in ALL[name]().items():
             print(f"{name}.{k}: {v}")

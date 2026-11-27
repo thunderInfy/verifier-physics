@@ -2,6 +2,7 @@
 a pytest test `tests/X.py::name` or a function `paper_numbers.py::name` of papers/scheme-claims/paper_numbers.py.
 Static only (the files are parsed, nothing is run), so it is fast."""
 import ast
+import json
 import re
 from pathlib import Path
 
@@ -34,6 +35,35 @@ def _paper_numbers():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def test_claim_kind_table_matches_the_registry():
+    """The glossary's claim-kind table (claim_kinds_table.tex, input by main.tex) is what paper_numbers.py
+    generates from physverify/claimkinds.py now: one row per kind, in registry order."""
+    from physverify.claimkinds import KINDS
+    pn = _paper_numbers()
+    text = (PAPER / "claim_kinds_table.tex").read_text()
+    assert text == pn._claim_kinds_tex(), "run: uv run python papers/scheme-claims/paper_numbers.py --write-table"
+    assert "\\input{claim_kinds_table.tex}" in (PAPER / "main.tex").read_text()
+    rows = [line for line in text.splitlines() if line.endswith("\\\\")]
+    assert len(rows) == len(KINDS)
+    assert sum(not r.endswith("gloss only \\\\") for r in rows) == sum(bool(k["meaning"]) for k in KINDS.values())
+
+
+def test_outside_naive_readings_would_be_wrong():
+    """The two rejected readings of the outside benchmark's dev half: each gives a decisive verdict against
+    a FALSE expected value (tecno:04 VERIFIED on the scheme; mfa:02's negated stability claim VERIFIED)."""
+    pn = _paper_numbers()
+    out = pn.outside_naive_readings()
+    assert out["tecno:04 entropy_stable_tadmor"].startswith("VERIFIED")
+    assert out["tecno:04 dE/dt of the scheme"] == "0"
+    assert out["tecno:04 dE/dt the identity requires, printed (+)"] == "-1/2"
+    assert out["tecno:04 dE/dt the identity requires, corrected (-)"] == "0"
+    assert all(v.startswith("REFUTED") for k, v in out.items() if k.startswith("mfa:02") and "stable" in k)
+    assert out["mfa:02 energy before, after one step of (-1)^j at nu = 1"] == "8, 8"
+    items = {json.loads(x)["id"]: json.loads(x) for x in (ROOT / "benchmark/outside/items.jsonl").read_text().splitlines()}
+    for i in ("fjordholm_mishra_tadmor_2012_tecno:04", "mfa_oslo_notes:02"):
+        assert items[i]["expected_alone"] == items[i]["expected_with_hypotheses"] == "FALSE"
 
 
 def test_rusanov_sharp_bound_is_exactly_one_third():

@@ -71,16 +71,21 @@ positive or negative verdict comes with a certificate: an exact identity (a tele
 Farkas combination, non-negative Bernstein coefficients) or an exact rational counterexample that
 anyone can replay. A small trusted table says how each check bears on each claim (sufficient,
 necessary or equivalent, with stated preconditions), so a failed sufficient check never refutes and
-a passed necessary check never verifies. On a benchmark of
-\rn{23}{paper_numbers.py::bench_counts} sentences written the way papers write them, split into
-\rn{44}{paper_numbers.py::bench_counts} formal readings, the checker decides
-\rn{34}{paper_numbers.py::bench_counts} correctly, leaves \rn{9}{paper_numbers.py::bench_counts}
-undecided and \rn{1}{paper_numbers.py::bench_counts} unscored, and gives
-\rn{0}{paper_numbers.py::bench_counts} wrong verdicts. That zero is on \emph{our own} benchmark: we
-wrote the sentences, chose their formal readings and fixed their expected truth values ourselves.
-This is the main threat to validity, and we discuss it with the other limits up front
-(Section~\ref{sec:trust}). The exact checks run in Python with rational arithmetic, and most of their
-verdicts are replayed in the Lean proof assistant: on the
+a passed necessary check never verifies. We evaluate it twice. On an outside benchmark of verbatim
+sentences from published sources, with expected values fixed before any checker run, only the
+development half has been run so far: the checker can state a formal reading for
+\rn{9}{paper_numbers.py::outside_dev} of its \rn{99}{paper_numbers.py::outside_dev} sentences, every one
+of them narrowed to an instance. It decides \rn{12}{paper_numbers.py::outside_dev} of the
+\rn{14}{paper_numbers.py::outside_dev} readings and gets none wrong. Most of these sentences are about
+high-order reconstruction, two space dimensions or whole classes of schemes, which the checker cannot
+yet express. Two naive readings that we rejected would have been wrong verdicts; they show that the
+error-prone step is reading the claim, not checking it. On our own benchmark of
+\rn{23}{paper_numbers.py::bench_counts} sentences, split into \rn{44}{paper_numbers.py::bench_counts}
+formal readings, the checker decides \rn{34}{paper_numbers.py::bench_counts} correctly, leaves
+\rn{9}{paper_numbers.py::bench_counts} undecided and \rn{1}{paper_numbers.py::bench_counts} unscored,
+and gives \rn{0}{paper_numbers.py::bench_counts} wrong verdicts; we wrote those sentences and their
+expected values ourselves (Section~\ref{sec:trust}). The exact checks run in Python with rational
+arithmetic, and many of their verdicts are replayed in the Lean proof assistant: on the
 \rn{30}{paper_numbers.py::lean_replay} example specs, the judge states
 \rn{532}{paper_numbers.py::lean_replay} theorems and the Lean kernel accepts all of them.
 \end{abstract}
@@ -235,17 +240,27 @@ the two kinds of reasoning apart. Its parts:
 \item \textbf{A trusted relation table} (\code{physverify/schemes/claims.py}) that says, for each named
   claim, which checks bear on it, whether each is \SUF, \NEC{} or \EQV, which theorem the row rests
   on, and which other checks must be exactly verified first.
-\item \textbf{A benchmark} of sentences phrased as papers phrase them, each split into formal
-  readings with an expected truth value fixed in advance.
+\item \textbf{Two benchmarks}: one we wrote, of sentences phrased as papers phrase them, and one of
+  sentences copied from published sources. Each sentence is split into formal readings and scored
+  against an expected truth value fixed in advance.
 \item \textbf{A Lean replay} of the exact certificates, so that the identities and counterexamples are
   checked by a small kernel rather than by our Python (Section~\ref{sec:certs}).
 \end{itemize}
 The design follows the idea of certifying algorithms \cite{mcconnell2011}: the search can be
 complicated and untrusted, as long as its output carries a witness that a simple checker can confirm.
 
-On our benchmark the checker never certifies a false claim and never refutes a true one: 0 wrong
-among \rn{44}{paper_numbers.py::bench_counts} readings. We wrote that benchmark ourselves, which
-limits what the number shows (Section~\ref{sec:trust}).
+We have two benchmarks. The first we wrote ourselves (Section~\ref{sec:bench}); the second is made of
+sentences copied from \rn{15}{paper_numbers.py::outside_dev} published papers, reports and lecture
+notes by collectors who had not looked at the checker, with expected values fixed before any checker
+run (Section~\ref{sec:outside}).
+So far only its development half has been run, and the first result is about coverage: the checker
+can state a formal reading for \rn{9}{paper_numbers.py::outside_dev} of the
+\rn{99}{paper_numbers.py::outside_dev} sentences. Of the \rn{14}{paper_numbers.py::outside_dev}
+readings it decides \rn{12}{paper_numbers.py::outside_dev}, all exactly, and none of them is wrong.
+That zero is on easy readings (linear schemes, a CFL range), and the more useful finding is that two
+plausible readings we rejected would have been wrong verdicts. On our own benchmark there are 0 wrong
+verdicts among \rn{44}{paper_numbers.py::bench_counts} readings; since we wrote it, that number shows
+less than it seems (Section~\ref{sec:trust}).
 
 % ====================================================================================================
 \section{Limitations and what is trusted}\label{sec:trust}
@@ -309,7 +324,7 @@ replay upgrades a verdict, the label becomes ``proven (Lean)'' followed by the s
 caveat.\repro{tests/test_lean_caveat.py::test_lean_upgrade_keeps_the_caveat} In the text we shorten
 the caveat to ``semi-discrete only''.
 
-\paragraph{The benchmark is ours.} The main threat to validity is that we wrote the benchmark: the
+\paragraph{The first benchmark is ours.} The main threat to validity is that we wrote the benchmark: the
 \rn{23}{paper_numbers.py::bench_counts} sentences, their
 \rn{44}{paper_numbers.py::bench_counts} readings and the expected truth values. We tried to phrase
 the sentences as papers do and fixed each expected value before running the checker on it, with a
@@ -318,8 +333,9 @@ sentence that a checker of this kind would get wrong is, almost by construction,
 likely to write. In one case, C07, the expected value differs from the one first written in our task
 notes, because of the counterexample in Section~\ref{sec:example}. ``0 wrong'' is evidence that the
 checks and the table are consistent with our reading of the literature on these 44 readings. It is
-not an error rate on claims from published papers. An independent benchmark, written by people who
-have not seen the code, is the obvious next step.
+not an error rate on claims from published papers. The outside benchmark (Section~\ref{sec:outside})
+addresses this in part. Its sentences and expected values were fixed blind, but the formal readings
+were written by us, knowing the expected values, and only its development half has been run.
 
 \paragraph{Scope.} One space dimension. Scalar conservation laws, plus $2\times2$ systems for
 hyperbolicity, conservation, consistency and depth positivity (shallow water). Three-point stencils,
@@ -670,6 +686,173 @@ verify are claims about limits; most expected-false claims are refuted exactly, 
 verify the true version of the sentence.
 
 % ====================================================================================================
+\section{An outside benchmark}\label{sec:outside}
+
+The benchmark of Section~\ref{sec:bench} cannot tell us how the checker does on claims as published
+papers make them, because we wrote it. The outside benchmark (\code{benchmark/outside/}) is made of
+\rn{176}{paper_numbers.py::outside_dev} sentences copied verbatim from
+\rn{15}{paper_numbers.py::outside_dev} published papers, technical reports and lecture notes on
+schemes for conservation laws; the full list is in \code{SOURCES.md}.
+
+\paragraph{Design.} The rules were written down and committed before any sentence was collected.
+\begin{itemize}
+\item \emph{Sampling rule first} (\code{SAMPLING.md}). From each source, take every sentence that
+  asserts a property of a named or explicitly defined scheme, or of a stated class of schemes, from
+  the abstract, the statements of the theorems, propositions, lemmas and corollaries, and the
+  conclusions. Sentences too vague to have a truth value (``performs well'') are logged as skipped
+  with a reason, not dropped silently.
+\item \emph{Access check} (\code{SOURCES.md}). Each source was opened in full text before collection,
+  and the copy that was read is recorded. Sources that could not be opened were dropped and listed with
+  the reason. The check was committed before any item was collected.
+\item \emph{Blind collection.} The collectors did not look at the checker, its benchmark, its tests,
+  its Lean code or this paper. Each expected truth value was fixed from the literature (the source's
+  proof, a later theorem, a published counterexample, or in a few marked cases a short counterexample
+  of the collectors' own), before any checker was run. A sentence is judged as printed.
+\item \emph{Two expected fields.} \code{expected\_alone} is the sentence read by itself, with no CFL
+  bound, smoothness or convexity it does not state; \code{expected\_with\_hypotheses} adds every
+  hypothesis the source states for it. Each is TRUE, FALSE or UNSURE (the literature we read does not
+  settle it; not scored).
+\item \emph{Split by source.} A hash of the source identifier puts each source, with all its
+  sentences, into a development half (\rn{9}{paper_numbers.py::outside_dev} sources,
+  \rn{99}{paper_numbers.py::outside_dev} sentences) or a held-out half
+  (\rn{77}{paper_numbers.py::outside_dev} sentences). Splitting by sentence would let a source's
+  phrasing leak from one half to the other.
+\item \emph{Freeze and errata.} The expected values were frozen at the split (\code{FROZEN.md}). A
+  correction after the freeze goes to \code{ERRATA.md} with the old and new values. Proposals arising
+  from the development run go to \code{ERRATA\_PROPOSED.md} for the team to decide. There are none so
+  far.
+\end{itemize}
+\textbf{Only the development half has been run.} We wrote formal readings for it and ran the checker;
+the held-out half has not been formalised or run, and will be run once, later, with the checker
+commit fixed in advance. Every number below is from the development half.
+
+\paragraph{Readings.} The readings (\code{dev\_readings.json}) use the components of
+Section~\ref{sec:readings}, plus negation (a reading may assert that a named claim fails). A reading
+may \emph{narrow} a sentence to an instance, for example linear advection with speed 1 for a general
+flux, or the Courant range $[0, 2]$ for ``no CFL restriction''. A narrowing must keep the sentence's
+truth value and is recorded in the reading. A narrowed \V{} verifies the instance only, never the
+sentence. Theorems about every scheme with some property are never narrowed to an instance, whatever
+their expected value. Every unformalised field gets one primary reason from a list (the gap taxonomy
+below), fixed in the README before any item was classified. The runner
+\code{benchmark/outside/run\_dev.py} recomputes every verdict in a few seconds, and a test checks that
+the stored verdicts and scores are what the checker gives
+now.\repro{tests/test_outside_dev.py::test_stored_verdicts_and_scores_are_what_the_checker_gives_now}
+
+\paragraph{How much can be stated.} The checker can state a formal reading for
+\rn{9}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} of the
+\rn{99}{paper_numbers.py::outside_dev} development sentences (\rn{8}{paper_numbers.py::outside_dev}
+for the field alone, \rn{7}{paper_numbers.py::outside_dev} with hypotheses). By property
+tag:\repro{paper_numbers.py::outside_dev}
+\begin{center}\small
+\begin{tabular}{@{}lrlr@{}}
+\toprule
+property & stated / items & property & stated / items \\ \midrule
+positivity & 2 / 26 & convergence & 1 / 8 \\
+order & 2 / 24 & other & 0 / 8 \\
+stability & 3 / 11 & TVD & 1 / 8 \\
+entropy & 0 / 11 & monotone & 0 / 2 \\
+ & & conservation & 0 / 1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+All \rn{14}{paper_numbers.py::outside_dev} readings narrow their sentence.
+
+\paragraph{How much is decided.} \rn{12}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results}
+of the \rn{14}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} readings are decided:
+\rn{5}{paper_numbers.py::outside_dev} \V{} and \rn{7}{paper_numbers.py::outside_dev} \R, all exact
+(rational arithmetic; none of them has been replayed in Lean). The two undecided readings are both on
+one sentence of Harten's report \cite{harten1983} (a three-point scheme with viscosity
+$Q(x) = x^2 + 1/4$ on linear advection), and both are \U{} because of checker limits, not hard cases.
+The positivity check runs the Bernstein test on the whole $\nu$-interval without subdividing it, and
+one coefficient, $(\nu - 1/2)^2/2$, has a double root inside. The TVD check certifies Harten's form only
+with the upwind split. Counting the fields that have a TRUE or FALSE expectation, the checker decides
+\rn{7}{paper_numbers.py::outside_dev} of \rn{68}{paper_numbers.py::outside_dev} alone and
+\rn{6}{paper_numbers.py::outside_dev} of \rn{67}{paper_numbers.py::outside_dev} with hypotheses; all
+\rn{13}{paper_numbers.py::outside_dev} matches are on narrowed readings.
+
+\paragraph{Wrong verdicts.} \rn{0}{tests/test_outside_dev.py::test_no_wrong_verdict_and_every_gap_reading_is_explained}
+in both fields, and no \IC. This zero says little. The readings that reached the checker are the
+easy kind: linear schemes, a CFL range, one smooth extremum.
+
+\paragraph{The gaps.} Each item field without a reading has one entry (covering one field or both)
+that lists its reasons. The table gives, for each reason, the entries for which it is the primary
+reason and the entries that list it at all:\repro{paper_numbers.py::outside_dev}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}l r r >{\raggedright\arraybackslash}X@{}}
+\toprule
+reason & primary & any & what it would take \\ \midrule
+class of schemes & 27 & 27 & theorems about every scheme with a property (monotone implies TVD, the Lax--Wendroff theorem); a spec is one scheme \\
+reconstruction & 23 & 50 & WENO/ENO stencil selection, polynomial reconstructions, DG and finite-volume limiters \\
+multi-D & 15 & 16 & 2D rectangles and triangles \\
+system & 10 & 19 & Euler, general systems with entropy variables \\
+claim kind missing & 7 & 24 & semi-discrete order, order away from extrema, energy identities, E-fluxes, numerical entropy flux identities \\
+not checkable & 7 & 7 & numerical observations, comparisons, existential wording \\
+illegible & 2 & 2 & the formula is illegible in the scan \\
+variable coefficients & 1 & 7 & a velocity that varies in space \\
+not expressible & 1 & 2 & a formula that divides by a state difference \\
+time stepping & 0 & 10 & Runge--Kutta or multistep methods beyond a five-point update \\
+\bottomrule
+\end{tabularx}
+\end{center}
+The low coverage is the main result, not a failure to look. The development sources are mostly about
+high-order reconstruction, two-dimensional meshes and theorems over classes of schemes, and a spec
+cannot say any of these today.
+
+\paragraph{Alone against with hypotheses.} The two expected values differ on
+\rn{30}{paper_numbers.py::outside_dev} of the \rn{99}{paper_numbers.py::outside_dev} items (FALSE alone
+and TRUE with hypotheses on \rn{15}{paper_numbers.py::outside_dev}). Almost always the dropped hypothesis
+is a CFL bound, a smoothness condition or convergence of the scheme.
+\rn{7}{paper_numbers.py::outside_dev} of the 30 are stated, and the checker gets every scored field of
+those seven right. On a dropped CFL bound it is reliable: the reading with the hypothesis verifies on
+the stated range and the reading without it is refuted on $[0, 2]$, both exactly. A dropped ``away from
+extrema'' is half covered: the unqualified order claim is refuted at a smooth extremum, but the
+qualified one has no claim kind.\repro{paper_numbers.py::outside_dev}
+
+\paragraph{Two readings that would have been wrong.} We rejected two readings that looked natural,
+because their truth value differs from the sentence's. Run once, outside the stored results, each
+gives a verdict against the expected value (it would be scored \textsf{WRONG}). Item identifiers are
+shortened.\repro{paper_numbers.py::outside_naive_readings}
+\begin{itemize}
+\item \emph{An entropy flux, as we transcribed it} (Fjordholm, Mishra and Tadmor \cite{fjordholm2012tecno},
+  Lemma~3.1; item \code{tecno:04}, FALSE in both fields). The sentence says the scheme with flux (3.2) is
+  entropy stable, \emph{with} a cell entropy identity (3.3) whose numerical entropy flux $\hat Q$ is
+  defined in the same sentence. The entropy flux as we transcribed it (the sign as printed, in our
+  reading of Lemma~3.1, is $+\tfrac12$) fails the identity. The sign in the paper's own Lemma~3.2,
+  $-\tfrac12$, satisfies it.\footnote{The transcription is being re-checked by a second, independent
+  transcription. We have not searched for an erratum.} At $f \equiv 0$, $D = 1$, $\Delta x = 1$ and
+  $(u_{i-1}, u_i, u_{i+1}) = (0, 0, 1)$, the scheme gives $\tfrac{d}{dt}E(u_i) =
+  \rn{0}{paper_numbers.py::outside_naive_readings}$; the identity with $+\tfrac12$ requires
+  \rn{$-1/2$}{paper_numbers.py::outside_naive_readings}, and with $-\tfrac12$ it requires
+  \rn{0}{paper_numbers.py::outside_naive_readings}. Read as ``the scheme (3.2) is entropy stable'', the
+  sentence becomes \code{entropy\_stable\_tadmor} on Burgers' equation with the entropy-conservative
+  flux and $D = 1$, and the checker returns \V{} (exact; semi-discrete only). That verdict is correct
+  about the scheme. It is scored wrong because the sentence's content includes the printed formula,
+  which no named claim looks at.
+\item \emph{Energy growth} (Mishra, Fjordholm and Abgrall \cite{mishranotes2023}, Lemma~2.3; item
+  \code{mfa:02}, FALSE). ``The energy grows at every time step for any choice of $\Delta x$, $\Delta t$'',
+  for the centred scheme on linear advection. Read as ``the centred scheme is not von Neumann stable'', it
+  is \V: the checker refutes von Neumann stability on $[0, 1]$ and for every small CFL number, both
+  exactly. The literal sentence is false. On an even periodic grid $U_j = (-1)^j$ is a fixed point, and
+  its energy goes from \rn{8}{paper_numbers.py::outside_naive_readings} to
+  \rn{8}{paper_numbers.py::outside_naive_readings} in one step at $\nu = 1$. This expected value
+  measures a literal reading, and \code{ERRATA\_PROPOSED.md} discusses it and leaves it as it is.
+\end{itemize}
+The two cases show where outside claims go wrong: in reading the claim, not in checking it. A named
+claim can be true of the scheme while the formula the paper prints is false (or, in the second case,
+while the sentence says more than the property). Without a claim kind for the printed object, here an
+identity for a stated numerical entropy flux, the checker cannot see the formula at all. A person
+choosing a reading by the property the paper means would get a confident, exact, wrong-scored verdict.
+
+\paragraph{The formaliser was not blind.} The sentences and expected values were fixed blind, but we
+wrote the readings having read every expected value and justification. In
+\rn{3}{paper_numbers.py::outside_dev} readings the instance is taken from the counterexample in the
+item's justification; they are flagged \code{instance\_from\_justification} in
+\code{dev\_readings.json} (two items from Zhang and Shu's maximum-principle paper and one from
+Fjordholm, Mishra and Tadmor). The rule that class theorems are never narrowed, not even to a refuting
+instance, was fixed before classifying, so that this could not turn into choosing FALSE items to refute.
+The readings of the held-out half will also be written by us, so the same caveat will apply to them.
+
+% ====================================================================================================
 \section{When the checker corrected us}\label{sec:corrected}
 
 We list the places where we were wrong and the checker, or a rule we adopted because of it, showed it.
@@ -808,8 +991,34 @@ different (positivity, maximum principles, invariant domains), so new checks are
 
 \paragraph{Reward signals.} A checker that never certifies a false claim can grade a model that writes
 schemes and claims about them. A verdict of \U{} or \NR{} must earn nothing, or a model learns to write
-claims nothing can decide. The benchmark needs adversarial and independently written entries before it
-can support that use.
+claims nothing can decide. Our own benchmark needs adversarial entries, and the outside benchmark
+needs its held-out half run and a reading step that does not depend on us, before either can support
+that use.
+
+\paragraph{What the outside benchmark asks for.} Its largest gap is claims about classes of schemes
+(``a monotone scheme is TVD''). These need Lean statements in which the numerical flux is a variable,
+not more checks on single specs. The next largest are reconstruction schemes (WENO, ENO, DG and their
+limiters), then several space dimensions and systems.\repro{paper_numbers.py::outside_dev}
+
+\paragraph{Exact conservation certificates for update maps.} Another layer of the repository already
+gives exact certificates of the same kind for explicit update maps $z' = \Phi(z)$ of mechanical
+systems: the claim kind \code{update\_conserves} says $J(\Phi(z)) = J(z)$ for every $z$ in the domain,
+decided by an exact rational-function identity or refuted at a rational point, and replayed in Lean
+through the meaning theorem \code{update\_conserves\_meaning}. For a central quartic potential in two
+dimensions, explicit Euler does not conserve the angular momentum $x p_y - y p_x$ (\R, exactly, with
+defect $h^2(p_y\,\partial_x V - p_x\,\partial_y V)$), while symplectic Euler and St\"ormer--Verlet conserve it
+exactly (\V).\repro{tests/test_update_conserves.py::test_exact_python_routes_every_claim_as_expected}\repro{tests/test_update_conserves.py::test_explicit_euler_defect_by_hand}
+For the harmonic oscillator $H = (p^2 + \omega^2 q^2)/2$, symplectic Euler does not conserve $H$, but it
+conserves the modified energy $H - h\omega^2 pq/2$ exactly, and conserves $H$ to order 1 and not to
+order 2.\repro{tests/test_update_conserves.py::test_oscillator_defects_by_hand}\repro{tests/test_update_conserves.py::test_order_semantics_is_at_least_p}
+With Lean, the verified statements give conservation along every orbit that stays in the
+domain.\repro{tests/test_lean.py::test_update_statement_gives_exact_conservation} Exact certificates of
+this kind exist for linear systems and quadratic invariants; the angular momentum and the
+oscillator's modified energy above are both quadratic. For a nonlinear potential the modified Hamiltonian of a
+symplectic method is an asymptotic series in $h$ that in general does not converge. The fair claim there
+is that a modified energy truncated at order $p$ is conserved to order $p$ (the per-step drift is
+$O(h^{p+1})$), which is the claim kind \code{update\_conserves\_order\_p}. Carrying this to the schemes
+of this paper, for example to discrete entropy for a fully discrete scheme, is open.
 
 % ====================================================================================================
 \appendix
@@ -824,7 +1033,7 @@ number, and the test or function that reproduces it. A target
 run with \code{uv run python papers/scheme-claims/paper\_numbers.py} \textit{name}; it prints what the
 checker returns.
 ``(see text)'' marks a sentence whose numbers all come from one target. All numbers were taken from
-current main (commit \code{c3c32b6}). The merge gate is
+current main (commit \code{ab8ed72}). The merge gate is
 \code{uv run pytest -q tests/ --ignore=tests/test\_lean.py}.
 
 \printrepro
@@ -860,7 +1069,12 @@ current main (commit \code{c3c32b6}). The merge gate is
   time step.
 \item[Riemann problem] Initial data with one jump, $u_L$ for $x < x_0$ and $u_R$ for $x > x_0$.
 \item[Spec] The JSON file that holds a PDE, a scheme and the claims made about it.
-\item[Named claim] A precise property in the trusted table, such as \code{monotone\_under\_cfl}.
+\item[Named claim, claim kind] A precise property in the trusted table, such as
+  \code{monotone\_under\_cfl}. Every name has one meaning across the repository, recorded in the
+  claim-kind registry (Table~\ref{tab:kinds}).
+\item[Meaning theorem] A Lean theorem that turns an accepted certificate into the claim's mathematical
+  statement (for \code{conservative}: the total is conserved on every periodic grid). A kind without one
+  has a gloss only: its reading was chosen by a person and is checked by review.
 \item[Reading] One formal meaning of an English sentence: a conjunction of named claims on specs, with
   relations and bridges.
 \item[Bridge] A stated lemma linking a sentence's wording to a named claim.
@@ -880,6 +1094,42 @@ current main (commit \code{c3c32b6}). The merge gate is
 \item[Match, gap, wrong] A decisive verdict that agrees with the expected truth; a non-decisive one; a
   decisive one that disagrees.
 \end{description}
+
+\paragraph{Claim kinds.} Table~\ref{tab:kinds} is generated from the registry
+\code{physverify/claimkinds.py} (\code{paper\_numbers.py --write-table}), and a test fails if the
+table in the paper drifts from it.\repro{tests/test_paper_numbers.py::test_claim_kind_table_matches_the_registry}
+Of the \rn{32}{paper_numbers.py::claim_kinds} kinds, \rn{9}{paper_numbers.py::claim_kinds} have a
+Lean meaning theorem; of the \rn{21}{paper_numbers.py::claim_kinds} kinds used for schemes, only
+\rn{2}{paper_numbers.py::claim_kinds} do (\code{conservative} and \code{positive\_under\_cfl}).
+
+A Lean \emph{label} on a verdict is a different thing: it says that the certificate behind the verdict
+was replayed by the kernel, against a statement the judge wrote from the spec. Of the
+\rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our own benchmark,
+\rn{18}{paper_numbers.py::bench_lean_labels} would carry a Lean label after the replay
+(\rn{7}{paper_numbers.py::bench_lean_labels} \V{} and \rn{11}{paper_numbers.py::bench_lean_labels} \R;
+\rn{4}{paper_numbers.py::bench_lean_labels} of the 18 with the per-cell label). The other
+\rn{16}{paper_numbers.py::bench_lean_labels} rest on at least one check that is not replayed
+(truncation order, von Neumann stability, the frozen jump, the Lipschitz and scope checks of the shock
+rows, consistency of a recovered flux, the entropy check's \V{} cells) or are empirical (one \RE), and keep
+their exact-Python or empirical label. We count a \V{} reading if all its components carry a Lean label, and a \R{}
+reading if one of its refuting components does. The count is of the theorems the judge states
+(\rn{401}{paper_numbers.py::bench_lean_labels} for the benchmark's specs), taken as accepted: we did not
+run Lean on the benchmark's specs for this paper, only on the example specs, where all 532 stated
+theorems were accepted. Only \rn{5}{paper_numbers.py::bench_lean_labels} of the 34 verdicts rest
+entirely on claim kinds with a meaning theorem. For the rest, even a Lean-labelled verdict says that a
+certificate is correct, while the step from the certificate to the claim's English gloss is ours.
+
+{\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.1cm} >{\raggedright\arraybackslash}p{4.3cm}
+  >{\raggedright\arraybackslash}p{4.8cm} >{\raggedright\arraybackslash}p{3.1cm}@{}}
+\caption{The claim-kind registry (\code{physverify/claimkinds.py}): name and parameters, gloss,
+quantifier structure, and the Lean meaning theorem or ``gloss only''.}\label{tab:kinds}\\
+\toprule
+name & gloss & quantifier & Lean meaning \\ \midrule\endfirsthead
+\toprule name & gloss & quantifier & Lean meaning \\ \midrule\endhead
+\input{claim_kinds_table.tex}
+\end{longtable}}
 
 \bibliographystyle{plainnat}
 \bibliography{refs}
