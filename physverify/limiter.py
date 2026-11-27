@@ -38,7 +38,12 @@ term is left. Each claim is for every p of degree <= k and all m <= M, with c in
                          the nodes with sum w_a v_a = 0; the minimum of q(y) = sum L_a(y) v_a over that polytope is
                          at a vertex (all v = 1 but one), so min_I q >= 1 - max_{a, y} L_a(y)/w_a and
                          K_k <= max(1, max_a B_a / w_a - 1) with B_a >= max_I L_a certified by Sturm
-                         (univariate.nonneg_on).
+                         (univariate.nonneg_on): 1, 5, 7 for k = 1, 2, 3. Sharper, by duality: K_k <= 1/w - 1 if
+                         avg P >= w P(y0) for all y0 in I and P >= 0 on I of degree k (take P = (M - q)/(M + 1)
+                         with q(y0) = min q = -1, M = max q), and that holds when Hankel matrices of
+                         avg - w delta_y0 are PSD for all y0 (Markov-Lukacs; `_moment_certificate`, Sturm in y0).
+                         With w = 1/(K + 1) for the witness ratios K of LOWER_WITNESS, this certifies K_k = 1, 3, 5
+                         exactly (the witnesses attain them).
 When the argument does not apply, a REFUTED verdict needs an explicit datum (p, m, M), from a fixed list of simple
 candidates, that breaks the claim by exact evaluation: for accuracy, a p with d = 0 (m <= p <= M on I, certified by
 Sturm) and theta != 1, so p~ != p. If no candidate works the verdict is UNKNOWN. Extrema of p over I are computed
@@ -301,10 +306,70 @@ def _upper_bound(p: list) -> Fraction:
     raise Unknown("no certified upper bound found")
 
 
+# zero-mean q of degree k with max_I |q| / max_I q as large as we found (numerically, then exactly): 1, 3, 5
+LOWER_WITNESS = {1: [Fraction(0), Fraction(1)],                                       # y
+                 2: [Fraction(1, 12), Fraction(1, 3), Fraction(-1)],                  # 1/9 - (y - 1/6)^2
+                 3: [Fraction(1, 24), Fraction(0), Fraction(-1, 2), Fraction(-1)]}    # 1/24 - y^2/2 - y^3
+
+
+def abs_max_ratio(q: list) -> Fraction:
+    """max_I |q| / max_I q for a zero-mean q != 0, exactly (extrema at the ends and the roots of q')."""
+    Mx, mx = extrema(q, "cell")
+    return max(Mx, -mx) / Mx
+
+
+def _moment_certificate(k: int, w: Fraction) -> list | None:
+    """Sturm certificates that avg P >= w P(y0) for every y0 in I and every P >= 0 on I of degree <= k, or None.
+    By the Markov-Lukacs theorem such P is A^2 + (1/4 - y^2) B^2 (k = 2n) or (y + 1/2) A^2 + (1/2 - y) B^2
+    (k = 2n + 1), deg A <= n, deg B <= n - 1 resp. n; so it suffices that, for each multiplier g, the Hankel
+    matrix H_ij(y0) = Lam(g y^(i+j)), Lam(f) = avg f - w f(y0), is positive semidefinite for all y0 in I. Each H
+    is 1 x 1 or 2 x 2 for k <= 3: its diagonal entries and determinant, polynomials in y0, are certified >= 0 on
+    I. Then for a zero-mean q with q(y0) = min_I q = -1 and max_I q = M, P = (M - q)/(M + 1) gives
+    M / (M + 1) >= w, i.e. max_I |q| / max_I q <= 1/w - 1."""
+    n = k // 2
+    if k % 2 == 0:
+        mults = [([Fraction(1)], n), ([Fraction(1, 4), Fraction(0), Fraction(-1)], n - 1)]
+    else:
+        mults = [([HI, Fraction(1)], n), ([HI, Fraction(-1)], n)]
+    lam = lambda f: U.add([average(f)], [w * a for a in f], -1)    # Lam(f) as a polynomial in y0
+    certs = []
+    for g, deg in mults:
+        if deg < 0:
+            continue
+        if deg > 1:
+            return None
+        H = [[lam(U.mul(g, [Fraction(0)] * (i + j) + [Fraction(1)])) for j in range(deg + 1)] for i in range(deg + 1)]
+        polys = [H[i][i] for i in range(deg + 1)]
+        if deg == 1:
+            polys.append(U.add(U.mul(H[0][0], H[1][1]), U.mul(H[0][1], H[1][0]), -1))
+        for p in polys:
+            c = U.nonneg_on(p, LO, HI)
+            if not c["nonneg"]:
+                return None
+            certs.append({"multiplier": U.show(g, "y"), "polynomial in y0": U.show(p, "y0")})
+    return certs
+
+
 def accuracy_constant(k: int) -> dict:
-    """A certified upper bound of K_k (module docstring), with the Newton-Cotes data used."""
+    """A certified upper bound K of K_k (module docstring) and the lower bound of an explicit witness. The upper
+    bound is 1/w - 1 from the moment certificate with w = 1/(lower + 1) when it holds (then K is the supremum),
+    else the Newton-Cotes bound."""
     if k == 0:
-        return {"K": Fraction(1), "nodes": [], "weights": [], "bounds": []}
+        return {"K": Fraction(1), "lower": Fraction(1), "method": "constant", "nodes": [], "weights": [], "bounds": []}
+    out = _newton_cotes(k)
+    q = LOWER_WITNESS.get(k)
+    if q is not None:
+        assert average(q) == 0
+        lower = abs_max_ratio(q)
+        out.update(lower=lower, witness=U.show(q, "y"))
+        certs = _moment_certificate(k, 1 / (lower + 1))
+        if certs is not None and lower < out["K"]:
+            out.update(K=lower, method="moment certificate (Markov-Lukacs, Sturm)", certificate=certs)
+    return out
+
+
+def _newton_cotes(k: int) -> dict:
+    """K_k <= max(1, max_a B_a / w_a - 1) from the Newton-Cotes nodes (module docstring)."""
     nodes = [LO + Fraction(a, k) for a in range(k + 1)]
     weights, Bs, ratio = [], [], Fraction(0)
     for a, xa in enumerate(nodes):
@@ -319,7 +384,8 @@ def accuracy_constant(k: int) -> dict:
         weights.append(w)
         Bs.append(B)
         ratio = max(ratio, B / w)
-    return {"K": max(Fraction(1), ratio - 1), "nodes": nodes, "weights": weights, "bounds": Bs}
+    return {"K": max(Fraction(1), ratio - 1), "method": "Newton-Cotes", "newton_cotes_K": max(Fraction(1), ratio - 1),
+            "nodes": nodes, "weights": weights, "bounds": Bs}
 
 
 def positive_weights(L: dict):
@@ -369,7 +435,8 @@ def accuracy(L: dict, assume: bool) -> dict:
     ok = {"term 1 in theta": "1" in L["terms"], "average a non-negative combination of the values on S": pos}
     if all(ok.values()):
         K = accuracy_constant(L["k"])
-        out = {"verdict": VERIFIED, "conditions": ok, "C": str(K["K"]),
+        out = {"verdict": VERIFIED, "conditions": ok, "C": str(K["K"]), "C_method": K["method"],
+               "C_lower": str(K["lower"]), "C_lower_witness": K.get("witness", "1"),
                "newton_cotes": {"nodes": [str(x) for x in K["nodes"]], "weights": [str(x) for x in K["weights"]],
                                 "max_L_bounds": [str(x) for x in K["bounds"]]},
                "reason": f"max_I |p~ - p| <= {K['K']} * max_I dist(p, [m, M]) for every p of degree <= {L['k']} and "

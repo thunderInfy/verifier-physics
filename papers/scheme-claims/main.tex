@@ -783,8 +783,9 @@ the existing kind could already state. The next mechanism in the survey's rankin
 scaling limiter $\tilde p = \bar u + \theta (p - \bar u)$: \code{limiter\_keeps\_average},
 \code{limiter\_bounds} and \code{limiter\_accuracy} decide, for every polynomial of degree $k \le 3$, that
 it keeps the average, that it puts $\tilde p$ in $[m, M]$ at the points where the extrema are taken, and
-that $\max |\tilde p - p|$ is at most a constant times the overshoot of $p$ (a Newton--Cotes bound on the
-constant, certified by Sturm sequences), which gives three more sentences (two statements of its accuracy
+that $\max |\tilde p - p|$ is at most a constant times the overshoot of $p$ (the constant is the exact
+supremum, $1, 3, 5$ for $k = 1, 2, 3$: an explicit polynomial attains it and a moment certificate,
+checked by Sturm sequences, bounds it), which gives three more sentences (two statements of its accuracy
 lemma and the theorem that the limited scheme keeps the order and the maximum principle). One finding: the
 accuracy clause holds without the hypothesis $\bar u \in [m, M]$, which only the bounds need. These
 \rn{9}{paper_numbers.py::outside_dev} readings use claim

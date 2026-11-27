@@ -1771,9 +1771,21 @@ polynomial of degree k <= 3 and all m <= M:
   [m, M] and the set is dominated by the extrema set at degree k (for k >= 2: a subset of it, or S is the cell;
   -(y - y')^2 peaks off the points otherwise).
 - `limiter_accuracy`: max |p~ - p| <= C max dist(p, [m, M]). VERIFIED when the 1 is in theta and the average is a
-  non-negative combination of the values on S. C is a bound on max |q| / max q over zero-mean q of degree k: from
-  the k + 1 Newton–Cotes nodes, C <= max_a max L_a / w_a - 1, with each max certified by Sturm. That gives 1, 5, 7
-  for k = 1, 2, 3; these are upper bounds, not the suprema.
+  non-negative combination of the values on S. C is a bound on K_k = sup max |q| / max q over zero-mean q of degree
+  k. The first bound came from the k + 1 Newton–Cotes nodes, C <= max_a max L_a / w_a - 1, with each max certified
+  by Sturm: 1, 5, 7 for k = 1, 2, 3 (still computed, as `newton_cotes_K`). The checker now uses a sharper one:
+  K_k <= 1/w - 1 whenever avg P >= w P(y0) for every y0 in the cell and every P >= 0 on the cell of degree k. By the
+  Markov–Lukács representation of such P, that holds when 1 x 1 and 2 x 2 Hankel matrices of avg - w delta_y0 are
+  positive semidefinite, which is a set of polynomial inequalities in y0 certified by Sturm.
+
+  | k | certified upper bound (`C`) | lower bound (`C_lower`), witness q | Newton–Cotes bound |
+  |---|---|---|---|
+  | 1 | 1 | 1, q = y | 1 |
+  | 2 | 3 | 3, q = 1/9 - (y - 1/6)^2 (max 1/9 at y = 1/6, min -1/3 at y = -1/2) | 5 |
+  | 3 | 5 | 5, q = 1/24 - y^2/2 - y^3 (max 1/24 at y = -1/2 and 0, min -5/24 at y = 1/2) | 7 |
+
+  Upper and lower bounds agree, so 1, 3, 5 are the exact suprema (attained). A numerical search over zero-mean
+  polynomials found the same values before they were certified.
 
 Each REFUTED verdict comes with a datum (p, m, M) from a fixed list of simple candidates. The datum is checked by
 exact evaluation, and for accuracy, d = 0 is certified by Sturm while theta != 1. When no candidate works the

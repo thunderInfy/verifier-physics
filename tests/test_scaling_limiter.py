@@ -148,9 +148,16 @@ def test_verified_claims_hold_on_random_polynomials(name, i):
 def test_accuracy_constants():
     # k = 1: q = y has max |q| / max q = 1, and the bound is exact
     assert LIM.accuracy_constant(1)["K"] == 1
-    K2, K3 = LIM.accuracy_constant(2)["K"], LIM.accuracy_constant(3)["K"]
-    # lower bounds from explicit zero-mean polynomials: 1/12 - y^2 has max 1/12 and min -1/6
-    assert K2 >= 2 and K3 >= 2
+    # k = 2, 3: the moment certificate gives the supremum, attained by the witnesses 1/9 - (y - 1/6)^2 (max 1/9 at
+    # 1/6, min -1/3 at -1/2) and 1/24 - y^2/2 - y^3 (max 1/24 at -1/2 and 0, min -5/24 at 1/2)
+    for k, K, nc in ((2, 3, 5), (3, 5, 7)):
+        r = LIM.accuracy_constant(k)
+        assert r["K"] == r["lower"] == K and r["method"].startswith("moment certificate")
+        assert r["newton_cotes_K"] == nc
+    assert LIM.abs_max_ratio(LIM.LOWER_WITNESS[2]) == 3 and LIM.abs_max_ratio(LIM.LOWER_WITNESS[3]) == 5
+    # the certificate fails just above the supremum (w slightly larger than 1/(K + 1))
+    assert LIM._moment_certificate(2, F(1, 4) + F(1, 1000)) is None
+    assert LIM._moment_certificate(3, F(1, 6) + F(1, 1000)) is None
     assert LIM.accuracy_constant(2)["weights"] == [F(1, 6), F(2, 3), F(1, 6)]  # Simpson
 
 
