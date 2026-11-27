@@ -119,6 +119,32 @@ def test_original_measurement_cancellation_identity():
         assert R.check_claim(LIU, claim(p=5, form=form, regime="generic"))["leading_order"] == "5"
 
 
+def test_original_measurement_critical_point_coefficients():
+    """Pins the leading errors of benchmark/outside/notes/liu-critical-point.md at n_cp = 1 (f' = 0), eps = 0, from
+    the module's numerators: face (14/293) f''' dx^3, flux difference (200248/2854113) f''' dx^2, and with f''' = 0
+    as well (7/1465) f'''' dx^4 and (21950/951371) f'''' dx^3."""
+    Rp = R.parse_reconstruction(LIU)
+    jet = R.Jet("point_values", "primitive", 1, 1, 12)
+    mono = lambda **e: tuple(e.get(f"f{i}", 0) for i in range(jet.nv))
+    n = 6
+    Np, Dp = R._numerator(Rp, jet, 0, n, None, 2, [])
+    Nm, Dm = R._numerator(Rp, jet, -1, n, None, 2, [])
+    want = {"point": (3, F(14, 293), F(7, 1465)), "flux_difference": (2, F(200248, 2854113), F(21950, 951371))}
+    for form, (order, c3, c4) in want.items():
+        if form == "point":
+            N, den = Np, Dp[0]
+        else:
+            N, den = R.sadd(R.smul(Np, Dm, n), R.smul(Nm, Dp, n), -1), R.pmul(Dp[0], Dm[0])
+        (dm, dc), = den.items()
+        lead = lambda terms: {tuple(a - b for a, b in zip(m, dm)): c / dc for m, c in terms.items()}
+        j0 = R.first_nonzero(N)
+        assert j0 - (form == "flux_difference") == order
+        assert lead(N[j0]) == {mono(f3=1): c3}
+        assert lead({m: c for m, c in N[j0 + 1].items() if m[3] == 0}) == {mono(f4=1): c4}
+        r = R.check_claim(LIU, claim(p=order, form=form, regime="critical", n_cp=1))
+        assert r["verdict"] == R.VERIFIED and r["leading_order"] == str(order)
+
+
 def test_parse_rejects_a_bad_tau():
     rec = {**Z, "weights": {**Z["weights"], "tau": [1, 1]}}
     assert R.check_claim(rec, claim(p=5, regime="generic"))["verdict"] == R.UNKNOWN
