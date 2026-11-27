@@ -1,6 +1,7 @@
 """Usage: python -m physverify.claims DIR_OR_FILES... [--json]
 
-Checks derivation claims (see `physverify/derivation.py`), prints a verdict table and
+Checks derivation claims (see `physverify/derivation.py`) and conserved-quantity claims
+(`"kind": "conserved"`, see `physverify/conserved.py`), prints a verdict table and
 exits 1 if any verdict is wrong: VERIFIED for a claim labelled false, REFUTED for a
 claim labelled true, or anything but UNKNOWN for a claim labelled ill-posed (`"true": null`,
 e.g. an empty domain or one where a sqrt argument is negative). A verdict that differs from `expect` but is still sound (for example
@@ -14,9 +15,21 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from . import conserved
 from .derivation import REFUTED, UNKNOWN, VERIFIED, judge, load_claim
 from .theory import Malformed
+from .tools import conserved as conserved_planner
 from .tools import eulerlagrange
+
+
+def check_claim(p: Path):
+    """Load and judge one claim file of either kind."""
+    spec = json.loads(p.read_text())
+    if conserved.is_conserved(spec):
+        c = conserved.load_conserved(spec)
+        return c, conserved.judge(c, conserved_planner.propose(c))
+    c = load_claim(spec)
+    return c, judge(c, eulerlagrange.propose(c))
 
 
 def wrong(verdict: str, true: bool | None) -> bool:
@@ -39,13 +52,12 @@ def main(argv: list[str]) -> int:
     rows, bad = [], 0
     for p in paths:
         try:
-            c = load_claim(p)
+            c, res = check_claim(p)
         except Malformed as ex:
             print(f"MALFORMED {p}: {ex}")
             bad += 1
             continue
         true = c.source.get("true", c.expect == VERIFIED)
-        res = judge(c, eulerlagrange.propose(c))
         w = wrong(res.verdict, true)
         bad += w
         rows.append((p.stem, c.expect, res, true, w))
