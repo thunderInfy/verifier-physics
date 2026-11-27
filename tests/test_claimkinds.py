@@ -12,7 +12,8 @@ from physverify.schemes import claims as scheme_claims
 
 ROOT = Path(__file__).resolve().parent.parent
 # directory -> layer of the claim names its JSON files use
-FILES = {"schemes": "schemes", "benchmark/scheme-claims": "schemes", "benchmark/variational": "variational"}
+FILES = {"schemes": "schemes", "benchmark/scheme-claims": "schemes", "benchmark/outside": "schemes",
+         "benchmark/variational": "variational"}
 
 
 def _names_in(obj):

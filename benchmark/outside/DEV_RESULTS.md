@@ -4,7 +4,10 @@ The 99 dev items (9 sources, split in `FROZEN.md`) were read against the checker
 (physverify/schemes, no changes). Readings and reasons are in `dev_readings.json`, following the rules and the gap
 taxonomy in `README.md` (committed before any item was classified). `run_dev.py` recomputes every verdict in about
 5 s; `tests/test_outside_dev.py` checks that the stored verdicts and scores are what the checker gives now. No
-heldout item was opened, formalised or run.
+heldout item was opened, formalised or run. The six claim names used (`consistent`, `positive_under_cfl`,
+`von_neumann_stable_under_cfl`, `local_max_principle_under_cfl`, `tvd_under_cfl`, `truncation_order_smooth_data`)
+are checked against the claim-kind registry `physverify/claimkinds.py` by `tests/test_claimkinds.py`, and each is
+used in the registry's reading.
 
 Every verdict below is exact (Python `Fraction` arithmetic, polynomial identities and explicit rational
 witnesses); none is empirical and none is a Lean proof. Two decisions also rest on a bridge lemma written in the
