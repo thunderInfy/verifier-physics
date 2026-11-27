@@ -50,6 +50,23 @@ def test_claim_kind_table_matches_the_registry():
     assert sum(not r.endswith("gloss only \\\\") for r in rows) == sum(bool(k["meaning"]) for k in KINDS.values())
 
 
+def test_outside_gap_table_matches_the_runner():
+    """The outside benchmark's gap table (outside_gaps_table.tex, input by main.tex) is what paper_numbers.py
+    generates from run_dev.py's counts now: one row per reason in run_dev.REASONS, and the primary entries add
+    up to the entries the runner lists."""
+    pn = _paper_numbers()
+    numbers = pn.outside_dev()
+    text = (PAPER / "outside_gaps_table.tex").read_text()
+    assert text == pn._outside_gaps_tex(numbers), "run: uv run python papers/scheme-claims/paper_numbers.py --write-table"
+    assert "\\input{outside_gaps_table.tex}" in (PAPER / "main.tex").read_text()
+    reasons = pn._run_dev().REASONS
+    assert set(pn.GAP_REASONS) == set(reasons)
+    rows = [line for line in text.splitlines() if line.endswith("\\\\")]
+    assert len(rows) == len(reasons)
+    primary = sum(int(v) for k, v in numbers.items() if k.startswith("gap primary entries "))
+    assert sum(int(r.split(" & ")[1]) for r in rows) == primary
+
+
 def test_outside_naive_readings_would_be_wrong():
     """The two rejected readings of the outside benchmark's dev half: each gives a decisive verdict against
     a FALSE expected value (tecno:04 VERIFIED on the scheme; mfa:02's negated stability claim VERIFIED)."""

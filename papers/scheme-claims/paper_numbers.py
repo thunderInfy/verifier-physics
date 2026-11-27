@@ -307,13 +307,18 @@ def _claim_kinds_tex() -> str:
     return "\n".join(out + ["\\bottomrule"]) + "\n"
 
 
-def outside_dev() -> dict:
-    """The dev half of the outside benchmark (benchmark/outside/run_dev.py summary; about 5 s). The heldout
-    half is never run here."""
+def _run_dev():
     import importlib.util
     spec = importlib.util.spec_from_file_location("run_dev", ROOT / "benchmark" / "outside" / "run_dev.py")
     rd = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(rd)
+    return rd
+
+
+def outside_dev() -> dict:
+    """The dev half of the outside benchmark (benchmark/outside/run_dev.py summary; about 5 s). The heldout
+    half is never run here."""
+    rd = _run_dev()
     data, items = rd.load(), rd.dev_items()
     rows = rd.evaluate(data, items, rd.run(data))
     s = rd.summary(rows)
@@ -347,6 +352,42 @@ def outside_dev() -> dict:
         out[f"differ {k}"] = str(v)
     out["differ, stated"] = "; ".join(f"{i}: {a} {sa}, {h} {sh}" for i, a, sa, h, sh in s["fields_differ_stated"])
     return out
+
+
+# the gap reasons of benchmark/outside/run_dev.py (REASONS), as the paper's gap table names and explains them
+GAP_REASONS = {
+    "scheme-class": ("class of schemes", "theorems about every scheme with a property (monotone implies TVD, "
+                     "the Lax--Wendroff theorem); a spec is one scheme"),
+    "reconstruction": ("reconstruction", "discontinuous data, ENO of higher order, DG and finite-volume schemes "
+                       "with time stepping"),
+    "multi-d": ("multi-D", "2D rectangles and triangles"),
+    "system": ("system", "Euler, general systems with entropy variables"),
+    "claim-kind-missing": ("claim kind missing", "semi-discrete order, order away from extrema, energy identities "
+                           "summed over the grid, E-fluxes"),
+    "not-checkable": ("not checkable", "numerical observations, comparisons, existential wording, a clause whose "
+                      "reading is a judgment call"),
+    "family_unspecified": ("$\\varepsilon$ family unspecified", "a gap in the source: $\\varepsilon = 10^{-6}$ is "
+                           "fixed but its scaling with $\\Delta x$ is left open, and the truth depends on it"),
+    "illegible": ("illegible", "the formula is illegible in the scan"),
+    "variable-coefficients": ("variable coefficients", "a velocity that varies in space"),
+    "not-expressible": ("not expressible", "a formula that divides by a state difference"),
+    "time-stepping": ("time stepping", "Runge--Kutta or multistep methods beyond a five-point update"),
+}
+OUTSIDE_GAPS_TEX = Path(__file__).resolve().parent / "outside_gaps_table.tex"
+
+
+def _outside_gaps_tex(numbers: dict | None = None) -> str:
+    """The rows of the outside benchmark's gap table (primary entries, entries listing the reason at all), from
+    the runner's counts, most primary first. main.tex inputs outside_gaps_table.tex (written by
+    `paper_numbers.py --write-table`); tests/test_paper_numbers.py fails if that file drifts from this function."""
+    n = numbers or outside_dev()
+    count = lambda kind, r: int(n.get(f"gap {kind} {r}", "0"))
+    rows = sorted(_run_dev().REASONS, key=lambda r: (-count("primary entries", r), -count("any", r), r))
+    out = ["% generated from benchmark/outside/run_dev.py by `paper_numbers.py --write-table`; do not edit"]
+    for r in rows:
+        label, what = GAP_REASONS[r]
+        out.append(f"{label} & {count('primary entries', r)} & {count('any', r)} & {what} \\\\")
+    return "\n".join(out + ["\\bottomrule"]) + "\n"
 
 
 def outside_naive_readings() -> dict:
@@ -406,6 +447,7 @@ ALL = {k: f for k, f in list(globals().items())
 if __name__ == "__main__":
     if sys.argv[1:] == ["--write-table"]:
         CLAIM_KINDS_TEX.write_text(_claim_kinds_tex())
+        OUTSIDE_GAPS_TEX.write_text(_outside_gaps_tex())
         sys.exit(0)
     for name in sys.argv[1:] or ALL:
         for k, v in ALL[name]().items():

@@ -842,17 +842,7 @@ reason and the entries that list it at all:\repro{paper_numbers.py::outside_dev}
 \begin{tabularx}{\linewidth}{@{}l r r >{\raggedright\arraybackslash}X@{}}
 \toprule
 reason & primary & any & what it would take \\ \midrule
-class of schemes & 27 & 27 & theorems about every scheme with a property (monotone implies TVD, the Lax--Wendroff theorem); a spec is one scheme \\
-reconstruction & 11 & 38 & discontinuous data, ENO of higher order, DG and finite-volume schemes with time stepping \\
-multi-D & 15 & 16 & 2D rectangles and triangles \\
-system & 9 & 18 & Euler, general systems with entropy variables \\
-claim kind missing & 6 & 22 & semi-discrete order, order away from extrema, energy identities summed over the grid, E-fluxes \\
-not checkable & 11 & 11 & numerical observations, comparisons, existential wording, a choice the text leaves open \\
-illegible & 2 & 2 & the formula is illegible in the scan \\
-variable coefficients & 1 & 7 & a velocity that varies in space \\
-not expressible & 1 & 2 & a formula that divides by a state difference \\
-time stepping & 0 & 10 & Runge--Kutta or multistep methods beyond a five-point update \\
-\bottomrule
+\input{outside_gaps_table.tex}
 \end{tabularx}
 \end{center}
 The low coverage is the main result, not a failure to look. The development sources are mostly about
