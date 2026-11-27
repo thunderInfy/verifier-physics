@@ -41,6 +41,7 @@ installed, the result is `UNKNOWN` and the theory is not rejected.
 | Obligations: statement, guarantee, assumptions | yes | `physverify/obligations.py` |
 | Judge | yes | `physverify/judge.py` |
 | Lean definitions and theorems | kernel-checked | `lean/PhysVerify/` |
+| Class theorems (Harten's lemma, monotone ⇒ TVD) | proven in Lean; not yet used by the verdict path | `lean/PhysVerify/Harten.lean` |
 | Scheme statements for Lean (from the spec) | yes | `physverify/schemes/lean_cert.py` |
 | Scheme proofs for Lean (from the witness) | no | `physverify/schemes/lean_planner.py` |
 | Interval replay checker for trajectories | validated numerics | `physverify/tools/enclosure.py` |
@@ -1613,6 +1614,32 @@ even for good schemes, and the scalar route through Crandall-Majda does not appl
 domains (positivity of h, Riemann-invariant bounds) take its place. Positivity of h is now proved
 exactly (above); the Riemann-invariant bounds are not checked yet. The eigenvalues need square roots. We report them, but no check depends on
 them.
+
+## Class theorems
+
+The checks above decide a property of one concrete scheme. A theorem about every scheme with a
+property needs the scheme's coefficients as variables, so it is a Lean theorem, not a check.
+`lean/PhysVerify/Harten.lean` has the first ones. They are proven (no `sorry`, standard axioms
+only), but no verdict calls them yet, so `tvd_under_cfl` still has no Lean meaning.
+
+Setting: the periodic grid `ZMod N`, any `N ≥ 1` (`[NeZero N]`), values in any linearly ordered
+field (`ℚ` and `ℝ` both work), `TV u = Σ_i |u (i+1) - u i|`. Both coefficients of the interface
+j + 1/2 carry the index `j`: `hartenStep u C D i = u i + C i (u(i+1) - u i) - D(i-1) (u i - u(i-1))`.
+
+| Theorem | Hypotheses | Conclusion |
+|---|---|---|
+| `harten_tvd` | `∀ j, 0 ≤ C j`, `∀ j, 0 ≤ D j`, `∀ j, C j + D j ≤ 1` | `TV (hartenStep u C D) ≤ TV u` |
+| `harten_tvd_of_form` | `∀ u i, H u i = hartenStep u (C u) (D u) i`, and the three bounds on `C u`, `D u` for this `u` | `TV (H u) ≤ TV u` |
+| `linear_tvd` | `v i = a u(i-1) + b u i + c u(i+1)`, `a, b, c ≥ 0`, `a + b + c = 1` (`C = c`, `D = a`) | `TV v ≤ TV u` |
+| `upwind_tvd` | `v i = u i - ν (u i - u(i-1))`, `0 ≤ ν ≤ 1` | `TV v ≤ TV u` |
+| `monotone_tvd` | `v i = H(u(i-1), u i, u(i+1))`, `H(a, b, c) = b - λF(b, c) + λF(a, b)` nondecreasing in each argument (`Monotone3 F λ`) | `TV v ≤ TV u` |
+
+`monotone_tvd` goes through the incremental form, with `C` and `D` difference quotients of the
+flux (`x / 0 = 0` where the data are flat). It needs no Lipschitz bound and no separate CFL
+hypothesis: on a finite grid the quotients are just numbers, and monotonicity already gives the
+three bounds. The converse of `linear_tvd` (TVD only if `a, b, c ≥ 0`) needs box data and is
+decided in Python by `physverify/schemes/linear.py::tvd_linear`, not proven here. All of these
+are periodic; the whole-line versions in the literature (finite TV on ℤ) are not formalised.
 
 ## Claim kinds
 

@@ -142,6 +142,19 @@ most reusable. The identity for a stated numerical entropy flux (tecno:04) and e
 (tecno:02) were on this list in the first round; `stated_identity` now covers both for scalar laws. The energy
 identity of mfa:01 is a fully discrete identity summed over the grid, which `stated_identity` does not state.
 
+**First class theorems (added after scoring; nothing here is re-scored).** `lean/PhysVerify/Harten.lean` proves
+Harten's lemma (`harten_tvd`, `harten_tvd_of_form`) and monotone ⇒ TVD for three-point conservative schemes
+(`monotone_tvd`), on a periodic grid of any size (README, "Class theorems"). Of the 27 `scheme-class` dev items, these
+would state three: harten_1982_highres:04 (C_{-,j+1/2}, C_{+,j+1/2} ≥ 0 and their sum ≤ 1 give TVNI: `harten_tvd`,
+with C = C_+ and D = C_-), mfa_oslo_notes:12 (the same condition (4.57) with C^n, D^n: `harten_tvd`, one step at a
+time), and mfa_oslo_notes:14 (a monotone three-point scheme is TVD: `monotone_tvd`, which needs neither the
+consistency nor the CFL hypothesis of the sentence). Partly: harten_1982_highres:02 ("a monotone scheme is TVNI")
+for three-point schemes only; the sentence is about (2K+1)-point schemes. Two caveats hold for all four: the sources
+work on the whole line with finite TV, and we proved the periodic version; and none of it is wired into a verdict, so
+the rows above still count these items as gaps. The SSP item (mfa_oslo_notes:20, a convex combination of forward
+Euler steps is TVD) and the L∞ bound under (4.59) (mfa_oslo_notes:13) look like short additions to the same module;
+they are not done.
+
 ## 5. Alone versus with hypotheses
 
 The two expectations differ on **30 of 99** items: FALSE alone / TRUE with hypotheses 15, FALSE / UNSURE 8,
