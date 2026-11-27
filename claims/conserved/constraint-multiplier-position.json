@@ -1,0 +1,30 @@
+{
+  "kind": "conserved",
+  "name": "position under a Lagrange-multiplier constraint x = a",
+  "true": true,
+  "expect": "UNKNOWN",
+  "why": "true (x = a on every solution) but no Noether multipliers exist, and the EL-consistent jets with x_dot != 0 lie on no solution; the Hessian is singular, so no REFUTED either",
+  "coordinates": [
+    "x",
+    "lam"
+  ],
+  "symbols": {
+    "x": {
+      "dim": "L"
+    },
+    "lam": {
+      "dim": "M L T^-2"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "a": {
+      "dim": "L"
+    }
+  },
+  "lagrangian": "m/2*x_dot^2 + lam*(x - a)",
+  "domain": [
+    "m > 0"
+  ],
+  "quantity": "x"
+}

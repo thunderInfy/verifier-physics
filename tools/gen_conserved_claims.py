@@ -62,6 +62,19 @@ CLAIMS = {
     "coupled-oscillators-one-energy": (OSC, "coupled oscillators: energy of oscillator 1 alone",
                                        False, "REFUTED", "m1/2*x1_dot^2 + k1/2*x1^2",
                                        "the coupling kc > 0 exchanges energy: dQ/dt = kc x1_dot (x2 - x1)"),
+    # degenerate L (lam_dot does not appear): EL_lam is the constraint x = a, so x is constant
+    # on every solution; but the jet x = a, x_dot = 1 satisfies the EL system and has
+    # dx/dt = 1. Only a REFUTED that demands an invertible Hessian rejects it.
+    "constraint-multiplier-position": ({"coordinates": ["x", "lam"],
+                                        "symbols": {"x": {"dim": "L"}, "lam": {"dim": "M L T^-2"},
+                                                    "m": {"dim": "M"}, "a": {"dim": "L"}},
+                                        "lagrangian": "m/2*x_dot^2 + lam*(x - a)",
+                                        "domain": ["m > 0"]},
+                                       "position under a Lagrange-multiplier constraint x = a", True,
+                                       "UNKNOWN", "x",
+                                       "true (x = a on every solution) but no Noether multipliers "
+                                       "exist, and the EL-consistent jets with x_dot != 0 lie on no "
+                                       "solution; the Hessian is singular, so no REFUTED either"),
     "pendulum-energy-over-length": ({**PEND, "domain": ["m > 0", "g > 0"]},
                                     "pendulum energy divided by l, with l unconstrained", None,
                                     "UNKNOWN", f"({PEND_E})/l",
