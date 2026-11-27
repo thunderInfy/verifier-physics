@@ -405,9 +405,60 @@ What is assumed, not proven:
 Not in scope: energy. `L_d` has no time-translation symmetry, so energy conservation is not a
 Noether claim here. The midpoint oscillator's quadratic form is `VERIFIED` only because the
 linear step has determinant 1 (division multiplier, not Noether); the same claim for the
-nonlinear trapezoidal quartic oscillator is `REFUTED`.
+nonlinear trapezoidal quartic oscillator is `REFUTED`. Energy of an explicit map is in scope
+for `update_conserves` below.
 
-Bench (`benchmark/variational/`, 9 integrators, 23 claims). The traps: an explicit-Euler update
+**Explicit update maps: `update_conserves`.** Most integrators, and most simulation codes, are
+not given as a DEL but as an explicit map `z' = Φ(z; h, params)` on the state `z = (q, p)`. A
+claim file with `"kind": "update_map"` (same directory, same `Expr` syntax, format in the
+"explicit update maps" section of `physverify/variational.py`) gives the state, the update as
+a list of steps (each a simultaneous assignment; later steps read what earlier ones wrote, as
+code does), a domain `D` over the state, `h` and the parameters (`h > 0` always added), and
+claims of two kinds:
+
+* `update_conserves`: `J(Φ(z)) = J(z)` on `D`. No variational structure is assumed.
+* `update_conserves_order_p`: `J(Φ(z)) − J(z) = O(h^{p+1})`, i.e. the coefficients of
+  `h^0 … h^p` vanish identically (order at least `p`, as for `consistent_order_p`).
+
+What is proven in Lean (`lean/PhysVerify/Update.lean`, imports only `PhysVerify.Deriv` and
+five tactic modules; no `sorry`, `native_decide` or new axioms):
+
+* `updateStep Phi env` writes `Φ_k(env)` into state coordinate `k` and leaves `h` and the
+  parameters alone (`updateStep_of_ge`).
+* `VERIFIED` (`UpdateVerified`, plus `Φ` of length `n`, `J` well-dimensioned and every `Φ_k`
+  of the dimension of `z_k`, by `decide`): on `D`, `J(Φ(z)) = J(z)` as an identity (planner:
+  `simp` then `ring1`, or `field_simp` for a rational map), with `Φ` and `J` junk-free
+  (`physOK`) at `z` and `J` also at `Φ(z)`, and a rational point in `D` (the same witness rule
+  as above). `update_conserves_meaning`: along every orbit `z_{k+1} = Φ(z_k)` whose points
+  `z_0 … z_{N−1}` lie in `D`, `J(z_N) = J(z_0)` exactly.
+* `REFUTED` (`UpdateRefuted`): a rational `z ∈ D` (so `h > 0`) with `J(Φ(z)) ≠ J(z)`, checked by
+  `norm_num`. `update_refuted_meaning`: the orbit of that point changes `J` at its first step.
+  Because `Φ` is explicit, every point starts an orbit, so unlike a `REFUTED` discrete
+  momentum this needs no regularity condition and no implicit function theorem.
+
+What is exact Python: the routing (the planner computes `J(Φ(z)) − J(z)` as an exact rational
+function and checks whether its numerator is the zero polynomial; outside the rational
+fragment it tries both certificates) and the whole order claim (`h`-coefficients of the
+polynomial `J(Φ(z)) − J(z)`; a map that divides by a non-monomial, like the midpoint map below,
+gives `UNKNOWN`). What is assumed: the judge composes the steps into one simultaneous `Φ` by
+substitution in Python, and Lean sees only `Φ`, so that composition is trusted, like the
+literal serialization of the claim file (`tests/test_update_conserves.py` checks it against
+running the steps one by one on rational numbers). `D` is the author's choice, as above.
+
+The update-map bench uses a central potential with an exactly polynomial gradient,
+`V = k|q|⁴/4`, `∇V = k|q|² q ∥ q`, and the angular momentum `L = x p_y − y p_x` (unit mass).
+Explicit Euler changes `L` by `−h² p × ∇V(q)` (refuted at a rational point; conserved to order
+1, not 2). Symplectic Euler and Störmer–Verlet (half kick, drift, half kick at `q'`) conserve
+it exactly (verified; the Verlet identity is a degree-12 polynomial in six variables, closed by
+`ring1`); `L` with one sign flipped is refuted. For the oscillator `H = (p² + w²q²)/2`,
+symplectic Euler changes `H` by `h²w²(p² − w²q²)/2 + O(h³)` (refuted; order 1 verified, order 2
+refuted) and conserves the modified energy `H − h w² p q/2` exactly (verified). The implicit
+midpoint rule, solved by hand for the linear case, is the explicit rational map
+`q' = ((4 − h²w²)q + 4hp)/(4 + h²w²)`, `p' = ((4 − h²w²)p − 4hw²q)/(4 + h²w²)`; it conserves `H`
+(verified by `field_simp` with `4 + h²w² ≠ 0` from `positivity`), and the test suite checks
+that this map solves `z' − z = hA(z + z')/2` exactly.
+
+Bench (`benchmark/variational/`, 9 integrators with 24 claims and 5 update maps with 14). The traps: an explicit-Euler update
 claimed as the DEL of the rectangle rule (refuted at a rational point); the wrong-sign cross
 product and linear momentum under a central potential (refuted on regular steps); a rotation
 invariant `L` with an `L_d` that breaks the symmetry (mixed quadrature: angular momentum
@@ -424,10 +475,17 @@ $ uv run python -m physverify.variational benchmark/variational/
 |---|---|---|---|---|
 | anharmonic-trapezoid | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
 | anharmonic-trapezoid | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| central-quartic-explicit-euler | update_conserves | REFUTED | REFUTED | proven (Lean) |
+| central-quartic-explicit-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
+| central-quartic-explicit-euler | update_conserves_order_p 2 | REFUTED | REFUTED | exact (Python) |
+| central-quartic-symplectic-euler | update_conserves | VERIFIED | VERIFIED | proven (Lean) |
+| central-quartic-symplectic-euler | update_conserves | REFUTED | REFUTED | proven (Lean) |
 | central-quartic-trapezoid | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
 | central-quartic-trapezoid | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
 | central-quartic-trapezoid | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
 | central-quartic-trapezoid | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| central-quartic-verlet | update_conserves | VERIFIED | VERIFIED | proven (Lean) |
+| central-quartic-verlet | update_conserves_order_p 5 | VERIFIED | VERIFIED | exact (Python) |
 | free-particle-2d | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
 | free-particle-2d | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
 | free-particle-2d | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
@@ -435,18 +493,26 @@ $ uv run python -m physverify.variational benchmark/variational/
 | isotropic-oscillator-mixed-quadrature | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
 | kepler-trapezoid | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
 | kepler-trapezoid | consistent_order_p 2 | UNKNOWN | UNKNOWN | none |
+| oscillator-implicit-midpoint-map | update_conserves | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-implicit-midpoint-map | update_conserves | REFUTED | REFUTED | proven (Lean) |
+| oscillator-implicit-midpoint-map | update_conserves_order_p 2 | UNKNOWN | UNKNOWN | none |
 | oscillator-midpoint | del_equations | VERIFIED | VERIFIED | proven (Lean) |
 | oscillator-midpoint | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
 | oscillator-midpoint | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
 | oscillator-rectangle-rule | del_equations | VERIFIED | VERIFIED | proven (Lean) |
 | oscillator-rectangle-rule | del_equations | REFUTED | REFUTED | proven (Lean) |
 | oscillator-rectangle-rule | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
-| oscillator-rectangle-rule | consistent_order_p 1 | REFUTED | REFUTED | exact (Python) |
+| oscillator-rectangle-rule | exact_order_p 1 | REFUTED | REFUTED | exact (Python) |
+| oscillator-rectangle-rule | consistent_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
+| oscillator-symplectic-euler-map | update_conserves | REFUTED | REFUTED | proven (Lean) |
+| oscillator-symplectic-euler-map | update_conserves | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-symplectic-euler-map | update_conserves_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
+| oscillator-symplectic-euler-map | update_conserves_order_p 2 | REFUTED | REFUTED | exact (Python) |
 | position-dependent-mass-midpoint | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
 | position-dependent-mass-rectangle | consistent_order_p 2 | REFUTED | REFUTED | exact (Python) |
 | position-dependent-mass-rectangle | consistent_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
 
-23 claims: 15 VERIFIED, 7 REFUTED, 1 UNKNOWN, 0 not as expected; 156s
+38 claims: 23 VERIFIED, 13 REFUTED, 2 UNKNOWN, 0 not as expected; 138s
 ```
 
 Tests: `tests/test_variational.py` (no Lean: loader, layout, Python DEL against finite
@@ -456,6 +522,16 @@ applied to a generated statement, a corrupted multiplier and a junk `1/(m − m)
 rejected, a Kepler-like `L_d` with `1/sqrt` at the origin or `sqrt` of a negative left in `D`
 not `VERIFIED`, and planner tricks rejected.
 
+Update maps: `tests/test_update_conserves.py` (no Lean: loader, layout, step composition against
+running the steps on rational numbers, Φ and the defects written out by hand, the midpoint map
+solving the midpoint rule, the exact routing of every bench claim, refutation points in `D`, a
+corrupted `L` with one sign flipped refuted, at-least order semantics, dimension mismatches).
+In `tests/test_lean.py`: the bench (the same `test_variational_bench`), `update_conserves_meaning`
+and `update_refuted_meaning` applied to generated statements, the sign-flipped `L` refuted at a
+replayed rational point (and the true claim's certificate rejected for it), a junk
+`J = H + 1/(w − w)` not `VERIFIED` although the identity holds in Lean, and planner tricks
+rejected.
+
 Timings on the same 2-CPU VM, a fresh worktree:
 
 | Step | Time |
@@ -464,6 +540,9 @@ Timings on the same 2-CPU VM, a fresh worktree:
 | full `lake build` right after it, cold (our modules from scratch; `Discrete` alone 9.4 s) | 3 min 58 s |
 | `lake build PhysVerify.Discrete`, warm, nothing to rebuild | 57 s |
 | variational bench (23 claims, 12 Lean certificates in one batch per integrator), warm | 2 min 36 s |
+| variational bench with the update maps (38 claims, 20 Lean certificates in one batch per file), warm | 2 min 18 s |
+| `lake build`, cold after `lake exe cache get`: `PhysVerify.Update` alone | 4.0 s |
+| `pytest tests/test_lean.py -k update` (5 tests), warm | 1 min 41 s |
 | `pytest tests/test_lean.py -k "variational or discrete or Discrete or dmomentum"` (15 tests), warm | about 4 min 20 s |
 
 ## Discrete schemes

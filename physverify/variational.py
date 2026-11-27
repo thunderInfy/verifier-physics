@@ -860,4 +860,7 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # run the package module's main, not this `__main__` copy: the planner checks
+    # isinstance against `physverify.variational.UpdateMap`
+    from physverify.variational import main as _main
+    raise SystemExit(_main())
