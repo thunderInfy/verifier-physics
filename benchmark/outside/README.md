@@ -48,3 +48,47 @@ papers.
 
 `tests/test_outside_bench_schema.py` checks the schema, the enum values and that the split in `FROZEN.md` matches the
 hash rule.
+
+## Formalising the dev half
+
+Only the dev half (9 sources, 99 items) is formalised and run; the heldout half is run once, later, with the
+checker commit pinned. `dev_readings.json` holds, for every dev item and each expected field (`alone`,
+`with_hypotheses`), either one or more formal readings or the reason there is none. `DEV_RESULTS.md` has the
+scores; `run_dev.py` recomputes them (`uv run python benchmark/outside/run_dev.py [--write]`).
+
+### Readings
+
+A reading is a spec (the scheme as the source defines it, as closely as the spec language allows) plus a
+conjunction of named claims from `physverify/schemes/claims.py`, with the relations of
+`physverify/schemes/bench.py` (`same`, `necessary`, `sufficient`) and a `bridge` where the named claim is not
+literally the sentence's property. A component may also be `negated` (the reading asserts that the named claim
+fails, e.g. "not unconditionally stable"). Each reading says which expected field it is scored against.
+
+A reading may **narrow** the sentence: a specific flux f, viscosity Q or Courant range for the free data of a
+named or constructed scheme, 1D for a system, a rational sub-range of an irrational CFL bound. Every narrowing is
+recorded in the reading's `narrowing` field. A narrowing must keep the sentence's truth value: a TRUE sentence
+narrowed to an instance must stay TRUE on it, and a FALSE one is narrowed only to an instance on which it fails
+(where the instance comes from the item's justification, the reading says so). We never pick an instance whose
+truth differs from the sentence's. A narrowed VERIFIED verifies the instance, not the sentence; the results
+count narrowed matches separately.
+
+Theorems about every scheme with some property ("a monotone scheme is TVNI", "conservative iff flux form", the
+Lax–Wendroff theorem) are not narrowed to an instance: they are UNFORMALIZED as `scheme-class`, whatever their
+expected value.
+
+### Why an item has no reading (fixed before classifying)
+
+One primary reason per unformalised field, the first that applies in this order, plus any further reasons:
+
+| reason | meaning |
+|---|---|
+| `not-checkable` | no definite mathematical content we could check: numerical observations, comparisons with the literature, vague or existential wording ("can be used to construct") |
+| `illegible` | the formula the sentence depends on is illegible in the scan |
+| `scheme-class` | a theorem about every scheme with a property, not about one scheme |
+| `multi-d` | two space dimensions or unstructured meshes |
+| `system` | a system of conservation laws beyond the 2x2 shallow-water specs (Euler, general systems with entropy variables) |
+| `reconstruction` | high-order reconstruction or polynomial data: WENO/ENO stencil selection and smoothness indicators, piecewise polynomials with point-value hypotheses, DG or finite-volume cell-average schemes and their limiters |
+| `time-stepping` | multi-stage or multistep time discretisation that a five-point update cannot hold |
+| `variable-coefficients` | a given velocity field or other coefficients that vary in space |
+| `not-expressible` | a scalar 1D scheme on at most five points, but its formula needs an operation the spec language lacks (e.g. division by a state difference) |
+| `claim-kind-missing` | the scheme can be written as a spec but no named claim expresses the property (energy identities, semi-discrete order, E-fluxes, numerical entropy flux identities, order away from extrema, ...) |
