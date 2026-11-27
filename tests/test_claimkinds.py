@@ -99,7 +99,8 @@ ROOTS = {"schemes": "claims.", "variational": "claims[].", "theory": "args.", "r
 SOURCES = {"schemes": sorted((ROOT / "physverify/schemes").glob("*.py")),
            "variational": [ROOT / "physverify/variational.py"],
            "theory": [ROOT / "physverify/obligations.py", *sorted((ROOT / "physverify/tools").glob("*.py"))],
-           "reconstruction": [ROOT / "physverify/reconstruction.py"]}
+           "reconstruction": [ROOT / "physverify/reconstruction.py", ROOT / "physverify/cellaverage.py",
+                              ROOT / "physverify/eno.py"]}
 
 
 def _params(layer: str):
@@ -166,7 +167,7 @@ def test_specs_declare_the_param_keys_their_claims_read():
         for name, label, key, optional in _params(layer):
             if not optional:
                 want.setdefault(name, []).append(key)
-        for p in sorted((ROOT / f"benchmark/{layer}").glob("*.json")):
+        for p in sorted((ROOT / f"benchmark/{layer}").rglob("*.json")):
             for c in json.loads(p.read_text())["claims"]:
                 missing += [(p.name, c["claim"], key) for key in want.get(c["claim"], []) if not _lookup(c, key)]
     assert missing == []

@@ -204,6 +204,24 @@ KINDS: dict[str, dict] = {
         "params": {"p": {"reconstruction": "claims[].p"}, "form": {"reconstruction": "claims[].form?"},
                    "regime": {"reconstruction": "claims[].regime"}, "n_cp": {"reconstruction": "claims[].n_cp?"},
                    "eps": {"reconstruction": "claims[].eps?"}}},
+    "cell_average_max_principle": {
+        "gloss": "one cell-average step fed by polynomials of degree <= k keeps the new average in [m, M] whenever the "
+                 "stated point values (or other linear functionals) of the polynomials lie in [m, M]",
+        "quantifier": "for every lam = dt/dx in the claimed range, all polynomials of degree <= k per cell and all "
+                      "m <= M: every hypothesis in [m, M] => the updated average in [m, M]",
+        "layers": ["reconstruction"], "meaning": None,
+        "params": {"lam": {"reconstruction": "claims[].lam"}}},
+    "eno_sign_property": {
+        "gloss": "the jump of an ENO interpolation of point values at x_{i+1/2} has the sign of w_{i+1} - w_i "
+                 "(weak form: zero allowed, and zero where the difference is zero)",
+        "quantifier": "for all real data w: (w^-_{i+1} - w^+_i)(w_{i+1} - w_i) >= 0, and w^-_{i+1} = w^+_i where "
+                      "w_{i+1} = w_i",
+        "layers": ["reconstruction"], "meaning": None, "params": {}},
+    "eno_jump_ratio_at_most": {
+        "gloss": "the jump of an ENO interpolation of point values is at most c times the jump of the data",
+        "quantifier": "for all real data w with w_{i+1} != w_i: (w^-_{i+1} - w^+_i) / (w_{i+1} - w_i) <= c",
+        "layers": ["reconstruction"], "meaning": None,
+        "params": {"c": {"reconstruction": "claims[].c"}}},
     # continuous conserved quantities (physverify/conserved.py)
     "conserved": {
         "gloss": "Q is constant along every solution of the Euler–Lagrange equations of L that stays in D",

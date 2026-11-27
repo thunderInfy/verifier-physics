@@ -64,11 +64,12 @@ from fractions import Fraction
 from math import factorial
 from pathlib import Path
 
-from . import claimkinds
+from . import cellaverage, claimkinds, eno
 from .expr import E, parse
 
 VERIFIED, REFUTED, UNKNOWN = "VERIFIED", "REFUTED", "UNKNOWN"
-CLAIMS = ("reconstruction_order_p",)
+# the layer's claims: the order here, the cell-average step (cellaverage.py) and the ENO jump (eno.py)
+CLAIMS = ("reconstruction_order_p",) + cellaverage.CLAIMS + eno.CLAIMS
 claimkinds.require("reconstruction", CLAIMS)
 
 FORMS = ("point", "flux_difference")
@@ -627,6 +628,9 @@ def concrete_jet(poly: dict, dens: list, pivot: int, nv: int, ncp: int, accept=N
 
 
 def check_claim(rec: dict, claim: dict) -> dict:
+    for mod in (cellaverage, eno):
+        if claim.get("claim") in mod.CLAIMS:
+            return mod.check_claim(rec, claim)
     try:
         R, C = parse_reconstruction(rec), parse_claim(claim)
     except (KeyError, ValueError) as e:
