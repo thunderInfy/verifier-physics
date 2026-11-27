@@ -1,0 +1,10 @@
+*.pdf
+*.log
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+*.lor
+*.xdv
+__pycache__/

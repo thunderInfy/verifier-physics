@@ -1,0 +1,801 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,longtable,array,tabularx}
+\usepackage{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+\setlength{\emergencystretch}{3em}
+
+% ---------------------------------------------------------------- reproducibility markers
+% \rn{value}{target} prints a number and a marker [k]; \repro{target} prints the marker alone, for a
+% sentence whose numbers all come from one target. Every marker becomes a row of the table in
+% Appendix A (value, page, target). A target is FILE::FUNCTION: a pytest test under tests/, or a
+% function of papers/scheme-claims/paper_numbers.py. tests/test_paper_numbers.py checks that every
+% target resolves.
+\newcounter{repro}
+\makeatletter
+\newcommand{\reprorec}[2]{%
+  \refstepcounter{repro}%
+  \textsuperscript{\hyperlink{repro.\therepro}{\scriptsize[\therepro]}}%
+  \edef\@tempa{\noexpand\addtocontents{lor}{\string\reprorow{\therepro}{\noexpand\thepage}%
+    {\noexpand\unexpanded{\noexpand\unexpanded{\unexpanded{#1}}}}{\detokenize{#2}}}}\@tempa}
+\newcommand{\rn}[2]{#1\reprorec{#1}{#2}}
+\newcommand{\repro}[1]{\reprorec{(see text)}{#1}}
+\newtoks\reprorows
+\newcommand{\printrepro}{%
+  \begingroup\catcode`\_=12
+  \def\reprorow##1##2##3##4{\global\reprorows\expandafter{\the\reprorows
+    \hypertarget{repro.##1}{##1} & ##2 & ##3 & \nolinkurl{##4}\\}}%
+  \@starttoc{lor}\endgroup
+  {\small\begin{longtable}{@{}r r >{\raggedright\arraybackslash}p{4.6cm} >{\raggedright\arraybackslash}p{8.2cm}@{}}
+  \toprule \# & page & number & reproduced by\\ \midrule\endhead
+  \the\reprorows \bottomrule\end{longtable}}}
+\makeatother
+\def\UrlBreaks{\do\/\do\.\do\:\do\_}
+\newcommand{\todo}[1]{\textcolor{red!70!black}{\textbf{[TODO: #1]}}}
+\newcommand{\leanpending}{\todo{Lean replay: pending merge}}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\V}{\textsf{VERIFIED}}
+\newcommand{\R}{\textsf{REFUTED}}
+\newcommand{\RE}{\textsf{REFUTED\_EMPIRICALLY}}
+\newcommand{\NR}{\textsf{NOT\_REFUTED}}
+\newcommand{\U}{\textsf{UNKNOWN}}
+\newcommand{\IC}{\textsf{INCONSISTENT}}
+\newcommand{\NA}{\textsf{NOT\_APPLICABLE}}
+\newcommand{\UF}{\textsf{UNFORMALIZED}}
+\newcommand{\SUF}{\textsf{SUFFICIENT}}
+\newcommand{\NEC}{\textsf{NECESSARY}}
+\newcommand{\EQV}{\textsf{EQUIVALENT}}
+
+\title{A certifying checker for claims about numerical schemes}
+\author{The verifier-physics team}
+\date{Draft, November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Papers in computational physics make claims about their numerical schemes: the scheme is
+conservative, second order, monotone under a CFL condition, total-variation diminishing, entropy
+stable, or it moves shocks at the right speed. Reviewers check these claims by reading. We describe
+a checker that takes a scheme's update formula and a claim about it and returns a verdict. A
+positive or negative verdict comes with a certificate: an exact identity (a telescoping sum, a
+Farkas combination, non-negative Bernstein coefficients) or an exact rational counterexample that
+anyone can replay. A small trusted table says how each check bears on each claim (sufficient,
+necessary or equivalent, with stated preconditions), so a failed sufficient check never refutes and
+a passed necessary check never verifies. On a benchmark of
+\rn{23}{paper_numbers.py::bench_counts} sentences written the way papers write them, split into
+\rn{44}{paper_numbers.py::bench_counts} formal readings, the checker decides
+\rn{34}{paper_numbers.py::bench_counts} correctly, leaves \rn{9}{paper_numbers.py::bench_counts}
+undecided and \rn{1}{paper_numbers.py::bench_counts} unscored, and gives
+\rn{0}{paper_numbers.py::bench_counts} wrong verdicts. That zero is on \emph{our own} benchmark: we
+wrote the sentences, chose their formal readings and fixed their expected truth values ourselves.
+This is the main threat to validity, and we discuss it with the other limits up front
+(Section~\ref{sec:trust}). The exact checks run in Python with rational arithmetic; replaying their
+certificates in the Lean proof assistant is being merged as we write \leanpending.
+\end{abstract}
+
+% ====================================================================================================
+\section{A worked example}\label{sec:example}
+
+We follow one sentence through the whole pipeline:
+\begin{quote}
+\emph{``Rusanov's scheme for Burgers' equation is monotone for CFL $\le 1$.''}
+\end{quote}
+
+\paragraph{The equation and the scheme.} Burgers' equation is the conservation law
+$u_t + f(u)_x = 0$ with flux $f(u) = u^2/2$. A \emph{finite-volume scheme} divides the line into
+cells of width $\Delta x$ and advances cell averages $u_i^n$ by time steps $\Delta t$. A scheme in
+\emph{conservative form} has the update
+\begin{equation}\label{eq:update}
+u_i^{n+1} = H(u_{i-1}^n, u_i^n, u_{i+1}^n) = u_i^n - \lambda\bigl(F(u_i^n, u_{i+1}^n) - F(u_{i-1}^n, u_i^n)\bigr),
+\qquad \lambda = \Delta t/\Delta x,
+\end{equation}
+where $F(u_L, u_R)$, the \emph{numerical flux}, approximates $f$ at the interface between two cells.
+Rusanov's flux \cite{rusanov1961} (also called local Lax--Friedrichs) is
+\[
+F(u_L, u_R) = \tfrac12\bigl(f(u_L) + f(u_R)\bigr) - \tfrac12\,\alpha\,(u_R - u_L),\qquad
+\alpha = \max(|u_L|, |u_R|).
+\]
+The \emph{CFL number} is $\lambda \max|f'(u)| = \lambda\max|u|$, the number of cells a signal crosses
+in one step. A scheme is \emph{monotone} if $H$ is non-decreasing in each of its arguments: raising
+any one input value never lowers the output. Monotone schemes matter because of a theorem of
+Crandall and Majda \cite{crandallmajda1980}: a conservative, consistent, monotone scheme converges to
+the physically correct (entropy) solution.
+
+\paragraph{The formal reading.} The checker reads a scheme as a JSON \emph{spec}. Here it holds the
+PDE flux \code{u\^{}2/2} and the numerical flux as written, with $|x|$ spelled
+$\sqrt{x^2}$ and $\max(a,b) = (a + b + |a - b|)/2$. The sentence becomes the \emph{named claim}
+\code{monotone\_under\_cfl} with bound $c = 1$: for every $\lambda > 0$ and all stencil states with
+$\lambda|u_j| \le 1$, $H$ is non-decreasing in each argument.
+
+\paragraph{The check.} $H$ is not a polynomial, because of the absolute values. The check splits
+every $|x|$ into the two closed \emph{sign cells} $x \ge 0$ and $x \le 0$. On each cell $H$ is a
+polynomial, and so are its three partial derivatives. In the scaled variables $w_j = \lambda u_j$ the
+partials and the cell boundaries are affine, so on each cell the check looks for an exact
+\emph{Farkas identity}: the partial written as a non-negative constant plus a non-negative
+combination of the inequalities that define the cell and the CFL box. Such an identity proves the
+partial is $\ge 0$ on the whole cell.
+
+At $c = 1$ the search fails and the check looks for a counterexample instead. It returns, in exact
+rational arithmetic, $\lambda = 1$ and the state $(u_{i-1}, u_i, u_{i+1})$ =
+(\rn{$39/40, 19/20, 1/40$}{paper_numbers.py::rusanov_bounds}): raising $u_i$ by
+$1/100$ lowers $H$ from \rn{$2433/3200$}{paper_numbers.py::rusanov_bounds} to
+\rn{$60481/80000$}{paper_numbers.py::rusanov_bounds}. All states lie in the CFL box, so the claim is
+false. Before the check existed we had found a different counterexample by hand, at
+$\lambda = 9/10$:
+\[
+H(1, 1, -\tfrac{9}{10}) = \text{\rn{$\tfrac{751}{4000}$}{tests/test_schemes.py::test_rusanov_monotone_bound_is_one_third}}
+\;>\;
+H(1, \tfrac{101}{100}, -\tfrac{9}{10}) = \text{\rn{$\tfrac{18011}{100000}$}{tests/test_schemes.py::test_rusanov_monotone_bound_is_one_third}},
+\]
+with CFL number \rn{$909/1000$}{paper_numbers.py::rusanov_hand_pair}~$\le 1$. A test evaluates both
+values in the spec's own normal form and in an independent implementation of $\max$, and they agree.
+
+\paragraph{The sharp bound.} The same check, asked about $c = 1/3$, returns \V. It covers the state
+space with \rn{32}{paper_numbers.py::rusanov_bounds} sign cells and certifies all
+\rn{96}{paper_numbers.py::rusanov_bounds} partial derivatives (three per cell) by Farkas identities.
+On the cell $u_i \ge u_{i+1} \ge 0$, $u_i \ge u_{i-1} \ge 0$, for example, the identity for the
+middle partial is\repro{paper_numbers.py::rusanov_cell_example}
+\[
+\frac{\partial H}{\partial u_i} = 1 - 2w_i + \tfrac12 w_{i-1} + \tfrac12 w_{i+1}
+= \tfrac13 + \tfrac12\, w_{i+1} + \tfrac12\, w_{i-1} + 2\bigl(\tfrac13 - w_i\bigr),
+\]
+where every term on the right is non-negative on the cell and in the box $|w_j| \le 1/3$. Asked about
+$c = 1/2$ and $c = 334/1000$, the check returns \R, each time with an exact decreasing pair
+(at $c = 334/1000$: $\lambda = 1$, $u_{i\pm1} = -834499/2500000$,
+$u_i = 834833/2500000$, raised by $1/100000$).\repro{paper_numbers.py::rusanov_bounds} So the sharp
+bound lies in $[1/3, 334/1000)$. We had guessed $1/2$ (Section~\ref{sec:corrected}).
+
+\paragraph{The verdict.} A trusted table (Section~\ref{sec:judge}) says that the monotonicity check is
+\EQV{} to the claim \code{monotone\_under\_cfl}. The judge therefore returns \R{} (exact) for the
+sentence at $c = 1$ and \V{} (exact) at $c = 1/3$.\repro{paper_numbers.py::rusanov_claims} In the
+benchmark this sentence is C07, and it has three readings, because ``Rusanov'' and ``monotone'' are
+both ambiguous. The three-point scheme with local $\alpha$ is monotone under CFL $\le 1$: \R, expected
+false. The Rusanov \emph{flux} is monotone ($F$ non-decreasing in $u_L$, non-increasing in $u_R$):
+\V, expected true, through a stated bridge lemma. A variant with one global
+$\alpha \ge \max|u|$ is monotone under $\lambda\alpha \le 1$: expected true, but the spec language
+cannot state the side condition, so it is a gap (\UF).\repro{paper_numbers.py::bench_counts}
+Because the scheme is also certified conservative and consistent, the table's Crandall--Majda row
+turns the monotonicity certificate at $c = 1/3$ into a verified claim that the fully discrete scheme
+selects the entropy solution.\repro{tests/test_schemes.py::test_harten_is_not_refuted_by_tadmor}
+
+\paragraph{The Lean replay.} The refutation is a concrete statement: two rational states and a
+rational $\lambda$ at which $H$ decreases. In the Lean replay, the judge writes the negation of the
+monotonicity statement for the spec's $H$, serialised from the spec node for node, and a proof
+evaluates both sides. Theorem name and replay statistics: \leanpending.
+
+\medskip\noindent
+That is the whole pipeline: a sentence, a formal reading, an exact check that returns a witness, a
+fixed table that turns the check into a verdict, and a replay of the witness by an independent
+checker. The rest of the paper describes each step in general.
+
+% ====================================================================================================
+\section{Introduction}\label{sec:intro}
+
+Compilers check code, and proof assistants check mathematics. Claims about numerical schemes in
+computational physics papers (``our scheme is conservative and second order, and it captures shocks
+at the right speed'') are checked by reviewers reading the paper. Many of these claims are statements
+about a finite formula: the update rule of the scheme. Conservation is an algebraic identity.
+Consistency and truncation order are statements about a Taylor expansion. Monotonicity, positivity and
+the total-variation-diminishing (TVD) property are inequalities over the states and the CFL number.
+Such statements can be decided, or at least certified one way or the other, by exact computation.
+
+Other claims are about limits as the grid is refined: convergence order, the speed of computed shocks,
+selection of the entropy solution. These follow from structural properties through classical theorems
+(Lax--Richtmyer \cite{laxrichtmyer1956}, Lax--Wendroff \cite{laxwendroff1960}, Crandall--Majda
+\cite{crandallmajda1980}, Harten \cite{harten1983}), or they can only be tested numerically.
+
+We built a checker that returns a verdict for a claim together with a certificate, and that keeps
+the two kinds of reasoning apart. Its parts:
+\begin{itemize}
+\item \textbf{Exact checks} on the update formula, in rational arithmetic, each returning a witness:
+  a recovered flux, a Farkas identity, a list of Bernstein coefficients, or an exact counterexample.
+\item \textbf{Empirical studies} (grid refinement, shock speed, convergence to a rarefaction fan),
+  labelled as such. An empirical pass never verifies a claim.
+\item \textbf{A trusted relation table} (\code{physverify/schemes/claims.py}) that says, for each named
+  claim, which checks bear on it, whether each is \SUF, \NEC{} or \EQV, which theorem the row rests
+  on, and which other checks must be exactly verified first.
+\item \textbf{A benchmark} of sentences phrased as papers phrase them, each split into formal
+  readings with an expected truth value fixed in advance.
+\item \textbf{A Lean replay} of the exact certificates, so that the identities and counterexamples are
+  checked by a small kernel rather than by our Python \leanpending.
+\end{itemize}
+The design follows the idea of certifying algorithms \cite{mcconnell2011}: the search can be
+complicated and untrusted, as long as its output carries a witness that a simple checker can confirm.
+
+On our benchmark the checker never certifies a false claim and never refutes a true one: 0 wrong
+among \rn{44}{paper_numbers.py::bench_counts} readings. We wrote that benchmark ourselves, which
+limits what the number shows (Section~\ref{sec:trust}).
+
+% ====================================================================================================
+\section{Limitations and what is trusted}\label{sec:trust}
+
+We state the limits first, because they bound every result that follows.
+
+\paragraph{The trust table.} This is the table from the repository README, copied verbatim. It
+covers the whole verifier, of which the scheme checker is one part.
+
+\begin{center}\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.6cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{6.2cm}@{}}
+\toprule
+Piece & Trusted & Where \\ \midrule
+Theory and evidence format & yes & \code{physverify/theory.py} \\
+Obligations: statement, guarantee, assumptions & yes & \code{physverify/obligations.py} \\
+Judge & yes & \code{physverify/judge.py} \\
+Lean definitions and theorems & kernel-checked & \code{lean/PhysVerify/} \\
+Interval replay checker for trajectories & validated numerics & \code{physverify/tools/enclosure.py} \\
+Tools and planner that search for proofs & no & \code{physverify/tools/}, \code{physverify/planner.py} \\
+\bottomrule
+\end{tabular}
+\end{center}
+The scheme statement generator and proof planner get their own rows when the Lean replay merges
+\leanpending. For the scheme checker itself, the trusted pieces today are the exact checks in
+\code{physverify/schemes/} (their verdicts rest on Python \code{Fraction} arithmetic) and the relation
+table in \code{claims.py}.
+
+\paragraph{What stays outside the Lean kernel.} Even once the replay lands, these steps are not
+checked by Lean:
+\begin{itemize}
+\item \textbf{The cell decomposition and its cover.} For the cell-based checks (monotonicity, TVD,
+  depth positivity) each cell's fact is a separate statement. The argument that the cells cover the
+  state space, the pruning of lower-dimensional cells, and the derivation of each cell's polynomial are
+  exact Python. So is the step from the cell facts to the claim (a piecewise-polynomial $H$ with
+  non-negative partials on closed covering cells is non-decreasing; Harten's lemma).
+\item \textbf{Statement generation.} Python writes the Lean statement from the spec (the update, the
+  fluxes, the binders, the domain). A bug there could make Lean prove the wrong statement.
+\item \textbf{The claim-reading step.} A person chooses the formal reading of an English sentence, the
+  relation between the reading and the named claim, and any bridge lemma that connects them. This is
+  formalisation, and nothing checks it except review.
+\item \textbf{Relaxations.} The exact depth-positivity check for shallow water replaces
+  $\lambda\sqrt{g h_j}$ by a free variable $z_j \ge 0$ and forgets $z_j^2 = \lambda^2 g h_j$. A
+  weaker hypothesis gives a stronger theorem, so this is sound, but the relaxation is argued on paper.
+\item \textbf{The theorems behind the table rows.} Lax--Richtmyer, Lax--Wendroff, Crandall--Majda,
+  Harten's lemma and Tadmor's entropy theory are premises carried into each verdict as assumptions.
+  None of them is formalised by us.
+\item \textbf{Empirical studies} run in float64 on chosen data and grids.
+\end{itemize}
+
+\paragraph{The semi-discrete caveat.} Tadmor's entropy check \cite{tadmor1987,tadmor2003} certifies
+an inequality for the semi-discrete scheme (the method of lines, with exact time integration). It says
+nothing about forward-Euler time stepping. In this paper every entropy result keeps that label:
+``exact, semi-discrete only'', and once replayed, ``proven (Lean), semi-discrete only''. The verdict
+label written by the current Lean replay code drops this caveat when it upgrades a verdict to
+``proven (Lean)''. A fix is planned; until then, read every entropy-stability label as semi-discrete.
+
+\paragraph{The benchmark is ours.} The main threat to validity is that we wrote the benchmark: the
+\rn{23}{paper_numbers.py::bench_counts} sentences, their
+\rn{44}{paper_numbers.py::bench_counts} readings and the expected truth values. We tried to phrase
+the sentences as papers do and fixed each expected value before running the checker on it, with a
+citation or an argument, but we also built the checker. Its blind spots and ours may coincide. A
+sentence that a checker of this kind would get wrong is, almost by construction, one we would be less
+likely to write. In one case, C07, the expected value differs from the one first written in our task
+notes, because of the counterexample in Section~\ref{sec:example}. ``0 wrong'' is evidence that the
+checks and the table are consistent with our reading of the literature on these 44 readings. It is
+not an error rate on claims from published papers. An independent benchmark, written by people who
+have not seen the code, is the obvious next step.
+
+\paragraph{Scope.} One space dimension. Scalar conservation laws, plus $2\times2$ systems for
+hyperbolicity, conservation, consistency and depth positivity (shallow water). Three-point stencils,
+and five-point stencils for limited schemes of linear advection. Polynomials, $|\cdot|$, $\min$,
+$\max$, $\mathrm{minmod}$, and square roots of even powers; division only by monomials. Anything else
+returns \U, which is never a wrong verdict. Global order of accuracy for nonlinear schemes is
+empirical only.
+
+% ====================================================================================================
+\section{Claims and readings}\label{sec:readings}
+
+An English sentence about a scheme usually has more than one sensible meaning. The benchmark
+(\code{benchmark/scheme-claims/claims.json}) records each sentence with one or more \emph{readings}.
+Each reading is a conjunction of \emph{components}, and each component is either
+\begin{itemize}
+\item a named claim from the trusted table, applied to a spec file (sometimes with an override, such as
+  a different CFL range), with a \emph{relation} to the reading: \code{same} (the named claim is the
+  conjunct), \code{necessary} (the conjunct implies the named claim, so only a refutation transfers) or
+  \code{sufficient} (the named claim implies the conjunct, so only a verification transfers); or
+\item an \code{unformalized} note, saying why no named claim expresses it.
+\end{itemize}
+A component may carry a \emph{bridge}: a stated lemma that links the sentence's wording to the named
+claim. Each reading has an expected truth value (true, false, or ``unsettled'', which is not scored).
+The reading's verdict is the conjunction of its components' verdicts.
+
+\paragraph{C12: three readings of one sentence.} ``The Lax--Friedrichs scheme for Burgers' equation is
+first-order accurate, conservative, and captures shocks at the correct speed.'' The shock clause can
+mean two different things:
+\begin{enumerate}
+\item \emph{All three clauses, unconditionally}: order 1 on smooth solutions, flux form, and the
+  scheme's own shocks move at the Rankine--Hugoniot speed. Expected true; verdict \NR, a gap. The order
+  clause is empirical only, since no theorem turns a refinement study of a nonlinear scheme into a
+  proof.
+\item \emph{The shock clause, conditionally}: the scheme is in flux form, so every bounded limit is a
+  weak solution and its discontinuities move at the Rankine--Hugoniot speed. This is the Lax--Wendroff
+  theorem \cite{laxwendroff1960}; it does not say the scheme converges. Expected true; \V.
+\item \emph{The shock clause, unconditionally}: the scheme's shocks move at the Rankine--Hugoniot speed
+  as $\Delta x \to 0$. Through Crandall--Majda this follows from exact monotonicity, conservation,
+  consistency and a Lipschitz flux, provided the shock study's $\Delta t/\Delta x$ lies in the
+  certified monotone range. Expected true; \V.\repro{paper_numbers.py::bench_counts}
+\end{enumerate}
+
+\paragraph{C19: four readings.} ``Our upwind scheme is first-order accurate.'' (1) The global error is
+$O(\Delta x)$ in $\ell^2$ or $L^1$ under refinement at fixed $\Delta t/\Delta x$: \V, through the
+Lax--Richtmyer row. The bridge records the judgement that this is what ``first-order accurate'' usually
+means for a linear scheme. (2) Order 1 in $L^1$ also for discontinuous solutions: expected false
+(the rate is $O(\sqrt{\Delta x})$ \cite{kuznetsov1976,tangteng1995}), but the order study has only
+smooth test problems, so the reading is \UF. (3) The local truncation error is $O(\Delta x)$: \V,
+exactly. (4) Order 1 in $\Delta x$ and in $\Delta t$ under separate refinements, with $\Delta t$ small
+enough that the CFL condition holds at the finest grid: expected true, but Lax--Richtmyer covers only
+fixed $\Delta t/\Delta x$, so only the refinement studies bear on it: \NR, a
+gap.\repro{paper_numbers.py::bench_counts}
+
+\paragraph{Formula dependence.} C17 shows that the reading step includes the choice of formula.
+Godunov's flux for Burgers, transcribed literally with nested $\max$, gives \U{} for consistency and
+entropy stability: the normaliser leaves $\sqrt{u^4/4}$ instead of $u^2/2$. Rewritten by hand as
+$\max(a, -b)^2/2$, the same flux is \V. \U{} is not a wrong verdict, but a model formalising claims
+automatically would hit this first.\repro{paper_numbers.py::bench_counts}
+
+% ====================================================================================================
+\section{The judge}\label{sec:judge}
+
+\paragraph{Checks and guarantees.} A \emph{check} is a function of the spec that returns a status
+(\V, \R, \NR, \RE, \U, \NA), a witness and a list of assumptions. Each check has a \emph{guarantee},
+fixed in the table and not read from the check's result: \emph{exact} (rational arithmetic, decides
+only through an identity or an exact counterexample) or \emph{empirical} (a float64 study on chosen
+data). An empirical check can at best report \NR, and its failure is \RE.
+
+\paragraph{The relation table.} For each named claim, \code{claims.py} lists the checks that bear on
+it. Each row has a relation and a premise (the theorem the row rests on, carried into the verdict as an
+assumption), and optionally a list of other exact checks that must be \V{} on the same spec for the row
+to count at all. One check result gives the claim a polarity:
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+relation & check passes & check fails \\ \midrule
+\SUF & verified & unknown \\
+\NEC & not refuted & refuted \\
+\EQV & verified & refuted \\ \bottomrule
+\end{tabular}
+\end{center}
+A ``verified'' from an empirical check is downgraded to ``not refuted''. \U{} and \NA{} give unknown.
+Over all rows for one claim, any refutation refutes and any verification verifies. If both happen the
+verdict is \IC. That means a bug in a check, a spec or the table, never a result about the physics: the
+command line exits with code 3 and the tests fail.\repro{tests/test_schemes.py::test_contradictory_evidence_is_inconsistent_and_loud}
+The verdicts form a small lattice:
+\[
+\V,\ \R \ \text{(exact)} \qquad \NR,\ \RE \ \text{(empirical)} \qquad \U \qquad \IC.
+\]
+The benchmark adds \UF{} for readings no named claim expresses.
+
+\paragraph{Why a failed sufficient check decides nothing.} Tadmor's entropy inequality for the
+quadratic entropy is sufficient for ``the method-of-lines scheme selects the entropy solution'', not
+necessary. Roe's scheme with Harten's entropy fix fails it exactly (at $(u_L, u_R) = (-1, 1)$), yet on
+rarefaction data it converges to the fan. Reported as a verdict on the claim, the raw \R{} would have
+said that Harten's fix picks the wrong solution. Through the table, the claim is \U, and the fully
+discrete entropy claim is \NR{} from the rarefaction study
+alone.\repro{tests/test_schemes.py::test_harten_is_not_refuted_by_tadmor}
+
+\paragraph{Preconditions.} The Crandall--Majda row for \code{selects\_entropy\_solution} requires
+conservation and consistency to be exactly verified. The quasilinear upwind scheme for Burgers,
+$u_i - \lambda u_i (u_i - u_{i-1})$ for $u_i > 0$ and its mirror image, shows why. It is monotone for
+$\lambda\max|u| \le 1/3$ (\V), but it is not conservative, and it moves shocks at the wrong speed. The
+row gives \U{} with the unmet requirement ``conservation: \R'', and the claim is instead refuted
+exactly by a frozen jump (Section~\ref{sec:certs}).\repro{tests/test_schemes.py::test_crandall_majda_needs_conservation_and_consistency}
+The Lax--Richtmyer row for \code{converges\_order\_p} requires the von Neumann check and a structural
+scope check (linear update with coefficients in $\Delta t/\Delta x$ only, combined refinement at a
+certified $\Delta t/\Delta x$, smooth data). For a nonlinear scheme the scope check returns \NA, and the
+row cannot fire.\repro{tests/test_schemes.py::test_lax_richtmyer_never_fires_for_nonlinear_schemes}
+
+\paragraph{Selected rows.} The full table has \rn{21}{paper_numbers.py::table_size} named claims
+and \rn{37}{paper_numbers.py::table_size} rows. Some of the rows used in this paper:
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}X l l@{}}
+\toprule
+claim & check (premise) & relation & guarantee \\ \midrule
+\code{conservative} & telescoping & \EQV & exact \\
+ & shock-speed study & \NEC & empirical \\
+\code{monotone\_under\_cfl} & monotonicity on sign cells & \EQV & exact \\
+\code{selects\_entropy\_solution} & monotonicity (Crandall--Majda), needs conservation, consistency & \SUF & exact \\
+ & steady non-entropy step & \NEC & exact \\
+ & frozen jump with $f(u_L) \ne f(u_R)$ & \NEC & exact \\
+ & rarefaction study & \NEC & empirical \\
+\code{converges\_order\_p} & truncation order (Lax--Richtmyer), needs von Neumann, scope & \SUF & exact \\
+ & refinement studies & \NEC & empirical \\
+\code{limit\_is\_weak\_solution} & conservation (Lax--Wendroff), needs consistency, Lipschitz flux & \SUF & exact \\
+\code{correct\_shock\_speed} & frozen Lax shock & \NEC & exact \\
+\code{tvd\_under\_cfl} & Harten's incremental form on sign cells & \SUF & exact \\
+ & explicit TV increase & \NEC & exact \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% ====================================================================================================
+\section{Certificates}\label{sec:certs}
+
+Each exact check returns a witness that a separate checker can replay. All of them work in
+\code{Fraction} arithmetic on a normal form of the update, in which $|x| = \sqrt{x^2}$ and the
+$\max$/$\min$ functions are written through $|\cdot|$, so no new primitive is needed.
+
+\paragraph{Telescoping (conservation).} A three-point update is conservative on periodic grids if
+$H(a, b, c) - b = \Phi(b, c) - \Phi(a, b)$ for some $\Phi$; then the total $\sum_i u_i$ is unchanged.
+The check recovers $\Phi$ (it is unique up to a constant) and verifies the identity in the normal form,
+or gives an exact periodic state whose total changes. For Lax--Wendroff on linear advection the
+recovered flux is
+$F(u_L, u_R) = \tfrac12 (u_L + u_R) + \tfrac12\lambda(u_L - u_R)$.\repro{paper_numbers.py::certificate_examples}
+
+\paragraph{Bernstein coefficients in the CFL number.} A linear update
+$\sum_k c_k(\nu)\, u_{i+k}$ ($\nu = a\Delta t/\Delta x$) is \emph{positive} (a non-negative combination of
+the stencil) on $[\nu_0, \nu_1]$ if each $c_k \ge 0$ there. The check expands each $c_k$ in the
+Bernstein basis on the interval \cite{bernstein-farouki2012}; non-negative Bernstein coefficients
+prove $c_k \ge 0$ on the whole interval. Lax--Friedrichs on $[-1, 1]$ has Bernstein coefficients
+$(0, 1)$ for $c_{-1}$ and $(1, 0)$ for $c_{1}$, so it is
+positive.\repro{paper_numbers.py::certificate_examples} Claimed on $[0, 11/10]$, it is \R: the
+coefficient of $u_{i+1}$, $(1 - \nu)/2$, is \rn{$-1/20$}{paper_numbers.py::certificate_examples} at
+$\nu = 11/10$. Von Neumann stability uses the same idea in two variables: $1 - |g|^2$ is a polynomial
+in $\nu$ and $z = \cos\theta$, certified by tensor Bernstein coefficients after stripping the factors
+$(1 - z)$ and $(1 + z)$. For FTCS, $1 - |g|^2 = \nu^2 z^2 - \nu^2 = -\nu^2(1 - z^2)$, so it is unstable
+for every $\nu \ne 0$; the exact witness is $|g|^2$ = \rn{2}{paper_numbers.py::certificate_examples}
+at $\nu = 1$, $z = 0$.
+
+\paragraph{Farkas identities on sign cells.} For nonlinear and limited schemes, the update is
+piecewise polynomial. The check splits each $|x|$ lazily (only when the normal form needs its sign) and
+drops a cell only with a certificate that it lies in a hyperplane. The retained closed cells cover the
+state space. On each cell an inequality $p \ge 0$ is certified by an identity
+$p = r + \sum_j \mu_j a_j$ with $r, \mu_j \ge 0$ over the cell's defining inequalities
+$a_j \ge 0$ (Farkas' lemma \cite{farkas1902}); for TVD the multipliers $\mu_j(\nu)$ are polynomials in
+$\nu$, themselves certified by Bernstein coefficients on pieces of the $\nu$-range. Harten's incremental
+form \cite{harten1983} is certified this way for the minmod and superbee flux-limited schemes
+\cite{sweby1984} on $\nu \in [0, 1]$: \rn{18}{paper_numbers.py::certificate_examples} sign cells for
+minmod and \rn{50}{paper_numbers.py::certificate_examples} for superbee, every half-cell certified.
+
+\paragraph{Exact counterexamples with replay.} A refutation is always a finite object in rational
+numbers, replayed by evaluating the scheme's own expression:
+\begin{itemize}
+\item \emph{Lax--Wendroff is not TVD.} In flux-limiter form on the periodic state
+  $u = (0, 0, 0, 0, 0, 1)$ at $\nu = 1/4$, one step raises the total variation from
+  \rn{2}{paper_numbers.py::certificate_examples} to
+  \rn{$33/16$}{paper_numbers.py::certificate_examples}. A test replays it with the textbook ratio form
+  of the limiter.\repro{tests/test_limiters.py::test_tv_increase_replays_with_the_textbook_formula}
+\item \emph{The frozen jump $1 \mid 0$.} For the quasilinear upwind scheme on Burgers, the four
+  windows across the step $1 \mid 0$ satisfy $H(1,1,1) = H(1,1,0) = 1$ and $H(1,0,0) = H(0,0,0) = 0$ as
+  identities in $\lambda$. So the computed solution is the same stationary jump on every grid. But
+  $f(1) = 1/2 \ne 0 = f(0)$: the Rankine--Hugoniot speed is
+  \rn{$1/2$}{paper_numbers.py::certificate_examples}, and $1 \mid 0$ is a Lax shock
+  ($f'(1) > f'(0)$, $f'' \ge 0$). The limit is not a weak solution, so the scheme's shock-speed,
+  weak-limit and entropy claims are all \R{}
+  exactly.\repro{tests/test_fixed_jump.py::test_quasilinear_upwind_burgers_is_refuted_with_the_pair}
+\item \emph{Minmod is TVD but not monotone.} At $\nu = 1/2$,
+  $H(0, 4, 7, 8, 0)$ is \rn{$23/4$}{paper_numbers.py::certificate_examples} and
+  $H(0, 4, 7, 33/4, 0)$ is \rn{$183/32$}{paper_numbers.py::certificate_examples}, which is smaller, with both states
+  strictly inside one sign cell. This is the barrier of Godunov \cite{godunov1959} and of Harten, Hyman
+  and Lax \cite{hartenhymanlax1976}: a monotone scheme is at most first
+  order.\repro{tests/test_mono5.py::test_limited_schemes_are_not_monotone}
+\item \emph{Roe's flux without an entropy fix is not entropy stable.} At $(u_L, u_R) = (-1, 1)$,
+  Tadmor's quantity $Q$ is \rn{$-2/3$}{paper_numbers.py::certificate_examples}: the interface produces
+  entropy. (Exact, semi-discrete only.)\repro{tests/test_schemes.py::test_roe_entropy_counterexample}
+\end{itemize}
+
+\paragraph{The Lean replay.} The exact certificates are replayed in Lean 4 \cite{lean4} with Mathlib
+\cite{mathlib2020}. The judge writes each statement from the spec; an untrusted planner writes only
+the tactics, from the check's witness. General lemmas (a telescoping update conserves the total on
+every periodic grid; a polynomial with non-negative Bernstein coefficients is non-negative on its
+interval; Farkas combinations) are proved once. Lean never changes a verdict: a failed proof leaves the
+exact-Python label. Theorem count, accepted count and time: \leanpending. Which checks are not yet
+covered: \leanpending.
+
+% ====================================================================================================
+\section{The benchmark}\label{sec:bench}
+
+Table~\ref{tab:bench} lists every reading with its expected truth value and the verdict on current
+main. The counts:\repro{paper_numbers.py::bench_counts}
+\begin{center}\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & expected true & expected false & total \\ \midrule
+decisive and correct (match) & \rn{17}{paper_numbers.py::bench_counts} (all \V)
+  & \rn{17}{paper_numbers.py::bench_counts} (16 \R, 1 \RE) & \rn{34}{paper_numbers.py::bench_counts} \\
+gap & \rn{7}{paper_numbers.py::bench_counts} & \rn{2}{paper_numbers.py::bench_counts}
+  & \rn{9}{paper_numbers.py::bench_counts} \\
+wrong & 0 & 0 & \rn{0}{paper_numbers.py::bench_counts} \\
+\bottomrule
+\end{tabular}
+\end{center}
+One more reading (C18, reading 4) is ``unsettled'' and not scored. The 9 gaps by verdict:
+\rn{4}{paper_numbers.py::bench_counts} \UF, \rn{1}{paper_numbers.py::bench_counts} \U,
+\rn{4}{paper_numbers.py::bench_counts} \NR. A run takes under a minute:
+\code{uv run python -m physverify.schemes.bench benchmark/scheme-claims/}. A test fails if any verdict
+contradicts the expected truth, or if the record in \code{claims.json} drifts from what the checker
+gives.\repro{tests/test_claims_bench.py::test_bench_has_no_wrong_verdict_and_matches_what_is_recorded}
+
+{\small
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}l >{\raggedright\arraybackslash}p{7.8cm} c l l@{}}
+\caption{Every reading of the benchmark. ``exp.'' is the expected truth value (T, F, or u for
+unsettled); the verdict and result are from
+\code{python -m physverify.schemes.bench} on current main.}\label{tab:bench}\\
+\toprule
+& reading & exp. & verdict & result \\ \midrule\endfirsthead
+\toprule & reading & exp. & verdict & result \\ \midrule\endhead
+C01 & Lax--Wendroff: conservative and order 2 on smooth solutions & T & \V & match \\
+    & Lax--Wendroff: local truncation error $O(\Delta x^2)$ & T & \V & match \\
+C02 & Lax--Wendroff: TVD for every $\nu \in [0, 1]$ & F & \R & match \\
+    & the same, in flux-limiter form & F & \R & match \\
+C03 & Lax--Wendroff on Burgers: Tadmor entropy stable (semi-discrete) & F & \R & match \\
+    & Lax--Wendroff on Burgers: converges to the entropy solution & F & \R & match \\
+C04 & upwind: max-norm stable for every $\nu \ge 0$ & F & \R & match \\
+    & upwind: von Neumann stable for every $\nu \ge 0$ & F & \R & match \\
+C05 & Lax--Friedrichs: max-norm stable for $\nu \in [-1, 1]$ & T & \V & match \\
+    & Lax--Friedrichs: von Neumann stable for $\nu \in [-1, 1]$ & T & \V & match \\
+C06 & central flux + forward Euler: consistent, conservative, stable for small $\nu$ & F & \R & match \\
+C07 & Rusanov, local $\alpha$: monotone under $\lambda\max|u| \le 1$ & F & \R & match \\
+    & Rusanov numerical flux is monotone & T & \V & match \\
+    & Rusanov with one global $\alpha$: monotone under $\lambda\alpha \le 1$ & T & \UF & gap \\
+C08 & Engquist--Osher: monotone under $\lambda\max|u| \le 1$, entropy limit & T & \V & match \\
+C09 & Engquist--Osher flux (integral form): Tadmor entropy stable & T & \V & match \\
+    & Engquist--Osher flux: entropy stable for every convex entropy & T & \UF & gap \\
+C10 & Roe: fully discrete limit is the entropy solution & F & \R & match \\
+    & Roe: method-of-lines limit is the entropy solution & F & \R & match \\
+C11 & Roe + Harten fix: converges to the fan on transonic rarefactions & T & \NR & gap \\
+C12 & Lax--Friedrichs on Burgers: order 1, flux form, correct shock speed & T & \NR & gap \\
+    & shock clause, conditional (every bounded limit is a weak solution) & T & \V & match \\
+    & shock clause, unconditional & T & \V & match \\
+C13 & quasilinear upwind: shocks at the Rankine--Hugoniot speed & F & \R & match \\
+    & quasilinear upwind: every bounded limit is a weak solution & F & \R & match \\
+C14 & upwind (update form): consistent, flux form, positive on $[0, 1]$ & T & \V & match \\
+C15 & Lax--Friedrichs (update form): non-negative coefficients on $[-1, 1]$ & T & \V & match \\
+C16 & Lax--Friedrichs on Burgers: Tadmor entropy stable for every $\Delta t/\Delta x$ & F & \R & match \\
+    & fully discrete entropy inequality for every $\Delta t/\Delta x$ & F & \UF & gap \\
+C17 & Godunov flux, $\max$ transcribed literally: consistent, entropy stable & T & \U & gap \\
+    & the same flux rewritten as $\max(a, -b)^2/2$ & T & \V & match \\
+C18 & minmod MUSCL: order 2 in $L^1$ without extrema & T & \NR & gap \\
+    & minmod MUSCL: order 2 in $L^\infty$ with extrema & F & \RE & match \\
+    & minmod MUSCL: truncation error $O(\Delta x^2)$ at every point, extrema included & F & \R & match \\
+    & minmod MUSCL: order 2 in $L^1$ on sine data & u & \NR & unscored \\
+C19 & upwind: global order 1 at fixed $\Delta t/\Delta x$ ($\ell^2$ or $L^1$) & T & \V & match \\
+    & upwind: order 1 in $L^1$ for discontinuous solutions & F & \UF & gap \\
+    & upwind: local truncation error $O(\Delta x)$ & T & \V & match \\
+    & upwind: order 1 in $\Delta x$ and in $\Delta t$, separate refinements & T & \NR & gap \\
+C20 & Rusanov for $u_t + (u^2)_x = 0$: consistent, entropy stable for $\eta = u^2$ & T & \V & match \\
+C21 & minmod: TVD on $[0, 1]$ & T & \V & match \\
+    & superbee: TVD on $[0, 1]$ & T & \V & match \\
+C22 & superbee: TVD on $[0, 3/2]$ & F & \R & match \\
+C23 & minmod flux-limited scheme: monotone for $\nu \in (0, 1]$ & F & \R & match \\
+\bottomrule
+\end{longtable}}
+
+\paragraph{The gaps, plainly.} From \code{GAPS.md}, ranked by how often we think such claims appear
+(our judgement, not a measurement):
+\begin{itemize}
+\item \emph{Global order of nonlinear and limited schemes} (C12 reading 1, C18 reading 1). Refinement
+  studies can refute an order but never prove one, and nonlinear schemes have no Lax--Richtmyer theorem.
+\item \emph{Entropy claims outside one quadratic entropy} (C09 reading 2: every convex entropy, which
+  for scalar laws is the E-flux condition \cite{osher1984}; C16 reading 2: a fully discrete cell entropy
+  inequality).
+\item \emph{Parameters with side conditions} (C07 reading 3: a global $\alpha \ge \max|u|$).
+\item \emph{Regimes the spec cannot state} (C19 reading 2: discontinuous data; C19 reading 4: separate
+  space and time refinement).
+\item \emph{Empirical-only entropy selection for non-monotone schemes} (C11: Roe with Harten's fix is
+  not monotone, so Crandall--Majda does not apply, and only the rarefaction study bears on it).
+\item \emph{Formula dependence} (C17 reading 1).
+\end{itemize}
+Every gap is \U, \NR{} or \UF, never a wrong verdict. Most expected-true claims that we could not
+verify are claims about limits; most expected-false claims are refuted exactly, even when nothing could
+verify the true version of the sentence.
+
+% ====================================================================================================
+\section{When the checker corrected us}\label{sec:corrected}
+
+We list the places where we were wrong and the checker, or a rule we adopted because of it, showed it.
+Each item points to the commit or test that records it.
+
+\paragraph{Rusanov's monotone bound.} We expected C07 (``monotone under CFL $\le 1$'') to be true; it
+appeared in our task notes as an example of a true claim. A hand computation produced the
+counterexample at $\lambda = 9/10$ in Section~\ref{sec:example}. We then estimated the sharp bound as
+$1/2$. The monotonicity check refuted $1/2$ with an exact pair and certified
+$1/3$.\repro{tests/test_schemes.py::test_rusanov_monotone_bound_is_one_third} The Rusanov spec
+added with the check already claimed the sharp $1/3$ (commit \code{31f2218}); the hand-found pair
+became a regression test (commit \code{7decba5}).
+
+\paragraph{A ``broken'' centred scheme that was conservative.} For the first shallow-water specs we
+wrote a centred, non-conservative-looking momentum update with terms
+$u_i(m_{i+1} - m_{i-1}) + m_i(u_{i+1} - u_{i-1})$, meant as a broken example. The conservation check
+verified it: the terms telescope by a discrete product rule. The broken spec now uses
+$h_i\bigl((u^2)_{i+1} - (u^2)_{i-1}\bigr)$, which does
+not.\repro{tests/test_systems.py::test_centred_product_rule_telescopes} The scalar analogue is easy to
+miss too: the centred quasilinear Burgers update $u_i - \tfrac{\lambda}{2}u_i(u_{i+1} - u_{i-1})$ is
+conservative, with flux $F(u_L, u_R) = u_L u_R/2$.\repro{paper_numbers.py::product_rule}
+
+\paragraph{Grid-commensurate coincidences.} Twice an empirical result looked exact to round-off for a
+reason unrelated to the scheme. In the shock-speed study, Engquist--Osher's error at crossing level
+$0.5$ was zero because of the symmetry of its discrete profile, not because of accuracy. The endpoint
+speed estimate came out at round-off whenever the measuring window moved the profile a whole number of
+cells. We replaced the estimator by a least-squares slope over the late window at three levels, and
+adopted a rule: every empirical pass is re-run at a deliberately incommensurate parameter (for
+example $\Delta t/\Delta x = 37/100$ next to $2/5$) before anyone calls it
+exact.\repro{tests/test_schemes.py::test_late_window_removes_the_start_up_offset} Roe's
+fixed-point error of $1/4$ on rarefaction data survives at both $2/5$ and
+$37/100$.\repro{tests/test_schemes.py::test_roe_keeps_the_expansion_shock} The rule later
+confirmed that minmod's max-norm order of about 1.3 at extrema is not a commensurability
+artefact.\repro{tests/test_limiters.py::test_linf_study_is_not_a_commensurability_artefact}
+
+\paragraph{A Lax--Wendroff-theorem row that did not exist.} A work brief we wrote formalised the
+conditional shock-speed reading of C12 ``via the existing Lax--Wendroff theorem row''. There was no
+such row; \code{GAPS.md} had proposed it and said it had not been added. The row was then added as a
+new claim, \code{limit\_is\_weak\_solution}, with consistency and a locally Lipschitz numerical flux as
+preconditions. The Lipschitz condition is a hypothesis of the theorem that our original proposal left
+implicit (commit \code{f1ed980}).\repro{tests/test_shock_speed_rows.py::test_limit_is_weak_solution_row}
+
+\paragraph{A shock-speed refutation without a shock.} The first version of the frozen-jump row refuted
+\code{correct\_shock\_speed} for any frozen pair $u_L \mid u_R$ with $f(u_L) \ne f(u_R)$. If the pair is
+an expansion, the exact solution is a rarefaction fan with no shock in it: a frozen expansion shows a
+wrong limit, not a shock moving at the wrong speed. The row now counts a pair only if it is a Lax shock
+($f'' \ge 0$ on $[u_R, u_L]$ by Bernstein coefficients, and $f'(u_L) > f'(u_R)$). A test scheme that
+freezes exactly the expansions is refuted on the weak-limit and entropy claims and not on the shock
+speed (commit
+\code{ffb5982}).\repro{tests/test_fixed_jump.py::test_frozen_expansion_refutes_the_weak_limit_but_not_the_shock_speed}
+
+\paragraph{A spec that was more broken than we meant.} We wrote Lax--Wendroff with its diffusion term
+halved as a test for the order check. The exact von Neumann check showed it is also unstable:
+$|g|^2$ is \rn{$5/4$}{paper_numbers.py::certificate_examples} at $\nu = 1$, $\cos\theta = 0$. And FTCS
+at $\Delta t/\Delta x = 1/2$ to $T = 1/4$ shows order 1 in the refinement study (\NR); only the exact
+check sees the instability.\repro{tests/test_schemes.py::test_ftcs_study_can_miss_the_instability}
+
+\paragraph{A branch tested before it was rebased.} An order-of-accuracy branch passed the full test
+suite in its own worktree and was merged. The branch predated the benchmark, so the test that compares
+the benchmark's recorded verdicts with the checker's was not on it. After the merge, main failed that
+test: C01 had become decidable and was still recorded as a gap. The fix re-recorded the benchmark
+(commit \code{0657f8d}), and since then the merge gate runs the suite on the tree rebased onto current
+main. No verdict was wrong; the record was stale.
+
+% ====================================================================================================
+\section{Related work}\label{sec:related}
+
+\paragraph{Formal proofs about specific schemes and general theorems.} Boldo et al.\
+\cite{boldo2010} proved in Coq the convergence, with its order, of the centred three-point scheme for
+the one-dimensional wave equation under a CFL condition. It is a machine-checked proof for one scheme,
+not a tool that takes an arbitrary update formula. Tekriwal, Duraisamy and Jeannin \cite{tekriwal2021}
+proved the Lax equivalence theorem in Coq for a general family of finite-difference schemes. It
+derives convergence from consistency and stability, but does not decide either property for a given
+scheme. Our relation table uses such theorems as premises; a formal library of them would let the
+premises themselves be checked.
+
+\paragraph{Symbolic analysis of schemes.} Levandovskyy and Martin \cite{martin2012} generate finite
+difference schemes with Gr\"obner bases and derive von Neumann stability conditions with cylindrical
+algebraic decomposition, for linear constant-coefficient PDEs. As far as we could tell from the
+description, the output is a symbolic condition, not an independently checkable certificate.
+
+\paragraph{Certified polynomial inequalities.} Solovyev and Hales \cite{solovyev2013} verify nonlinear
+inequalities in HOL Light with Taylor interval approximations, and discuss Bernstein-basis bounds.
+Harrison \cite{harrison2007} verifies nonlinear real formulas in a prover through sums-of-squares
+certificates. These are ingredients of the kind we use (our certificates are simpler: affine Farkas
+identities and univariate or bivariate Bernstein coefficients). We did not find them applied to the
+properties of numerical schemes. dReal \cite{dreal2013} is an example of a tool whose answers are
+sound in one direction only ($\delta$-sat does not prove satisfiability); our relation table tracks the
+same kind of polarity for each check.
+
+\paragraph{Certifying algorithms.} McConnell et al.\ \cite{mcconnell2011} describe programs that
+return a witness with each output, together with a simple checker for the witness. Our exact checks
+follow this pattern; the Lean replay plays the role of the checker.
+
+\paragraph{Benchmarks.} CFDLLMBench \cite{cfdllmbench2025} evaluates language models on CFD knowledge,
+numerical reasoning and solver workflows, scored by running code and comparing solutions. It does not
+ask for verdicts on claims about scheme properties. QuanTemp \cite{quantemp2024} is a benchmark of
+real-world numerical claims with true/false/conflicting labels, without PDE discretisations or
+formal certificates.
+
+\paragraph{What we did not find.} In a search of the literature (summarised in our research notes),
+we found no general checker that takes an arbitrary update formula and returns checkable certificates
+for conservation, order, stability, monotonicity, TVD or entropy properties, and no benchmark of
+true/false claims about numerical-method properties. A search can miss things.
+\todo{related work: a second, independent literature search, especially for computer-algebra tools in
+numerical analysis (e.g.\ automated modified-equation and stability analysis) that we have not
+reviewed}
+
+\paragraph{The classical theory.} The table rows rest on the Lax--Richtmyer equivalence theorem
+\cite{laxrichtmyer1956}, the Lax--Wendroff theorem \cite{laxwendroff1960}, Crandall and Majda's
+convergence of monotone schemes \cite{crandallmajda1980}, Harten's TVD lemma \cite{harten1983},
+Tadmor's entropy stability \cite{tadmor1987,tadmor2003}, Godunov's order barrier \cite{godunov1959}
+and its nonlinear form by Harten, Hyman and Lax \cite{hartenhymanlax1976}. The schemes are from
+\cite{rusanov1961,engquistosher1981,roe1981,sweby1984}, and the textbook treatments we follow are
+LeVeque \cite{leveque2002} and Toro \cite{toro2009}. Hou and LeFloch \cite{houlefloch1994} analyse why
+non-conservative schemes converge to wrong solutions, which our shock-speed study shows numerically
+for the quasilinear upwind scheme.
+
+% ====================================================================================================
+\section{Outlook}\label{sec:outlook}
+
+\paragraph{Systems beyond $2\times2$.} Hyperbolicity is decided by the discriminant for $2\times2$
+systems only, and entropy stability is not ported to systems (it needs vector entropy variables and an
+entropy-conservative flux defined by a line integral). Invariant-domain properties (Riemann-invariant
+bounds) are the natural next certificates.
+
+\paragraph{More than one dimension.} Conservation and consistency carry over directly. For limited
+schemes the number of sign cells grows quickly with the stencil, and the claims papers make are
+different (positivity, maximum principles, invariant domains), so new checks are needed.
+
+\paragraph{Reward signals.} A checker that never certifies a false claim can grade a model that writes
+schemes and claims about them. A verdict of \U{} or \NR{} must earn nothing, or a model learns to write
+claims nothing can decide. The benchmark needs adversarial and independently written entries before it
+can support that use.
+
+% ====================================================================================================
+\appendix
+
+\section{Reproducing the numbers}\label{app:repro}
+
+Every number in the paper carries a marker [$k$]. The table lists each marker, the page it is on, the
+number, and the test or function that reproduces it. A target
+\code{tests/}\textit{file}\code{.py::}\textit{test} is a pytest test, run with
+\code{uv run pytest -q 'tests/}\textit{file}\code{.py::}\textit{test}\code{'}. A target
+\code{paper\_numbers.py::}\textit{name} is a function of \code{papers/scheme-claims/paper\_numbers.py},
+run with \code{uv run python papers/scheme-claims/paper\_numbers.py} \textit{name}; it prints what the
+checker returns.
+``(see text)'' marks a sentence whose numbers all come from one target. All numbers were taken from
+current main (commit \code{edf7254}). The merge gate is
+\code{uv run pytest -q tests/ --ignore=tests/test\_lean.py}.
+
+\printrepro
+
+\section{Glossary}\label{app:glossary}
+
+\begin{description}[style=nextline]
+\item[Scheme, update, stencil] A rule that advances cell values $u_i^n$ one time step:
+  $u_i^{n+1} = H(\ldots)$ of the values in a few neighbouring cells (the stencil; here three or five).
+\item[$\lambda$, $\nu$, CFL number] $\lambda = \Delta t/\Delta x$; for linear advection with speed $a$,
+  $\nu = a\lambda$ (the Courant number). The CFL number $\lambda\max|f'(u)|$ is how many cells a signal
+  crosses in one step. A CFL condition bounds it.
+\item[Conservative form, numerical flux] An update of the form
+  \eqref{eq:update}, with a numerical flux $F$ at each interface. On a periodic grid the total of $u$ is
+  then unchanged.
+\item[Consistent] $F(u, u) = f(u)$: the numerical flux reduces to the PDE flux on constant data.
+\item[Truncation error, order] The error of the update applied to an exact smooth solution; order $p$
+  if it is $O(\Delta x^p)$ at fixed $\Delta t/\Delta x$. The \emph{global} order is about the computed
+  solution's error, which is a different statement.
+\item[Von Neumann stability] For a linear scheme, every Fourier mode's amplification factor $g(\theta)$
+  satisfies $|g| \le 1$.
+\item[Positive] A linear update whose coefficients are all non-negative.
+\item[Monotone] $H$ is non-decreasing in each argument.
+\item[TVD] Total variation diminishing: $\sum_i |u_{i+1} - u_i|$ does not increase in a step.
+\item[Weak solution, Rankine--Hugoniot] A solution in the integral sense, which may have jumps; a jump
+  from $u_L$ to $u_R$ moves at $s = (f(u_L) - f(u_R))/(u_L - u_R)$.
+\item[Entropy solution, Lax shock] The physically relevant weak solution, singled out by entropy
+  inequalities. For convex $f$ a jump is admissible (a Lax shock) if $f'(u_L) > f'(u_R)$; otherwise the
+  entropy solution is a rarefaction fan.
+\item[Entropy stable (Tadmor)] The semi-discrete scheme satisfies a discrete entropy inequality for a
+  given entropy pair; checked as $Q = -[v](F - F^*) \ge 0$, where $F^*$ is the entropy-conservative flux.
+\item[Semi-discrete, fully discrete] With exact time integration (method of lines), or with the actual
+  time step.
+\item[Riemann problem] Initial data with one jump, $u_L$ for $x < x_0$ and $u_R$ for $x > x_0$.
+\item[Spec] The JSON file that holds a PDE, a scheme and the claims made about it.
+\item[Named claim] A precise property in the trusted table, such as \code{monotone\_under\_cfl}.
+\item[Reading] One formal meaning of an English sentence: a conjunction of named claims on specs, with
+  relations and bridges.
+\item[Bridge] A stated lemma linking a sentence's wording to a named claim.
+\item[Check, witness] A function of the spec that returns a status and the data that justify it.
+\item[Certificate] A witness that a simpler checker can verify: an identity, a list of non-negative
+  coefficients, or an exact counterexample.
+\item[Sign cell] A region where every $|x|$ in the update has a fixed sign, so the update is a polynomial.
+\item[Bernstein coefficients] The coefficients of a polynomial in the Bernstein basis of an interval;
+  if all are non-negative, the polynomial is non-negative on the interval.
+\item[Farkas identity] $p = r + \sum_j \mu_j a_j$ with $r, \mu_j \ge 0$, which proves $p \ge 0$ wherever
+  every $a_j \ge 0$.
+\item[Guarantee] Exact (rational arithmetic, identity or counterexample) or empirical (float64 study).
+\item[SUFFICIENT, NECESSARY, EQUIVALENT] How a check bears on a claim: its pass implies the claim; the
+  claim implies its pass; both.
+\item[Verdicts] \V, \R{} (exact); \NR, \RE{} (empirical); \U{} (nothing decisive); \IC{} (a bug); and in the
+  benchmark \UF{} (no named claim expresses the reading).
+\item[Match, gap, wrong] A decisive verdict that agrees with the expected truth; a non-decisive one; a
+  decisive one that disagrees.
+\end{description}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}
