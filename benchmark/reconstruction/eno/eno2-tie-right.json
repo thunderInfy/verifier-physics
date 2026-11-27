@@ -1,0 +1,25 @@
+{
+ "kind": "eno",
+ "name": "ENO, k = 2, ties to the right stencil",
+ "source": "ENO interpolation of point values (Harten, Engquist, Osher and Chakravarthy, J. Comput. Phys. 71 (1987), (3.4b)), as used for the TeCNO schemes (Fjordholm, Mishra and Tadmor, SIAM J. Numer. Anal. 50 (2012), Sec. 3.5, Theorem 3.4)",
+ "reconstruction": {
+  "order": 2,
+  "selection": "eno",
+  "tie": "right"
+ },
+ "claims": [
+  {
+   "claim": "eno_sign_property",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "the argument for ties to the left does not use the tie rule"
+  },
+  {
+   "claim": "eno_jump_ratio_at_most",
+   "c": "2",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "as for ties to the left"
+  }
+ ]
+}

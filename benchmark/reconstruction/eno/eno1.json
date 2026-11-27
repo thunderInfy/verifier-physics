@@ -1,0 +1,25 @@
+{
+ "kind": "eno",
+ "name": "First order (k = 1): piecewise constant",
+ "source": "ENO interpolation of point values (Harten, Engquist, Osher and Chakravarthy, J. Comput. Phys. 71 (1987), (3.4b)), as used for the TeCNO schemes (Fjordholm, Mishra and Tadmor, SIAM J. Numer. Anal. 50 (2012), Sec. 3.5, Theorem 3.4)",
+ "reconstruction": {
+  "order": 1,
+  "selection": "eno",
+  "tie": "left"
+ },
+ "claims": [
+  {
+   "claim": "eno_sign_property",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "the jump is w_{i+1} - w_i itself"
+  },
+  {
+   "claim": "eno_jump_ratio_at_most",
+   "c": "1",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "ratio identically 1"
+  }
+ ]
+}

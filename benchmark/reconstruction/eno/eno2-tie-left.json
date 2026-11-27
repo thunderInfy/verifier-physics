@@ -1,0 +1,32 @@
+{
+ "kind": "eno",
+ "name": "ENO, k = 2, ties to the left stencil",
+ "source": "ENO interpolation of point values (Harten, Engquist, Osher and Chakravarthy, J. Comput. Phys. 71 (1987), (3.4b)), as used for the TeCNO schemes (Fjordholm, Mishra and Tadmor, SIAM J. Numer. Anal. 50 (2012), Sec. 3.5, Theorem 3.4)",
+ "reconstruction": {
+  "order": 2,
+  "selection": "eno",
+  "tie": "left"
+ },
+ "claims": [
+  {
+   "claim": "eno_sign_property",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "jump = d - (s_i + s_{i+1})/2 with d = w_{i+1} - w_i and |s_i|, |s_{i+1}| <= |d| (the minmod-like choice), so jump/d is in [0, 2] (the source checks k = 2, p. 555)"
+  },
+  {
+   "claim": "eno_jump_ratio_at_most",
+   "c": "2",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "as above"
+  },
+  {
+   "claim": "eno_jump_ratio_at_most",
+   "c": "3/2",
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "s_i = -d (tie at i, to the left) and s_{i+1} close to -d give a ratio close to 2"
+  }
+ ]
+}

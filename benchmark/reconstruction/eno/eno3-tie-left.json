@@ -1,0 +1,32 @@
+{
+ "kind": "eno",
+ "name": "ENO, k = 3, ties to the left stencil",
+ "source": "ENO interpolation of point values (Harten, Engquist, Osher and Chakravarthy, J. Comput. Phys. 71 (1987), (3.4b)), as used for the TeCNO schemes (Fjordholm, Mishra and Tadmor, SIAM J. Numer. Anal. 50 (2012), Sec. 3.5, Theorem 3.4)",
+ "reconstruction": {
+  "order": 3,
+  "selection": "eno",
+  "tie": "left"
+ },
+ "claims": [
+  {
+   "claim": "eno_sign_property",
+   "expect": "VERIFIED",
+   "confidence": "unsure",
+   "why": "the sign property of ENO of every order (Fjordholm, Mishra and Tadmor, Found. Comput. Math. 2013, as cited); we have not read the proof"
+  },
+  {
+   "claim": "eno_jump_ratio_at_most",
+   "c": "4",
+   "expect": "VERIFIED",
+   "confidence": "unsure",
+   "why": "a guess at the bound for k = 3; we have not read the published constants"
+  },
+  {
+   "claim": "eno_jump_ratio_at_most",
+   "c": "2",
+   "expect": "REFUTED",
+   "confidence": "unsure",
+   "why": "a guess: the k = 3 bound exceeds the k = 2 one"
+  }
+ ]
+}

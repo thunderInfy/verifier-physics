@@ -1,0 +1,55 @@
+{
+ "kind": "cell_average",
+ "name": "Degree-4 polynomials with only the 3-point Gauss-Lobatto values (2N - 3 < k)",
+ "source": "Zhang and Shu, J. Comput. Phys. 229 (2010), (2.1)-(2.6), Theorem 2.2; the Lax-Friedrichs flux h(u, v) = (f(u) + f(v) - a (v - u))/2 for f(u) = u, a = max|f'| = 1",
+ "reconstruction": {
+  "degree": 4,
+  "values": {
+   "ubar": [
+    0,
+    "avg"
+   ],
+   "um1r": [
+    -1,
+    "1/2"
+   ],
+   "u0l": [
+    0,
+    "-1/2"
+   ],
+   "u0r": [
+    0,
+    "1/2"
+   ],
+   "up1l": [
+    1,
+    "-1/2"
+   ],
+   "u0c": [
+    0,
+    "0"
+   ]
+  },
+  "update": "ubar - lam*((u0r + up1l)/2 - (up1l - u0r)/2 - ((um1r + u0l)/2 - (u0l - um1r)/2))",
+  "hypotheses": [
+   "um1r",
+   "u0l",
+   "u0c",
+   "u0r",
+   "up1l",
+   "ubar"
+  ]
+ },
+ "claims": [
+  {
+   "claim": "cell_average_max_principle",
+   "lam": [
+    "0",
+    "1/12"
+   ],
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "Simpson is not exact for y^4, so ubar is not a combination of the point values and stays a hypothesis of its own; the update ubar - lam u0r + lam um1r has the weight -lam on u0r, negative for lam > 0 (a quartic p_0 with u0r = m and the other values and ubar at M exists)"
+  }
+ ]
+}

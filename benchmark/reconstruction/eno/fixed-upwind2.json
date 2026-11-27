@@ -1,0 +1,19 @@
+{
+ "kind": "eno",
+ "name": "Linear (fixed) stencil {i-1, i}, k = 2: no stencil selection",
+ "source": "ENO interpolation of point values (Harten, Engquist, Osher and Chakravarthy, J. Comput. Phys. 71 (1987), (3.4b)), as used for the TeCNO schemes (Fjordholm, Mishra and Tadmor, SIAM J. Numer. Anal. 50 (2012), Sec. 3.5, Theorem 3.4)",
+ "reconstruction": {
+  "order": 2,
+  "selection": {
+   "fixed": 1
+  }
+ },
+ "claims": [
+  {
+   "claim": "eno_sign_property",
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "jump = (w_{i+1} - 2 w_i + w_{i-1})/2 is non-zero for w_i = w_{i+1}, w_{i-1} != w_i"
+  }
+ ]
+}
