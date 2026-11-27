@@ -300,11 +300,14 @@ arithmetic) and the relation table in \code{claims.py}.
 
 \paragraph{The semi-discrete caveat.} Tadmor's entropy check \cite{tadmor1987,tadmor2003} certifies
 an inequality for the semi-discrete scheme (the method of lines, with exact time integration). It says
-nothing about forward-Euler time stepping. In this paper every entropy result keeps that label:
-``exact, semi-discrete only'', and once replayed, ``proven (Lean), semi-discrete only''. The current
-Lean replay code keeps the caveat on the check's own result, but the label of a \emph{claim} decided by
-that check becomes plain ``proven (Lean)'' when it is upgraded, so the caveat is dropped there. A fix
-is planned; until then, read every entropy-stability label as semi-discrete.
+nothing about forward-Euler time stepping. The checker writes this caveat into the label, and a claim
+decided by the check carries the caveats of every check it rests on, both in exact Python and after the
+Lean replay. On the Roe scheme without an entropy fix, the verdict on \code{entropy\_stable\_tadmor}
+is \R{} with the label ``exact; semi-discrete inequality only, time stepping not
+certified''.\repro{tests/test_lean_caveat.py::test_roe_entropy_verdicts_keep_the_caveat} When the Lean
+replay upgrades a verdict, the label becomes ``proven (Lean)'' followed by the same
+caveat.\repro{tests/test_lean_caveat.py::test_lean_upgrade_keeps_the_caveat} In the text we shorten
+the caveat to ``semi-discrete only''.
 
 \paragraph{The benchmark is ours.} The main threat to validity is that we wrote the benchmark: the
 \rn{23}{paper_numbers.py::bench_counts} sentences, their
