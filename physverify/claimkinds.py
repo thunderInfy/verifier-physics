@@ -222,6 +222,26 @@ KINDS: dict[str, dict] = {
         "quantifier": "for all real data w with w_{i+1} != w_i: (w^-_{i+1} - w^+_i) / (w_{i+1} - w_i) <= c",
         "layers": ["reconstruction"], "meaning": None,
         "params": {"c": {"reconstruction": "claims[].c"}}},
+    "limiter_keeps_average": {
+        "gloss": "the scaling limiter p~ = c + theta (p - c) keeps the cell average of a polynomial of degree <= k",
+        "quantifier": "for all polynomials p of degree <= k on the cell and all m <= M (c in [m, M] if assumed): "
+                      "avg(p~) = avg(p)",
+        "layers": ["reconstruction"], "meaning": None,
+        "params": {"average_in_bounds": {"reconstruction": "claims[].average_in_bounds?"}}},
+    "limiter_bounds": {
+        "gloss": "the scaling limiter puts p~ in [m, M] at the stated points (or on the whole cell)",
+        "quantifier": "for all polynomials p of degree <= k and all m <= M (ubar in [m, M] if assumed): "
+                      "m <= p~(y) <= M for every y in `on`",
+        "layers": ["reconstruction"], "meaning": None,
+        "params": {"on": {"reconstruction": "claims[].on"},
+                   "average_in_bounds": {"reconstruction": "claims[].average_in_bounds?"}}},
+    "limiter_accuracy": {
+        "gloss": "the scaling limiter changes p by at most a constant times its overshoot of [m, M], so a (k+1)-th "
+                 "order accurate p stays (k+1)-th order accurate",
+        "quantifier": "there is C such that for all polynomials p of degree <= k and all m <= M (ubar in [m, M] if "
+                      "assumed): max_cell |p~ - p| <= C max_cell dist(p(y), [m, M])",
+        "layers": ["reconstruction"], "meaning": None,
+        "params": {"average_in_bounds": {"reconstruction": "claims[].average_in_bounds?"}}},
     # continuous conserved quantities (physverify/conserved.py)
     "conserved": {
         "gloss": "Q is constant along every solution of the Euler–Lagrange equations of L that stays in D",

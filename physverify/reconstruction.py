@@ -64,12 +64,13 @@ from fractions import Fraction
 from math import factorial
 from pathlib import Path
 
-from . import cellaverage, claimkinds, eno
+from . import cellaverage, claimkinds, eno, limiter
 from .expr import E, parse
 
 VERIFIED, REFUTED, UNKNOWN = "VERIFIED", "REFUTED", "UNKNOWN"
-# the layer's claims: the order here, the cell-average step (cellaverage.py) and the ENO jump (eno.py)
-CLAIMS = ("reconstruction_order_p",) + cellaverage.CLAIMS + eno.CLAIMS
+# the layer's claims: the order here, the cell-average step (cellaverage.py), the ENO jump (eno.py) and the
+# scaling limiter (limiter.py)
+CLAIMS = ("reconstruction_order_p",) + cellaverage.CLAIMS + eno.CLAIMS + limiter.CLAIMS
 claimkinds.require("reconstruction", CLAIMS)
 
 FORMS = ("point", "flux_difference")
@@ -628,7 +629,7 @@ def concrete_jet(poly: dict, dens: list, pivot: int, nv: int, ncp: int, accept=N
 
 
 def check_claim(rec: dict, claim: dict) -> dict:
-    for mod in (cellaverage, eno):
+    for mod in (cellaverage, eno, limiter):
         if claim.get("claim") in mod.CLAIMS:
             return mod.check_claim(rec, claim)
     try:

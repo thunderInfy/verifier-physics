@@ -100,7 +100,7 @@ SOURCES = {"schemes": sorted((ROOT / "physverify/schemes").glob("*.py")),
            "variational": [ROOT / "physverify/variational.py"],
            "theory": [ROOT / "physverify/obligations.py", *sorted((ROOT / "physverify/tools").glob("*.py"))],
            "reconstruction": [ROOT / "physverify/reconstruction.py", ROOT / "physverify/cellaverage.py",
-                              ROOT / "physverify/eno.py"]}
+                              ROOT / "physverify/eno.py", ROOT / "physverify/limiter.py"]}
 
 
 def _params(layer: str):
