@@ -254,7 +254,7 @@ What the certificates mean, proven in Lean:
 
 The value of `λ_k` does not matter for soundness: on a solution, `Σ λ_k · 0 = 0` for any reals.
 We still require `diffOK` and `physOK` of the multipliers, so a certificate that uses a junk
-`λ_k` (say `g/0`) somewhere in `D` is rejected (`tests/test_lean_conserved.py`).
+`λ_k` (say `g/0`) somewhere in `D` is rejected (`test_junk_multiplier_rejected` in `tests/test_lean.py`).
 
 The untrusted planner (`physverify/tools/conserved.py`): for a regular `L`, `dt Q` and every
 `EL_k` are affine in `q̈`, so matching the `q̈` coefficients gives `λ = H⁻¹ ∂Q/∂q̇`, with `H`
@@ -276,7 +276,7 @@ What is assumed, not proven:
   has an example: `L = m ẋ²/2 + λ(x − a)`, where `EL_λ` is the constraint `x = a`. `x` is
   constant on every solution, but the jet `x = a`, `ẋ = 1` satisfies the EL system and has
   `dx/dt = 1`. The statement without `Regular` is provable there, and the one with it is not
-  (`tests/test_lean_conserved.py`).
+  (`test_degenerate_lagrangian_cannot_be_refuted` in `tests/test_lean.py`).
 * As for EOM claims: literal serialization of the claim file, and the Euler–Lagrange equations
   as the input physics.
 
