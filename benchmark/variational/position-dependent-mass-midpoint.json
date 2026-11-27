@@ -1,0 +1,19 @@
+{
+  "kind": "variational",
+  "name": "position-dependent mass, midpoint rule",
+  "coordinates": ["x"],
+  "symbols": {"x": {"dim": "L"}, "h": {"dim": "T"}, "m": {"dim": "M"}, "k": {"dim": "M T^-2"},
+              "a": {"dim": "L"}},
+  "discrete_lagrangian": "h*(m/2*(1 + ((x_0 + x_1)/2)^2/a^2)*((x_1 - x_0)/h)^2 - k/2*((x_0 + x_1)/2)^2)",
+  "lagrangian": "m/2*(1 + x^2/a^2)*x_dot^2 - k/2*x^2",
+  "domain": ["m > 0", "k > 0", "a > 0"],
+  "claims": [
+    {
+      "claim": "consistent_order_p",
+      "p": 2,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the midpoint L_d is symmetric (L_d(q0, q1; h) = L_d(q1, q0; -h)), so its DEL is centred"
+    }
+  ]
+}

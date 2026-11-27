@@ -6,3 +6,4 @@ import PhysVerify.Deriv
 import PhysVerify.EulerLagrange
 import PhysVerify.Conserved
 import PhysVerify.Scheme
+import PhysVerify.Discrete

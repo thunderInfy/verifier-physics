@@ -1,0 +1,26 @@
+{
+  "kind": "variational",
+  "name": "quartic oscillator, trapezoidal rule",
+  "coordinates": ["x"],
+  "symbols": {"x": {"dim": "L"}, "h": {"dim": "T"}, "m": {"dim": "M"}, "k": {"dim": "M T^-2"},
+              "a": {"dim": "L"}},
+  "discrete_lagrangian": "h*(m/2*((x_1 - x_0)/h)^2 - k/8*(x_0^4 + x_1^4)/a^2)",
+  "lagrangian": "m/2*x_dot^2 - k/4*x^4/a^2",
+  "domain": ["m > 0", "k > 0", "a > 0"],
+  "claims": [
+    {
+      "claim": "discrete_momentum_conserved",
+      "quantity": "m/2*((x_1 - x_0)/h)^2 + k/8*(x_0^4 + x_1^4)/a^2",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "the trapezoidal energy is not exactly conserved: L_d has no time-translation symmetry, and with a nonlinear force the step has no quadratic invariant to fall back on"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 2,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the trapezoidal L_d is symmetric"
+    }
+  ]
+}

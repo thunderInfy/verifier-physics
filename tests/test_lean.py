@@ -493,3 +493,114 @@ def test_wrong_certificates_fall_back_to_exact_python():
     pos["witness"]["violating_nu"] = "0"     # c_{i+1}(0) = 0, so this is no counterexample
     lean_cert.certify([(down, rep)], planner=planner)
     assert (pos["status"], pos["guarantee"]) == (checks.REFUTED, checks.EXACT)
+
+
+# ---------------------------------------------------------------- variational integrators
+# Claim files in benchmark/variational/ (physverify/variational.py), certificates in
+# PhysVerify.Discrete. Skipped cleanly where there is no Lean toolchain or no Mathlib build.
+
+import shutil  # noqa: E402
+
+from physverify import lean_backend  # noqa: E402
+
+VAR_BENCH = sorted((ROOT / "benchmark/variational").glob("*.json"))
+VAR_MOD = "PhysVerify.Discrete"
+needs_lean = pytest.mark.skipif(
+    shutil.which("lake") is None and not (Path.home() / ".elan/bin/lake").exists()
+    or (lean_backend.MODE == "local" and not (lean_backend.LEAN_DIR / ".lake/packages/mathlib").is_dir()),
+    reason="no Lean toolchain / Mathlib build")
+
+
+def _load_var(stem):
+    from physverify.variational import load_variational
+    return load_variational(ROOT / f"benchmark/variational/{stem}.json")
+
+
+@pytest.fixture(scope="module")
+def var_results():
+    from physverify.variational import judge_file, load_variational
+    t = time.time()
+    out = {p.stem: judge_file(load_variational(p)) for p in VAR_BENCH}
+    print(f"\nvariational bench: {sum(map(len, out.values()))} claims, {time.time() - t:.0f}s")
+    return out
+
+
+@needs_lean
+@pytest.mark.parametrize("path", VAR_BENCH, ids=[p.stem for p in VAR_BENCH])
+def test_variational_bench(var_results, path):
+    """True claims are never REFUTED, false ones never VERIFIED, and every claim gets its label."""
+    from physverify.variational import load_variational
+    I = load_variational(path)
+    for raw, c, r in zip(I.source["claims"], I.claims, var_results[path.stem]):
+        assert r.verdict != ("REFUTED" if raw["true"] else "VERIFIED"), (r.claim, r.detail)
+        assert r.verdict == c.expect, (r.claim, r.detail)
+        if c.kind != "consistent_order_p" and r.verdict != "UNKNOWN":
+            assert "; axioms: " in r.detail and "sorryAx" not in r.detail
+
+
+@needs_lean
+def test_dmomentum_statement_gives_exact_conservation():
+    """Every VERIFIED discrete-momentum statement gives what `dmomentum_meaning` needs: J is
+    constant along every discrete trajectory whose triples stay in D."""
+    from physverify.expr import to_lean
+    from physverify.variational import lean_terms, statement
+    I = _load_var("central-quartic-trapezoid")
+    c = I.claims[0]
+    t, J = lean_terms(I), to_lean(c.quantity, I.index())
+    r = lean_backend.check(
+        f"({statement('verified', I, c)}) → ∀ (q : ℕ → ℕ → ℝ) (p : ℕ → ℝ) (N : ℕ), "
+        f"(∀ k < N, {t['D']} (stepEnv 2 q p k)) → "
+        f"(∀ k < N, ∀ i < 2, realDEL 2 i {t['Ld']} q p k = 0) → "
+        f"Expr.eval (stepEnv 2 q p N) {J} = Expr.eval (stepEnv 2 q p 0) {J}",
+        "rintro ⟨-, -, hacc, hJ, mus, hlen, hcert⟩ q p N hD hDEL\n"
+        "exact dmomentum_meaning hcert hlen hacc hJ q p N hD hDEL",
+        module=VAR_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_corrupted_multiplier_rejected():
+    """A wrong μ (the planner's μ_0 plus 1) breaks the identity: Lean rejects, UNKNOWN."""
+    from physverify.expr import E, lit
+    from physverify.tools import variational as P
+    from physverify.variational import UNKNOWN, VERIFIED, del_exprs, judge
+    I = _load_var("free-particle-2d")
+    c = I.claims[0]
+    mus = P.multipliers(I, c, del_exprs(I))
+    assert judge(I, c, [("verified", P.mom_verified_tactic(I, mus))]).verdict == VERIFIED
+    bad = [E("add", (mus[0], lit(1))), mus[1]]
+    assert judge(I, c, [("verified", P.mom_verified_tactic(I, bad))]).verdict == UNKNOWN
+
+
+@needs_lean
+def test_junk_multiplier_rejected():
+    """μ_0 + 1/(m - m) is junk everywhere (Lean's x/0 = 0): the identity still holds in Lean,
+    but the statement requires physOK of every μ on D, so the certificate gives UNKNOWN."""
+    from physverify.expr import E, parse, to_lean
+    from physverify.tools import variational as P
+    from physverify.variational import UNKNOWN, del_exprs, judge, lean_terms
+    I = _load_var("free-particle-2d")
+    c = I.claims[0]
+    mus = P.multipliers(I, c, del_exprs(I))
+    junk = [E("add", (mus[0], parse("1/(m - m)"))), mus[1]]
+    assert judge(I, c, [("verified", P.mom_verified_tactic(I, junk))]).verdict == UNKNOWN
+    t, idx = lean_terms(I), I.index()
+    J, ms = to_lean(c.quantity, idx), "[" + ", ".join(to_lean(m, idx) for m in junk) + "]"
+    intro, facts, _ = P._intro(I)
+    r = lean_backend.check(
+        f"∀ env, {t['D']} env → (Expr.ren (shift 2) {J}).eval env - Expr.eval env {J} = "
+        f"delSum 2 {t['Ld']} env 0 {ms}",
+        f"{intro}\nsimp [delSum, {P.UNF}{facts}] <;> {P.IDENT}", module=VAR_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_variational_judge_rejects_planner_tricks():
+    from physverify.tools import variational as P
+    from physverify.variational import UNKNOWN, judge
+    I = _load_var("central-quartic-trapezoid")
+    good, wrong = I.claims[0], I.claims[1]
+    (v,) = P.propose(I, good)
+    assert judge(I, wrong, [v]).verdict == UNKNOWN          # the true claim's certificate
+    assert judge(I, good, [P.propose(I, wrong)[0], ("verified", "sorry"), ("refuted", "simp_all"),
+                           ("verified", "decide")]).verdict == UNKNOWN

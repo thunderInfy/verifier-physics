@@ -1,0 +1,32 @@
+{
+  "kind": "variational",
+  "name": "harmonic oscillator, midpoint rule",
+  "coordinates": ["x"],
+  "symbols": {"x": {"dim": "L"}, "h": {"dim": "T"}, "m": {"dim": "M"}, "k": {"dim": "M T^-2"}},
+  "discrete_lagrangian": "h*(m/2*((x_1 - x_0)/h)^2 - k/2*((x_0 + x_1)/2)^2)",
+  "lagrangian": "m/2*x_dot^2 - k/2*x^2",
+  "domain": ["m > 0", "k > 0"],
+  "claims": [
+    {
+      "claim": "del_equations",
+      "update": [{"lhs": "(4*m + h^2*k)*x_2", "rhs": "4*m*(2*x_1 - x_0) - h^2*k*(x_0 + 2*x_1)"}],
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "DEL = m(2x1 - x0 - x2)/h - hk(x0 + 2x1 + x2)/4; times -4h this is the update"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 2,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "symmetric L_d: (1/h)DEL = -(x'' + (k/m)... ) - h^2 (m x''''/12 + k x''/4) + O(h^4)"
+    },
+    {
+      "claim": "discrete_momentum_conserved",
+      "quantity": "m/2*((x_1 - x_0)/h)^2 + k/2*((x_0 + x_1)/2)^2",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "not Noether (L_d has no time-translation symmetry): the step (x0, x1) -> (x1, x2) is linear with determinant 1, and this quadratic form is its invariant; it fails for nonlinear forces (anharmonic-trapezoid)"
+    }
+  ]
+}

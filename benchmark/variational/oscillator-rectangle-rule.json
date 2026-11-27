@@ -1,0 +1,39 @@
+{
+  "kind": "variational",
+  "name": "harmonic oscillator, rectangle rule V(q0)",
+  "coordinates": ["x"],
+  "symbols": {"x": {"dim": "L"}, "h": {"dim": "T"}, "m": {"dim": "M"}, "k": {"dim": "M T^-2"}},
+  "discrete_lagrangian": "h*(m/2*((x_1 - x_0)/h)^2 - k/2*x_0^2)",
+  "lagrangian": "m/2*x_dot^2 - k/2*x^2",
+  "domain": ["m > 0", "k > 0"],
+  "claims": [
+    {
+      "claim": "del_equations",
+      "update": [{"lhs": "m*x_2", "rhs": "2*m*x_1 - m*x_0 - h^2*k*x_1"}],
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the DEL of the rectangle rule is the Stormer-Verlet recurrence"
+    },
+    {
+      "claim": "del_equations",
+      "update": [{"lhs": "m*x_2", "rhs": "2*m*x_1 - m*x_0 - h^2*k*x_0"}],
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: explicit Euler (q' = p/m, p' = -kq, eliminated to two steps) evaluates the force at x_0, not x_1; it is not the DEL of this L_d"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 2,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the rectangle-rule L_d is first order as a one-step map (symplectic Euler) but its two-step DEL is Stormer-Verlet, centred and second order"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 1,
+      "true": false,
+      "expect": "REFUTED",
+      "why": "the exact order of the DEL is 2, not 1"
+    }
+  ]
+}

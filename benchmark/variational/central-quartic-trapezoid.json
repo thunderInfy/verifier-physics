@@ -1,0 +1,40 @@
+{
+  "kind": "variational",
+  "name": "central quartic potential in 2D, trapezoidal rule",
+  "coordinates": ["x", "y"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "h": {"dim": "T"}, "m": {"dim": "M"},
+              "k": {"dim": "M T^-2"}, "a": {"dim": "L"}},
+  "discrete_lagrangian": "h*(m/2*(((x_1 - x_0)/h)^2 + ((y_1 - y_0)/h)^2) - k/8*((x_0^2 + y_0^2)^2 + (x_1^2 + y_1^2)^2)/a^2)",
+  "lagrangian": "m/2*(x_dot^2 + y_dot^2) - k/4*(x^2 + y^2)^2/a^2",
+  "domain": ["m > 0", "k > 0", "a > 0"],
+  "claims": [
+    {
+      "claim": "discrete_momentum_conserved",
+      "quantity": "m*(x_0*y_1 - x_1*y_0)/h",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "V depends on |q| only and the trapezoidal L_d is rotation invariant; the potential term of D2 L_d is parallel to q1, so J_d = m (q0 x q1)/h"
+    },
+    {
+      "claim": "discrete_momentum_conserved",
+      "quantity": "m*(x_0*y_1 + x_1*y_0)/h",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: the cross product with a wrong sign"
+    },
+    {
+      "claim": "discrete_momentum_conserved",
+      "quantity": "m*(x_1 - x_0)/h",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: linear momentum, but the potential is not translation invariant"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 2,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the trapezoidal L_d is symmetric"
+    }
+  ]
+}

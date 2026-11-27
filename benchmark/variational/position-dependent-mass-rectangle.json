@@ -1,0 +1,26 @@
+{
+  "kind": "variational",
+  "name": "position-dependent mass, rectangle rule",
+  "coordinates": ["x"],
+  "symbols": {"x": {"dim": "L"}, "h": {"dim": "T"}, "m": {"dim": "M"}, "k": {"dim": "M T^-2"},
+              "a": {"dim": "L"}},
+  "discrete_lagrangian": "h*(m/2*(1 + x_0^2/a^2)*((x_1 - x_0)/h)^2 - k/2*x_0^2)",
+  "lagrangian": "m/2*(1 + x^2/a^2)*x_dot^2 - k/2*x^2",
+  "domain": ["m > 0", "k > 0", "a > 0"],
+  "claims": [
+    {
+      "claim": "consistent_order_p",
+      "p": 2,
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: with a position-dependent mass the rectangle rule's DEL is not centred; the h^1 coefficient is nonzero"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 1,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "first order: the h^0 coefficient cancels, the h^1 one does not"
+    }
+  ]
+}

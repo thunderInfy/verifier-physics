@@ -1,0 +1,26 @@
+{
+  "kind": "variational",
+  "name": "Kepler problem, trapezoidal rule",
+  "coordinates": ["x", "y"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "h": {"dim": "T"}, "m": {"dim": "M"},
+              "GM": {"dim": "L^3 T^-2"}},
+  "discrete_lagrangian": "h*(m/2*(((x_1 - x_0)/h)^2 + ((y_1 - y_0)/h)^2) + GM*m/2*(1/sqrt(x_0^2 + y_0^2) + 1/sqrt(x_1^2 + y_1^2)))",
+  "lagrangian": "m/2*(x_dot^2 + y_dot^2) + GM*m/sqrt(x^2 + y^2)",
+  "domain": ["m > 0", "GM > 0", "x_0^2 + y_0^2 > 0", "x_1^2 + y_1^2 > 0", "x_2^2 + y_2^2 > 0"],
+  "claims": [
+    {
+      "claim": "discrete_momentum_conserved",
+      "quantity": "m*(x_0*y_1 - x_1*y_0)/h",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "V = -GM m/|q| is central; J_d = D2 L_d(q0, q1).xi(q1) with xi = (-y, x)"
+    },
+    {
+      "claim": "consistent_order_p",
+      "p": 2,
+      "true": true,
+      "expect": "UNKNOWN",
+      "why": "true, but sqrt is outside the polynomial fragment of the v1 order check"
+    }
+  ]
+}
