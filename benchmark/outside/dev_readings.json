@@ -23,11 +23,18 @@
    "readings": [],
    "unformalized": [
     {
-     "fields": "both",
+     "fields": "alone",
      "reasons": [
-      "reconstruction"
+      "not-checkable"
      ],
-     "note": "order of WENO5 with the new smoothness indicators, including at critical points"
+     "note": "the truth of the bare sentence depends on how eps scales with dx, and the sentence does not fix it. Jiang and Shu define eps as a fixed positive constant (p. 6, after (2.16): 'we will take eps = 10^-6') but derive the order with eps left out ((2.17), (3.8)-(3.9)), and on p. 7 they explain fixed-eps convergence on fine grids as an artefact of IS_k << eps. FALSE rests on the eps << IS_k family (the justification: 'when eps does not dominate the indicators'). Run once, not stored: with eps = 0 (or eps = dx^4), reconstruction_order_p on the flux difference at n_cp = 1 is REFUTED for p = 5 (leading order 3); with eps = 10^-6 fixed it is VERIFIED at n_cp = 1, and VERIFIED would need every n_cp, so that reading could reach only NOT_REFUTED. A reading in the eps << IS_k family alone would be the family that makes the checker match, and one in the fixed-eps family is an instance whose truth differs from the expected value (README, Readings), so the field is left unformalised (team rule for eps-family choices)"
+    },
+    {
+     "fields": "with_hypotheses",
+     "reasons": [
+      "not-checkable"
+     ],
+     "note": "the clause 'instead of the 4th order with the original smoothness measurement' decides the field, and its reading is a judgment call. Run once, not stored: with eps -> 0 (the item's hypothesis, written eps = 0) and f' != 0, reconstruction_order_p on the flux difference is VERIFIED for p = 5 with the new measurement (3.2)-(3.4) and ALSO VERIFIED for p = 5 with the original one (2.20) (leading order 5; cross-checked by direct exact evaluation, error/dx^4 -> 0). The O(h) terms of (2.23)-(2.25) are -2, 0, +2 times f''h/f', linear in k, and such weight errors cancel against the candidate errors at O(h^4); the source's 'can only give 4th order' (p. 7) rests on the sufficient condition (2.14) only. Read as 'the original gives 4th and not 5th order' the sentence is false and the expected TRUE would score WRONG; read as 'at least 4th' it is VERIFIED. Neither is forced by the text, so the field is left unformalised (see ERRATA_PROPOSED.md)"
     }
    ],
    "score": {
@@ -76,19 +83,63 @@
   },
   {
    "id": "jiang_shu_1995_weno:05",
-   "readings": [],
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "where f' != 0, the WENO schemes with the new measurement are (2r-1)th order for r = 2 and r = 3, eps negligible",
+     "narrowing": "one split flux component: v_k = f^+_{j+k} and the reconstruction f^_{j+1/2} (f^- is its mirror image); order = truncation error of the spatial operator (f^_{j+1/2} - f^_{j-1/2})/dx against f^+(u(x))_x at one grid point x_j, with both reconstructions expanded about x_j; eps family: eps -> 0, written eps = 0 (with f' != 0 every IS_k is (f' dx)^2 (1 + O(dx)) > 0, so the weights are defined). This is a family choice, and the item's hypotheses make it: 'eps treated as negligible in the order analysis' (pp. 6-9). The sufficient condition (2.17), IS_k = D(1 + O(h^{r-1})), and (3.8) only bear on the weights when eps is negligible against IS_k; with eps fixed the weights tend to C_k whatever IS_k is (p. 7: 'on fine grids, since the smoothness measurements IS_k for all k are relatively smaller than the non-zero constant eps in (2.16), the weights become close to the optimal weights'); 'at least for r = 2, 3' read as the two cases r = 2, 3",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "jiang-shu-weno3-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 3,
+        "form": "flux_difference",
+        "regime": "generic",
+        "eps": "0"
+       }
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "generic",
+        "eps": "0"
+       }
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
+    }
+   ],
    "unformalized": [
     {
-     "fields": "both",
+     "fields": "alone",
      "reasons": [
-      "reconstruction"
+      "not-checkable"
      ],
-     "note": "(2r-1)th order of WENO in smooth regions"
+     "note": "the truth of the bare sentence depends on how eps scales with dx, and the sentence does not fix it. Jiang and Shu define eps as a fixed positive constant (p. 6, after (2.16): 'we will take eps = 10^-6') but derive the order with eps left out ((2.17), (3.8)-(3.9)), and on p. 7 they explain fixed-eps convergence on fine grids as an artefact of IS_k << eps. FALSE rests on the eps << IS_k family (the justification: 'when eps does not dominate the indicators'). Run once, not stored: with eps = 0 (or eps = dx^4), reconstruction_order_p on the flux difference at n_cp = 1 is REFUTED for p = 5 (leading order 3) and for r = 2 at p = 3 (leading order 1); with eps = 10^-6 fixed it is VERIFIED at n_cp = 1, and VERIFIED would need every n_cp, so that reading could reach only NOT_REFUTED. A reading in the eps << IS_k family alone would be the family that makes the checker match, and one in the fixed-eps family is an instance whose truth differs from the expected value (README, Readings), so the field is left unformalised (team rule for eps-family choices)"
     }
    ],
    "score": {
     "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "with_hypotheses": "MATCH"
    }
   },
   {

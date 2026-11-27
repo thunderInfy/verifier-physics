@@ -1,18 +1,21 @@
 # Outside benchmark, dev half: what the checker can state and decide
 
 The 99 dev items (9 sources, split in `FROZEN.md`) were read against the checker as it was on main
-(physverify/schemes, no changes). **Re-scored after two checker additions.** (1) A checker fix (commit 055abd1):
+(physverify/schemes, no changes). **Re-scored after three checker additions.** (1) A checker fix (commit 055abd1):
 exact univariate nonnegativity in `positivity` and the linear TVD equivalence `tvd_linear`, both general, closed
 the two gaps on `harten_1982_highres:05`; no reading, spec or expected value changed, and no other verdict moved.
 (2) The `stated_identity` claim kind (a printed formula satisfies its defining identity,
-`physverify/schemes/identity.py`) gave readings to two more items, tecno:04 and tecno:02. The numbers below include
-both; the first-round numbers (before either) are given where they changed: 9 of 99 items stated, 12 of 14
-readings decided, 7 / 6 MATCH, 0 WRONG. Readings and reasons are in `dev_readings.json`, following the rules and the gap
+`physverify/schemes/identity.py`) gave readings to two more items, tecno:04 and tecno:02. (3) The
+`reconstruction_order_p` claim kind (exact order of WENO-type reconstructions, `physverify/reconstruction.py`,
+commit 2feeea8) gave a reading to jiang_shu_1995_weno:05 (with hypotheses, MATCH). jiang_shu_1995_weno:02 stays
+unformalised in both fields, now for a stated reason other than `reconstruction`: §3 has the details. The numbers
+below include all three; the first-round numbers (before any of them) are given where they changed: 9 of 99 items
+stated, 12 of 14 readings decided, 7 / 6 MATCH, 0 WRONG. Readings and reasons are in `dev_readings.json`, following the rules and the gap
 taxonomy in `README.md` (committed before any item was classified). `run_dev.py` recomputes every verdict in about
 5 s; `tests/test_outside_dev.py` checks that the stored verdicts and scores are what the checker gives now. No
-heldout item was opened, formalised or run. The seven claim names used (`consistent`, `positive_under_cfl`,
+heldout item was opened, formalised or run. The eight claim names used (`consistent`, `positive_under_cfl`,
 `von_neumann_stable_under_cfl`, `local_max_principle_under_cfl`, `tvd_under_cfl`, `truncation_order_smooth_data`,
-`stated_identity`)
+`stated_identity`, `reconstruction_order_p`)
 are checked against the claim-kind registry `physverify/claimkinds.py` by `tests/test_claimkinds.py`, and each is
 used in the registry's reading.
 
@@ -25,13 +28,13 @@ through `tvd_under_cfl`, uses the same equivalence as a row of the claims table 
 
 ## 1. Statable fraction
 
-**11 of 99 dev items** have at least one formal reading: 10 for the `alone` field, 9 for `with_hypotheses`
+**12 of 99 dev items** have at least one formal reading: 10 for the `alone` field, 10 for `with_hypotheses`
 (first round: 9 of 99, 8 and 7).
 
 | property | stated / items | stated items |
 |---|---|---|
 | positivity | 2 / 26 | zhang_shu_2010_maxprinciple:02, :04 |
-| order | 3 / 24 | harten_1982_highres:01, fjordholm_mishra_tadmor_2012_tecno:02 (its entropy clause only), :03 |
+| order | 4 / 24 | harten_1982_highres:01, fjordholm_mishra_tadmor_2012_tecno:02 (its entropy clause only), :03, jiang_shu_1995_weno:05 (with hypotheses) |
 | stability | 3 / 11 | mfa_oslo_notes:03, :04, :05 |
 | entropy | 1 / 11 | fjordholm_mishra_tadmor_2012_tecno:04 |
 | convergence | 1 / 8 | harten_1982_highres:11 (its order clause only) |
@@ -40,14 +43,15 @@ through `tvd_under_cfl`, uses the same equivalence as a row of the claims table 
 | monotone | 0 / 2 | |
 | conservation | 0 / 1 | |
 
-Every one of the 16 readings narrows its sentence: linear advection (a = 1) for a general flux or sign of a, one
-viscosity Q, a scalar instance of a system (Burgers with u^2/2 for the two TeCNO identities), a two-stage SSP method for "SSP high order time discretizations", or
-a Courant range [0, 2] standing for "no CFL restriction". Each narrowing is recorded in the reading. A narrowed
+Every one of the 17 readings narrows its sentence: linear advection (a = 1) for a general flux or sign of a, one
+viscosity Q, a scalar instance of a system (Burgers with u^2/2 for the two TeCNO identities), a two-stage SSP method for "SSP high order time discretizations",
+a Courant range [0, 2] standing for "no CFL restriction", or (WENO, jiang_shu_1995_weno:05) one split flux
+component, the order as the truncation error at one point, and eps = 0 for "eps negligible". Each narrowing is recorded in the reading. A narrowed
 VERIFIED verifies the instance only.
 
 ## 2. Decided fraction
 
-**15 of 16 readings are decided** (7 VERIFIED, 8 REFUTED, all exact; first round 12 of 14). The one undecided
+**16 of 17 readings are decided** (8 VERIFIED, 8 REFUTED, all exact; first round 12 of 14). The one undecided
 reading is tecno:02's (expected UNSURE): its entropy-conservation clause is VERIFIED by `stated_identity`, but its
 second-order clause has no named claim, so the conjunction is UNKNOWN. Before the checker fix the two readings of
 `harten_1982_highres:05` (Harten's scheme with Q(x) = x^2 + 1/4 on linear advection, TVNI for nu up to
@@ -66,10 +70,10 @@ Scores per field (fields with no reading count as GAP when the expected value is
 | field | MATCH | WRONG | GAP | UNSCORED (UNSURE) |
 |---|---|---|---|---|
 | alone | 9 | 0 | 59 | 31 |
-| with hypotheses | 8 | 0 | 59 | 32 |
+| with hypotheses | 9 | 0 | 58 | 32 |
 
-All 17 matches rest on narrowed readings. Of the 68 alone and 67 with-hypotheses fields that have a TRUE/FALSE
-expectation, the checker decides 9 and 8, about 13% (first round 7 and 6).
+All 18 matches rest on narrowed readings. Of the 68 alone and 67 with-hypotheses fields that have a TRUE/FALSE
+expectation, the checker decides 9 and 9, about 13% (first round 7 and 6).
 
 ## 3. Wrong count
 
@@ -95,6 +99,32 @@ been WRONG. We ran both once to check; neither is stored or scored:
 Where a reading's truth would differ from the sentence's, we left the item unformalised (rule in `README.md`),
 which is why these two have no reading.
 
+The WENO items added a third case of this kind, and a finding about the source. Each was run once to check and
+is neither stored nor scored:
+
+- **jiang_shu_1995_weno:02 and :05, alone (FALSE).** The truth depends on how eps scales with dx, and the bare
+  sentence does not fix it. Jiang and Shu define eps as a fixed constant (p. 6, after (2.16): "we will take
+  eps = 10^-6"), derive the order with eps left out ((2.17), (3.8)-(3.9)), and on p. 7 explain fixed-eps
+  convergence on fine grids as an artefact ("since the smoothness measurements IS_k for all k are relatively
+  smaller than the non-zero constant eps in (2.16), the weights become close to the optimal weights"). The FALSE
+  value rests on Henrick, Aslam and Powers "when eps does not dominate the indicators". With eps = 0 or eps = dx^4,
+  `reconstruction_order_p` on the flux difference at a first-order critical point is REFUTED for p = 5 (leading
+  order 3; r = 2: order 1). With eps = 10^-6 fixed it is VERIFIED at n_cp = 1 (fifth order; the drop needs eps
+  small against IS_k = O(dx^4)). The team's rule for this case was "one reading per eps family". But the fixed-eps
+  reading picks an instance whose truth differs from the expected value (forbidden by the README), and the
+  eps << IS_k reading alone is the family that makes the checker match. So both alone fields are unformalised
+  (`not-checkable`: the content is not definite until the eps family is).
+- **jiang_shu_1995_weno:02, with hypotheses (TRUE).** The item's hypothesis "eps treated as negligible" does fix
+  the family, but the sentence also says the original measurement (2.18)/(2.20) gives "the 4th order", and p. 7
+  says it "can only give 4th order accuracy". The checker finds otherwise: with eps -> 0 and f' != 0 the original
+  measurement is fifth order too, for one reconstruction and for the flux difference (VERIFIED for p = 5, leading
+  order 5). Direct exact evaluation of the formulas confirms it (error/dx^4 -> 0 at rational dx = 2^-6 .. 2^-12;
+  `tests/test_reconstruction.py`). The O(h) terms of (2.23)-(2.25) are -2, 0, +2 times f''h/f', linear in k, and
+  weight errors of that form cancel against the candidate errors (1/4, -1/12, 1/12) f''' h^3 at O(h^4). The
+  source's argument uses only the sufficient condition (2.14). Read as "4th and not 5th" the sentence is false; read
+  as "at least 4th" it is true. The text does not decide, so the field is unformalised (`not-checkable`) and
+  `ERRATA_PROPOSED.md` lists it for the team.
+
 The decided readings, with the witness or certificate each verdict rests on:
 
 | item | field | verdict | what decides it |
@@ -112,21 +142,22 @@ The decided readings, with the witness or certificate each verdict rests on:
 | mfa_oslo_notes:05 | with hyp. | VERIFIED | upwind coefficients 1 - nu, nu >= 0 on [0, 1] |
 | mfa_oslo_notes:05 | alone | REFUTED | 1 - nu < 0 at a nu in (1, 2] |
 | fjordholm_mishra_tadmor_2012_tecno:03 | with hyp. | REFUTED | with the printed normalization alpha_1 = 1/2, F(u, u) - f(u) = -u^2/4 (witness at u = 1) |
+| jiang_shu_1995_weno:05 | with hyp. | VERIFIED | flux difference with eps = 0 where f' != 0: r = 2 (IS (2.19)) order 3 and r = 3 (IS (3.2)-(3.4)) order 5, the coefficients of dx^0 .. dx^(p-1) zero as polynomials in the Taylor jet; the leading term of every IS_k (both stencils) is (f' dx)^2, positive by form (re-scored) |
 | fjordholm_mishra_tadmor_2012_tecno:04 | both | REFUTED | identity (3.3) as transcribed, Burgers, D = 1: LHS - RHS = (u_{i+1}^2 - 2 u_i^2 + u_{i-1}^2)/2, which is 1/2 at (u_{i-1}, u_i, u_{i+1}) = (0, 0, 1); with the minus sign of Lemma 3.2 it normalises to 0 |
 
 ## 4. Gap taxonomy
 
-Primary reason per unformalised field (the first in the README's order that blocks a reading; 88 items have no
-reading at all, and 3 lack one for a single field):
+Primary reason per unformalised field (the first in the README's order that blocks a reading; 87 items have no
+reading at all, and 4 lack one for a single field):
 
 | reason | primary (fields entries) | items, any mention | what it would take |
 |---|---|---|---|
 | `scheme-class` | 27 | 27 | theorems about every scheme with a property (monotone ⇒ TVD, conservative ⇔ flux form, Lax–Wendroff, Crandall–Majda, Harten's lemma). A spec is one scheme. This needs statements over parametrised schemes, i.e. Lean proofs with the flux as a variable, not more checks |
-| `reconstruction` | 23 | 50 | WENO/ENO stencil selection and smoothness indicators, polynomial reconstructions with point values (Gauss–Lobatto), DG/FV cell-average schemes and their limiters. The largest roadmap item for this literature |
+| `reconstruction` | 21 | 48 | WENO/ENO stencil selection and smoothness indicators (the order of one WENO scheme in a stated regime is now `reconstruction_order_p`), polynomial reconstructions with point values (Gauss–Lobatto), DG/FV cell-average schemes and their limiters. The largest roadmap item for this literature |
 | `multi-d` | 15 | 16 | 2D rectangles and triangles (the two maximum-principle sources and TeCNO), plus one d-dimensional WENO theorem |
 | `system` | 9 | 18 | Euler, general systems with entropy variables, constant-coefficient systems with several fields. Counted only where a scalar narrowing would change the truth or lose the point |
 | `claim-kind-missing` | 6 | 22 | listed below |
-| `not-checkable` | 7 | 7 | numerical observations (3), a comparison with the literature (1), vague or existential wording (3) |
+| `not-checkable` | 10 | 10 | numerical observations (3), a comparison with the literature (1), vague or existential wording (3), content that depends on a choice the text leaves open (3: jiang_shu_1995_weno:02 both fields and :05 alone, §3) |
 | `illegible` | 2 | 2 | osher_tadmor_1985_convergence:02, :05 (the displays they depend on are illegible in the scan) |
 | `variable-coefficients` | 1 | 7 | a velocity that changes from cell to cell (vorticity schemes) |
 | `not-expressible` | 1 | 2 | harten_1982_highres:08: Q(nu + gamma) Delta v divides by a state difference for any non-constant Q |
@@ -161,7 +192,7 @@ The two expectations differ on **30 of 99** items: FALSE alone / TRUE with hypot
 UNSURE / TRUE 6, UNSURE / FALSE 1. In almost all of them the dropped hypothesis is a CFL bound, a smoothness or
 point-value condition, or the convergence of the scheme.
 
-Seven of the 30 are stated, and the checker gets every scored field right:
+Eight of the 30 are stated, and the checker gets every scored field right:
 
 | item | alone | with hypotheses | dropped hypothesis |
 |---|---|---|---|
@@ -172,11 +203,12 @@ Seven of the 30 are stated, and the checker gets every scored field right:
 | harten_1982_highres:01 | FALSE: MATCH | TRUE: GAP | "away from u_x = 0" (no named claim for order away from extrema) |
 | harten_1982_highres:11 | FALSE: MATCH | UNSURE: unscored | the same |
 | fjordholm_mishra_tadmor_2012_tecno:03 | UNSURE: unscored | FALSE: MATCH | here the printed hypothesis (the normalization of alpha) is what makes it false |
+| jiang_shu_1995_weno:05 | FALSE: GAP (unformalised, §3) | TRUE: MATCH | f' != 0 and eps negligible; the drop at critical points needs the eps family fixed |
 
 So on dropped CFL bounds the checker is reliable: the with-hypotheses reading verifies on the stated range and the
 alone reading refutes on [0, 2], both exactly. The dropped smoothness condition ("away from extrema") is half
 covered: the checker refutes the unqualified claim at an extremum, but cannot state the qualified one. The other
-23 differing items are unformalised, mostly `reconstruction` and `scheme-class`, so the checker says nothing about
+22 differing items are unformalised, mostly `reconstruction` and `scheme-class`, so the checker says nothing about
 whether their hypotheses matter.
 
 ## Caveats
@@ -204,6 +236,6 @@ the one first proposed:
    sum_k c_k = 1). `tvd_harten` with a general C, D split is still open.
 
 Larger items, in order of how many dev items they would open: claims over classes of schemes (27), reconstruction
-(50 mentions), semi-discrete order and order away from extrema (about 6).
+(48 mentions), semi-discrete order and order away from extrema (about 6).
 
-Expected-value corrections: none proposed; see `ERRATA_PROPOSED.md`.
+Expected-value corrections: one proposed (jiang_shu_1995_weno:02, with hypotheses, §3); see `ERRATA_PROPOSED.md`.

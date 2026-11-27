@@ -5,7 +5,8 @@ against the frozen expected values in items.jsonl. Heldout items are never read 
 source. With --write the verdicts and scores are stored in dev_readings.json.
 
 This file is formalization, not trusted code. Each reading is a conjunction of components, a named
-claim of physverify/schemes/claims.py on a spec in specs/, with the relations of
+claim of physverify/schemes/claims.py on a spec in specs/ (or `reconstruction_order_p` of
+physverify/reconstruction.py on a reconstruction spec, with the claim's parameters in `params`), with the relations of
 physverify/schemes/bench.py (`same`, `necessary`, `sufficient`). A component may also be
 `negated`: the reading asserts that the claim it bears on fails. Negation is applied after the
 relation: a decisive verdict flips (VERIFIED <-> REFUTED), an empirical refutation of the claim
@@ -27,6 +28,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from physverify import reconstruction
 from physverify.schemes import bench, check, claims as C
 
 HERE = Path(__file__).resolve().parent
@@ -76,8 +78,10 @@ def validate(data: dict, items: dict) -> list[str]:
             for c in r["formalization"]:
                 if "unformalized" in c:
                     continue
-                if c.get("claim") not in C.CLAIMS:
+                if c.get("claim") not in C.CLAIMS and c.get("claim") not in reconstruction.CLAIMS:
                     errs.append(f"{e['id']}: unknown named claim {c.get('claim')!r}")
+                if (c.get("claim") in reconstruction.CLAIMS) != ("params" in c):
+                    errs.append(f"{e['id']}: `params` goes with a reconstruction claim, and only there")
                 if c.get("relation", "same") not in bench.RELATIONS:
                     errs.append(f"{e['id']}: bad relation {c.get('relation')!r}")
                 if not (SPECS / c["spec"]).is_file():
@@ -95,7 +99,7 @@ def validate(data: dict, items: dict) -> list[str]:
 
 
 def _key(c: dict) -> tuple[str, str]:
-    return c["spec"], json.dumps(c.get("override", {}), sort_keys=True)
+    return c["spec"], json.dumps(c.get("override", c.get("params", {})), sort_keys=True)
 
 
 def components(data: dict):
@@ -111,6 +115,11 @@ def run(data: dict, checker=check) -> dict:
         groups.setdefault(_key(c), (c, []))[1].append(c["claim"])
     out = {}
     for key, (c, names) in groups.items():
+        if c["claim"] in reconstruction.CLAIMS:
+            spec = json.loads((SPECS / c["spec"]).read_text())
+            r = reconstruction.check_claim(spec["reconstruction"], {"claim": c["claim"], **c["params"]})
+            out[key] = {c["claim"]: r["verdict"]}
+            continue
         names = list(dict.fromkeys(names))
         report = checker(bench._spec(SPECS, c["spec"], c.get("override", {}), names))
         out[key] = {v["claim"]: v["verdict"] for v in report["claims"]}

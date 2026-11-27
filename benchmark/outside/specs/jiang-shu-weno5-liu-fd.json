@@ -1,0 +1,19 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO (r = 3) of Liu, Osher and Chan as written by Jiang and Shu, flux form, original smoothness measurement (2.20)",
+ "source": "jiang_shu_1995_weno, eqs. (2.10), (2.15)-(2.16), (2.20), Tables 1-2, pp. 4-7 of the ICASE report; f[j, 1] = f_{j+1} - f_j, f[j, 2] = f[j+1, 1] - f[j, 1]",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(2*vm2 - 7*vm1 + 11*v0)/6", "(-vm1 + 5*v0 + 2*vp1)/6", "(2*v0 + 5*vp1 - vp2)/6"],
+  "weights": {
+   "kind": "js",
+   "d": ["1/10", "6/10", "3/10"],
+   "beta": ["1/2*((vm1 - vm2)^2 + (v0 - vm1)^2) + (v0 - 2*vm1 + vm2)^2",
+            "1/2*((v0 - vm1)^2 + (vp1 - v0)^2) + (vp1 - 2*v0 + vm1)^2",
+            "1/2*((vp1 - v0)^2 + (vp2 - vp1)^2) + (vp2 - 2*vp1 + v0)^2"],
+   "q": 2
+  }
+ }
+}

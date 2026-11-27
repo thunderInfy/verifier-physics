@@ -1,0 +1,12 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO3 (r = 2) of Jiang and Shu, flux form, IS_k = (f[j+k-1, 1])^2 (2.19)",
+ "source": "jiang_shu_1995_weno, eqs. (2.10), (2.15)-(2.16), (2.19), Tables 1-2, pp. 4-6 of the ICASE report",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(-vm1 + 3*v0)/2", "(v0 + vp1)/2"],
+  "weights": {"kind": "js", "d": ["1/3", "2/3"], "beta": ["(v0 - vm1)^2", "(vp1 - v0)^2"], "q": 2}
+ }
+}

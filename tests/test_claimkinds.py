@@ -33,7 +33,11 @@ def file_usage() -> dict[str, set[str]]:
     used = {layer: set() for layer in LAYERS}
     for d, layer in FILES.items():
         for p in sorted((ROOT / d).rglob("*.json")):
-            used[layer] |= set(_names_in(json.loads(p.read_text())))
+            names = set(_names_in(json.loads(p.read_text())))
+            if d == "benchmark/outside":    # the dev readings also use the reconstruction layer's claim
+                used["reconstruction"] |= names & set(reconstruction.CLAIMS)
+                names -= set(reconstruction.CLAIMS)
+            used[layer] |= names
     for p in sorted((ROOT / "claims").rglob("*.json")):    # these files carry a kind, not a claim name
         spec = json.loads(p.read_text())
         used["conserved" if conserved.is_conserved(spec) else "derivation"].add(

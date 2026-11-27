@@ -1,0 +1,19 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO5 (r = 3) of Jiang and Shu, flux form, smoothness measurement (3.2)-(3.4)",
+ "source": "jiang_shu_1995_weno, eqs. (2.10), (2.15)-(2.16), (3.2)-(3.4), Tables 1-2, pp. 4-9 of the ICASE report; v_k = f^+_{j+k}, the reconstruction is f^_{j+1/2}",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(2*vm2 - 7*vm1 + 11*v0)/6", "(-vm1 + 5*v0 + 2*vp1)/6", "(2*v0 + 5*vp1 - vp2)/6"],
+  "weights": {
+   "kind": "js",
+   "d": ["1/10", "6/10", "3/10"],
+   "beta": ["13/12*(vm2 - 2*vm1 + v0)^2 + 1/4*(vm2 - 4*vm1 + 3*v0)^2",
+            "13/12*(vm1 - 2*v0 + vp1)^2 + 1/4*(vm1 - vp1)^2",
+            "13/12*(v0 - 2*vp1 + vp2)^2 + 1/4*(3*v0 - 4*vp1 + vp2)^2"],
+   "q": 2
+  }
+ }
+}

@@ -149,6 +149,21 @@ def test_verified_with_eps_0_survives_sampled_jets(name, i):
         assert r[2] <= F(3, 2) * r[1] + F(1, 10 ** 6) and r[1] <= F(3, 2) * r[0] + F(1, 10 ** 6), (jet, r)
 
 
+def test_original_measurement_is_fifth_order_where_f_prime_is_nonzero():
+    """Found by the checker (not a pre-committed bench row; DEV_RESULTS.md §3): the r = 3 measurement (2.20)
+    of Liu, Osher and Chan, eps -> 0, f' != 0, is fifth order, not only fourth as Jiang and Shu say on p. 7.
+    Confirmed here by direct exact evaluation: E/dx^4 -> 0 and E/dx^5 settles, for two jets."""
+    rec = json.loads((BENCH.parent / "outside/specs/jiang-shu-weno5-liu-fd.json").read_text())["reconstruction"]
+    for form in ("point", "flux_difference"):
+        c = {"claim": "reconstruction_order_p", "p": 5, "form": form, "regime": "generic", "eps": "0"}
+        assert R.check_claim(rec, c)["leading_order"] == "5"
+        assert R.check_claim(rec, {**c, "p": 6})["verdict"] == R.REFUTED
+        for jet in ([F(0), F(1), F(1), F(1, 2), F(-1), F(2), F(1, 3), F(1)],
+                    [F(1), F(-1, 2), F(3), F(-2), F(1), F(1, 2), F(-1), F(2)]):
+            r5 = [R.direct_error(rec, c, jet, F(1, 2 ** a)) * 2 ** (5 * a) for a in (8, 10, 12)]
+            assert abs(r5[2] - r5[1]) < abs(r5[1] - r5[0]) < abs(r5[1]) / 4, r5
+
+
 def test_series_coefficients_match_direct_evaluation():
     """The leading coefficient of a VERIFIED row is also what direct evaluation converges to."""
     rec = SPECS["weno5-js-fd"]["reconstruction"]
