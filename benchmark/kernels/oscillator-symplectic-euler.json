@@ -1,0 +1,43 @@
+{
+  "kind": "kernel",
+  "name": "harmonic oscillator, symplectic Euler kernel",
+  "state": ["q", "p"],
+  "symbols": {"q": {"dim": "L"}, "p": {"dim": "L T^-1"}, "h": {"dim": "T"}, "w": {"dim": "T^-1"}},
+  "program": [
+    {"set": "p", "to": "p - h*w^2*q"},
+    {"set": "q", "to": "q + h*p"}
+  ],
+  "domain": ["w > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "(p^2 + w^2*q^2)/2",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: symplectic Euler conserves a modified energy, not H; H(Phi(z)) - H(z) = h^2 w^2 (p^2 - w^2 q^2)/2 + O(h^3)"
+    },
+    {
+      "claim": "update_conserves",
+      "quantity": "(p^2 + w^2*q^2 - h*w^2*p*q)/2",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the modified energy H - h w^2 p q/2 is an exact invariant of the linear map (derived by hand, checked exactly)"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "(p^2 + w^2*q^2)/2",
+      "p": 1,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "a first-order method: the energy error per step is O(h^2)"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "(p^2 + w^2*q^2)/2",
+      "p": 2,
+      "true": false,
+      "expect": "REFUTED",
+      "why": "the h^2 coefficient w^2 (p^2 - w^2 q^2)/2 does not vanish"
+    }
+  ]
+}

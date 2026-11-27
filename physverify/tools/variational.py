@@ -471,6 +471,12 @@ def propose_update(U: UpdateMap, c: VClaim, seed: int = 0) -> list[tuple[str, st
     fragment, try both. Nothing here is trusted."""
     if c.kind != "update_conserves":
         return []
+    from ..kernel import Kernel
+    if isinstance(U, Kernel):
+        from .kernel import kernel_refutation_point, kernel_refuted_tactic, kernel_verified_tactic
+        verified, point, refuted = kernel_verified_tactic, kernel_refutation_point, kernel_refuted_tactic
+    else:
+        verified, point, refuted = update_verified_tactic, update_refutation_point, update_refuted_tactic
     try:
         num, _ = update_defect(U, c)
         zero = not num
@@ -478,11 +484,11 @@ def propose_update(U: UpdateMap, c: VClaim, seed: int = 0) -> list[tuple[str, st
         zero = None
     out = []
     if zero is not False and find_witness(U) is not None:
-        out.append(("verified", update_verified_tactic(U, c)))
+        out.append(("verified", verified(U, c)))
     if zero is not True:
-        w = update_refutation_point(U, c, seed)
+        w = point(U, c, seed)
         if w is not None:
-            out.append(("refuted", update_refuted_tactic(U, w)))
+            out.append(("refuted", refuted(U, w)))
     return out
 
 

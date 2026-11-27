@@ -44,6 +44,7 @@ import time
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
+from typing import ClassVar
 
 from . import claimkinds, units
 from .derivation import REFUTED, UNKNOWN, VERIFIED, Result, find_witness, lean_point
@@ -234,7 +235,7 @@ def lean_laws(I: Integrator, c: VClaim) -> str:
 
 def statement(kind: str, I: Integrator, c: VClaim) -> str:
     if isinstance(I, UpdateMap):
-        return update_statement(kind, I, c)
+        return I.lean_statement(kind, c)
     t = lean_terms(I)
     n, Ld, D, ctx = t["n"], t["Ld"], t["D"], t["ctx"]
     if c.kind == "del_equations":
@@ -260,8 +261,7 @@ def judge_prefix(kind: str, I: Integrator, c: VClaim, witness) -> str:
     if kind != "verified":
         return ""
     if c.kind == "update_conserves":
-        return (f"refine ⟨rfl, by decide, by decide, ⟨{lean_point(I, witness)}, ?_⟩, ?_⟩\n"
-                "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
+        return I.verified_prefix(lean_point(I, witness))
     if c.kind == "del_equations":
         return (f"refine ⟨by decide, by decide, ⟨{lean_point(I, witness)}, ?_⟩, ?_⟩\n"
                 "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
@@ -299,7 +299,11 @@ MODULE = "PhysVerify.Discrete"
 
 
 def module_of(I) -> str:
-    return UPDATE_MODULE if isinstance(I, UpdateMap) else MODULE
+    return I.MODULE if isinstance(I, UpdateMap) else MODULE
+
+
+def meaning(I, kind: str, verdict: str) -> str:
+    return (I.MEANING if isinstance(I, UpdateMap) else MEANING)[(kind, verdict)]
 
 
 # ---------------------------------------------------------------- exact order (Python)
@@ -548,6 +552,9 @@ class UpdateMap:
     claims: list[VClaim]
     source: dict = field(default_factory=dict)
 
+    MODULE: ClassVar[str] = UPDATE_MODULE
+    MEANING: ClassVar[dict] = MEANING
+
     @property
     def n(self) -> int:
         return len(self.state)
@@ -567,6 +574,16 @@ class UpdateMap:
 
     def new_state(self) -> dict[str, E]:
         return dict(zip(self.state, self.phi))
+
+    def lean_statement(self, kind: str, c: VClaim) -> str:
+        return update_statement(kind, self, c)
+
+    def verified_prefix(self, point: str) -> str:
+        return (f"refine ⟨rfl, by decide, by decide, ⟨{point}, ?_⟩, ?_⟩\n"
+                "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
+
+    def dims_check(self, c: VClaim) -> str:
+        return update_dims_ok(self, c)
 
 
 def is_update_map(spec: dict) -> bool:
@@ -637,6 +654,9 @@ def load_update(spec: dict | str | Path) -> UpdateMap:
 def load(spec: dict | str | Path) -> Integrator | UpdateMap:
     if not isinstance(spec, dict):
         spec = json.loads(Path(spec).read_text())
+    if spec.get("kind") == "kernel":
+        from .kernel import load_kernel
+        return load_kernel(spec)
     return load_update(spec) if is_update_map(spec) else load_variational(spec)
 
 
@@ -745,7 +765,7 @@ def update_dims_ok(U: UpdateMap, c: VClaim) -> str:
 def dims_ok(I: Integrator, c: VClaim) -> str:
     """Python mirror of the kernel's `dimOf` checks (L_d, J), plus [L_d] = [L]·T."""
     if isinstance(I, UpdateMap):
-        return update_dims_ok(I, c)
+        return I.dims_check(c)
     try:
         dl = units.dim_of(I.ld, I.dims)
         if c.kind == "discrete_momentum_conserved":
@@ -779,7 +799,7 @@ def judge(I: Integrator, c: VClaim, candidates: list[tuple[str, str]], check=Non
         res.attempts.append(f"{kind}: {'ok' if r.ok else 'failed'}")
         if r.ok:
             res.verdict = VERIFIED if kind == "verified" else REFUTED
-            res.detail = MEANING[(c.kind, res.verdict)] + "; axioms: " + ", ".join(sorted(r.axioms))
+            res.detail = meaning(I, c.kind, res.verdict) + "; axioms: " + ", ".join(sorted(r.axioms))
             break
         res.detail = " ".join(r.log.split())[:400]
     res.seconds = time.monotonic() - t0
@@ -817,7 +837,7 @@ def judge_file(I: Integrator, propose=None, batch: bool = True) -> list[Result]:
             if r.ok:
                 v = VERIFIED if kind == "verified" else REFUTED
                 out[i] = Result(claim_name(I, c), v, dims_ok(I, c),
-                                MEANING[(c.kind, v)] + "; axioms: " + ", ".join(sorted(r.axioms)),
+                                meaning(I, c.kind, v) + "; axioms: " + ", ".join(sorted(r.axioms)),
                                 dt, [f"{kind}: ok"])
             else:
                 res = judge(I, c, cands[1:])
@@ -835,11 +855,12 @@ def guarantee(c: VClaim, r: Result) -> str:
 
 
 def main(argv=None) -> int:
-    """`python -m physverify.variational benchmark/variational/`: the verdict table (variational
-    integrators and explicit update maps)."""
+    """`python -m physverify.variational [paths]`: the verdict table (variational integrators,
+    explicit update maps and straight-line kernels; by default benchmark/variational and
+    benchmark/kernels)."""
     import sys
     paths = []
-    for a in (argv if argv is not None else sys.argv[1:]) or ["benchmark/variational"]:
+    for a in (argv if argv is not None else sys.argv[1:]) or ["benchmark/variational", "benchmark/kernels"]:
         p = Path(a)
         paths += sorted(p.glob("*.json")) if p.is_dir() else [p]
     rows, wrong, t0 = [], 0, time.monotonic()

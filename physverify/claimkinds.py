@@ -179,7 +179,8 @@ KINDS: dict[str, dict] = {
                       "J(q_N, q_N+1) = J(q_0, q_1)",
         "layers": ["variational"], "meaning": "dmomentum_meaning", "params": {}},
     "update_conserves": {
-        "gloss": "the explicit update map z' = Phi(z) conserves J exactly",
+        "gloss": "the explicit update map z' = Phi(z) conserves J exactly (for a straight-line kernel, Phi is "
+                 "exec prog, run by Lean: kernel_conserves_meaning)",
         "quantifier": "for all z in D: J(Phi(z)) = J(z); so along every orbit in D, J(z_N) = J(z_0)",
         "layers": ["variational"], "meaning": "update_conserves_meaning", "params": {}},
     "update_conserves_order_p": {

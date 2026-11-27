@@ -443,7 +443,8 @@ polynomial `J(Φ(z)) − J(z)`; a map that divides by a non-monomial, like the m
 gives `UNKNOWN`). What is assumed: the judge composes the steps into one simultaneous `Φ` by
 substitution in Python, and Lean sees only `Φ`, so that composition is trusted, like the
 literal serialization of the claim file (`tests/test_update_conserves.py` checks it against
-running the steps one by one on rational numbers). `D` is the author's choice, as above.
+running the steps one by one on rational numbers). `D` is the author's choice, as above. The
+kernels below remove this trusted composition for `update_conserves`.
 
 The update-map bench uses a central potential with an exactly polynomial gradient,
 `V = k|q|⁴/4`, `∇V = k|q|² q ∥ q`, and the angular momentum `L = x p_y − y p_x` (unit mass).
@@ -545,6 +546,129 @@ Timings on the same 2-CPU VM, a fresh worktree:
 | `pytest tests/test_lean.py -k update` (5 tests), warm | 1 min 41 s |
 | `pytest tests/test_lean.py -k "variational or discrete or Discrete or dmomentum or update"` (25 tests, both file kinds), warm | 6 min 13 s |
 | `pytest tests/test_lean.py -k "variational or discrete or Discrete or dmomentum"` (15 tests), warm | about 4 min 20 s |
+
+### Kernels
+
+An integrator with several sub-steps (Verlet: kick, drift, kick) is a few lines of code. A
+*kernel* is that code, written once as a straight-line program: an ordered list of assignments
+`x := e`, where `x` is a state variable or a temporary and `e` is an expression over the current
+values. There are no loops, branches, arrays or pointers, and one program is one time step.
+Claim files have `"kind": "kernel"` (`benchmark/kernels/`, format in `physverify/kernel.py`):
+
+```json
+"program": [{"set": "px", "to": "px - h/2*k*(x^2 + y^2)*x"}, ...,
+            {"set": "x",  "to": "x + h*px"}, ...]
+```
+
+The same program is (1) serialised node for node into Lean, where its meaning is `exec`, and
+(2) printed as C by `physverify/kernel_c.py`: `static inline void step(double *restrict z,
+const double *restrict par)`, one C statement per assignment, in order, with temporaries as
+locals. The claims are those of update maps, `update_conserves` and `update_conserves_order_p`.
+
+What is proven in Lean (`lean/PhysVerify/Kernel.lean`, imports only `PhysVerify.Update`; no
+`sorry`, `native_decide` or new axioms):
+
+* `exec prog env` runs the assignments in order, each evaluated in the environment the previous
+  ones produced, and leaves every variable no assignment writes (`h`, the parameters)
+  unchanged (`exec_of_not_mem`). The sub-steps are composed by Lean, not by Python.
+* `VERIFIED` (`KernelVerified`, plus `J` well-dimensioned and every assignment of the dimension
+  of the variable it writes, `ProgDims`, by `decide`): on `D`, `J(exec prog z) = J(z)` as an
+  identity (planner: `simp` unfolds `exec`, then `ring1` or `field_simp`), with a rational point
+  in `D`. Junk-freeness is stated per step (`ExecOK`): every assigned expression is `physOK` in
+  the environment where it runs. A dead temporary `t := 1/(w − w)` disappears from the composed
+  map but not from `ExecOK`, so such a kernel is never `VERIFIED` (tested).
+  `kernel_conserves_meaning`: along every orbit `z_{k+1} = exec prog z_k` whose points
+  `z_0 … z_{N−1}` lie in `D`, `J(z_N) = J(z_0)` exactly.
+* `REFUTED` (`KernelRefuted`): a rational `z ∈ D` where every assignment is junk-free and
+  `J(exec prog z) ≠ J(z)`. `kernel_refuted_meaning`: its orbit changes `J` at the first step.
+
+What is exact Python: the routing (as for update maps) and the order claims, which still run on
+the map composed by substitution (`kernel.compose`); for kernels that composition is trusted for
+the order claims only. Tests check it against `exec`: on rational points in Python, and in Lean
+for two kernels (`exec prog = updateStep Φ` on the state).
+
+What is trusted, or only tested:
+
+| Piece | Status |
+|---|---|
+| `exec` semantics and conservation along orbits | proven (Lean) |
+| order claims on the composed map | exact (Python) |
+| JSON-to-Lean serialisation of the program, `D` and `J` | trusted (literal printer, as for every claim file) |
+| C path: the printer `kernel_c.py`, the C compiler, IEEE double arithmetic | empirical (differential test; C compiler and float semantics untrusted) |
+
+Lean proves the semantics of the program, not of the compiled C. A `VERIFIED` kernel says the
+real-number program conserves `J` exactly. It says nothing about the doubles the C computes,
+which conserve `J` only up to rounding.
+
+The differential test (`tests/test_kernel.py`; skipped cleanly without `cc`) compiles the
+emitted step with `cc -O2 -std=c99 -ffp-contract=off` and runs N steps (N = 8 for the quartic
+kernels, whose exact rationals triple in size every step; N = 200 for the linear ones) from
+dyadic start values and parameters, which are exact doubles. It checks two things. (1) Every
+step is bit for bit equal to a Python double evaluation with the same operations in the same
+order (`kernel.run_float`: integer powers as a multiplication loop, literals as `n.0 / d.0`).
+(2) After N steps the C state is within a norm-wise relative error of 1e-12 of the exact
+rational orbit (`kernel.run`). Only double rounding separates the two: about 10 to 30 roundings
+of relative size 2⁻⁵³ ≈ 1.1e-16 per step, carried by maps close to the identity (`h ≤ 1/16`),
+so we expect at most about N·30·1.1e-16 ≈ 7e-13. Measured: 3e-17 to 2e-16 for the quartic
+kernels, 4.6e-16 to 1.4e-15 for the oscillators. A printer that swaps the two assignments of
+symplectic Euler is caught at the first step (tested).
+
+Bench: the five update-map integrators ported to program form, with every verdict unchanged,
+and two kernels for the step-semantics trap:
+
+* Symplectic Euler is two assignments per coordinate, `p := p − h∇V(q); q := q + h p`, and the
+  drift reads the NEW `p`.
+* Explicit Euler is a simultaneous update. Written as straight-line code it needs temporaries:
+  `t := q; q := q + h p; p := p − h∇V(t)`. `L` is still `REFUTED`.
+* The trap is the symplectic Euler assignments in the other order, `q := q + h p;
+  p := p − h∇V(q)`. It looks like explicit Euler written sequentially, but the kick reads the
+  new `q`, so it is the adjoint symplectic Euler method. By hand: `q' × p' = q' × (p −
+  hk|q'|²q') = q' × p = (q + hp) × p = q × p`. So `L` is conserved (`VERIFIED`), where explicit
+  Euler's `L` is `REFUTED`. For the oscillator the same swap changes the exact invariant from
+  `H − h w² p q/2` to `H + h w² p q/2`. By hand: `p'² + w²q'² + h w² p'q' = p² − h w² p q' +
+  w²q'² = p² + w²q² + h w² p q`. The symplectic Euler invariant is `REFUTED` for the swapped
+  kernel.
+
+Map form (`benchmark/variational/`) against program form (`benchmark/kernels/`), from
+`uv run python -m physverify.variational benchmark/kernels benchmark/variational/<the five maps>`:
+
+| integrator | claim | expected | map form | program form | guarantee |
+|---|---|---|---|---|---|
+| central-quartic-explicit-euler | update_conserves L | REFUTED | REFUTED | REFUTED | proven (Lean) |
+| central-quartic-explicit-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | VERIFIED | exact (Python) |
+| central-quartic-explicit-euler | update_conserves_order_p 2 | REFUTED | REFUTED | REFUTED | exact (Python) |
+| central-quartic-symplectic-euler | update_conserves L | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
+| central-quartic-symplectic-euler | update_conserves L, sign flipped | REFUTED | REFUTED | REFUTED | proven (Lean) |
+| central-quartic-verlet | update_conserves L | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
+| central-quartic-verlet | update_conserves_order_p 5 | VERIFIED | VERIFIED | VERIFIED | exact (Python) |
+| oscillator-symplectic-euler | update_conserves H | REFUTED | REFUTED | REFUTED | proven (Lean) |
+| oscillator-symplectic-euler | update_conserves H − h w² p q/2 | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-symplectic-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | VERIFIED | exact (Python) |
+| oscillator-symplectic-euler | update_conserves_order_p 2 | REFUTED | REFUTED | REFUTED | exact (Python) |
+| oscillator-implicit-midpoint | update_conserves H | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-implicit-midpoint | update_conserves L-sign energy | REFUTED | REFUTED | REFUTED | proven (Lean) |
+| oscillator-implicit-midpoint | update_conserves_order_p 2 | UNKNOWN | UNKNOWN | UNKNOWN | none |
+| central-quartic-adjoint-symplectic-euler | update_conserves L | VERIFIED | | VERIFIED | proven (Lean) |
+| central-quartic-adjoint-symplectic-euler | update_conserves L, sign flipped | REFUTED | | REFUTED | proven (Lean) |
+| central-quartic-adjoint-symplectic-euler | update_conserves_order_p 3 | VERIFIED | | VERIFIED | exact (Python) |
+| oscillator-adjoint-symplectic-euler | update_conserves H − h w² p q/2 | REFUTED | | REFUTED | proven (Lean) |
+| oscillator-adjoint-symplectic-euler | update_conserves H + h w² p q/2 | VERIFIED | | VERIFIED | proven (Lean) |
+
+33 claims (19 kernel, 14 map), 0 not as expected, 1 min 46 s warm.
+
+Tests: `tests/test_kernel.py` (no Lean, 37 tests, about 4 s: loader, layout, `run` against
+`compose`, each port composing to the old map's Φ with the same routing, sequential semantics
+and the trap defects by hand, per-step junk, dimension mismatches, the C differential test and
+its mutation check). In `tests/test_lean.py`, `-k "kernel or exec_equals"` (14 tests): the
+kernel bench, both meaning theorems on generated statements, `exec = updateStep Φ` for two
+kernels, the assignment order visible in Lean, a junk step rejected although the identity holds,
+and planner tricks rejected.
+
+| Step (same 2-CPU VM, fresh worktree) | Time |
+|---|---|
+| `lake build PhysVerify.Kernel`, with every other module built | 1 min 26 s (mostly loading) |
+| kernel bench alone (19 claims, 12 Lean certificates in one batch per file), warm | 1 min 31 s |
+| `pytest tests/test_lean.py -k "kernel or exec_equals"` (14 tests), warm | 3 min 23 s to 4 min 5 s (two runs) |
 
 ## Discrete schemes
 
@@ -1533,7 +1657,7 @@ Params gives where each layer reads a parameter (see `params` in the module docs
 | `stated_identity` | a formula the source prints (numerical entropy flux, entropy pair, viscosity coefficient Q, amplification factor g) satisfies the identity that defines it (scalar 1D laws) | for all states (and lam, nu, theta) in the stated domain with every denominator non-zero: LHS - RHS = 0, as a rational function (Laurent polynomial in z = e^{i theta} for g) | schemes | form: `claims.stated_identity.form`; eta: `claims.stated_identity.eta?`; q: `claims.stated_identity.q?`; entropy_flux: `claims.stated_identity.entropy_flux?`; dissipation: `claims.stated_identity.dissipation?`; Q: `claims.stated_identity.Q?`; g: `claims.stated_identity.g?`; let: `claims.stated_identity.let?`; domain: `claims.stated_identity.domain?` | gloss only |
 | `del_equations` | the claimed update is the discrete Euler–Lagrange equations of L_d | for every triple (q_k, q_k+1, q_k+2) in D: DEL(L_d) = 0 iff the claimed update holds | variational | none | `del_verified_meaning` |
 | `discrete_momentum_conserved` | J(q0, q1) is constant, exactly, along every solution of the DEL equations that stays in D (a Noether momentum or any other such J) | for every N and every discrete trajectory q_0..q_N+1 in D solving the DEL: J(q_N, q_N+1) = J(q_0, q_1) | variational | none | `dmomentum_meaning` |
-| `update_conserves` | the explicit update map z' = Phi(z) conserves J exactly | for all z in D: J(Phi(z)) = J(z); so along every orbit in D, J(z_N) = J(z_0) | variational | none | `update_conserves_meaning` |
+| `update_conserves` | the explicit update map z' = Phi(z) conserves J exactly (for a straight-line kernel, Phi is exec prog, run by Lean: kernel_conserves_meaning) | for all z in D: J(Phi(z)) = J(z); so along every orbit in D, J(z_N) = J(z_0) | variational | none | `update_conserves_meaning` |
 | `update_conserves_order_p` | the explicit update map conserves J to order at least p: the per-step drift is O(h^{p+1}) | J(Phi(z)) - J(z) = O(h^{p+1}): the coefficients of h^0 .. h^p vanish identically | variational | p: `claims[].p` | gloss only |
 | `conserved` | Q is constant along every solution of the Euler–Lagrange equations of L that stays in D | for every trajectory twice differentiable on an open interval, with jet in D and solving the EL equations there: Q is constant on that interval | conserved | none | `conserved_meaning` |
 | `el_equations` | the claimed equations of motion are the Euler–Lagrange equations of L on D | for every trajectory twice differentiable at t with jet in D: the EL equations of L hold at t iff the claimed equations hold at t | derivation | none | `verified_meaning_at` |

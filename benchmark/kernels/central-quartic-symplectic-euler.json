@@ -1,0 +1,30 @@
+{
+  "kind": "kernel",
+  "name": "central quartic potential in 2D, symplectic Euler kernel",
+  "state": ["x", "y", "px", "py"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "px": {"dim": "L T^-1"}, "py": {"dim": "L T^-1"},
+              "h": {"dim": "T"}, "k": {"dim": "L^-2 T^-2"}},
+  "program": [
+    {"set": "px", "to": "px - h*k*(x^2 + y^2)*x"},
+    {"set": "py", "to": "py - h*k*(x^2 + y^2)*y"},
+    {"set": "x", "to": "x + h*px"},
+    {"set": "y", "to": "y + h*py"}
+  ],
+  "domain": ["k > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py - y*px",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the kick p' = p - h grad V(q) changes p along q (q x grad V = 0), the drift q' = q + h p' (it reads the NEW p) changes q along p' (p' x p' = 0): each preserves L exactly"
+    },
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py + y*px",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: the angular momentum with one sign flipped"
+    }
+  ]
+}

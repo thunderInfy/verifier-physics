@@ -1,0 +1,41 @@
+{
+  "kind": "kernel",
+  "name": "central quartic potential in 2D, explicit Euler kernel",
+  "state": ["x", "y", "px", "py"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "px": {"dim": "L T^-1"}, "py": {"dim": "L T^-1"},
+              "h": {"dim": "T"}, "k": {"dim": "L^-2 T^-2"}},
+  "program": [
+    {"set": "tx", "to": "x"},
+    {"set": "ty", "to": "y"},
+    {"set": "x", "to": "x + h*px"},
+    {"set": "y", "to": "y + h*py"},
+    {"set": "px", "to": "px - h*k*(tx^2 + ty^2)*tx"},
+    {"set": "py", "to": "py - h*k*(tx^2 + ty^2)*ty"}
+  ],
+  "domain": ["k > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py - y*px",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP (simultaneous update written sequentially, done right): explicit Euler evaluates the force at the OLD q, which in straight-line code needs the temporaries tx, ty. It changes L = q x p by -h^2 p x grad V(q), nonzero off the radial direction"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "x*py - y*px",
+      "p": 1,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the h^1 term of L(Phi(z)) - L(z) is h (p x p - q x grad V) = 0, since grad V is parallel to q"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "x*py - y*px",
+      "p": 2,
+      "true": false,
+      "expect": "REFUTED",
+      "why": "the h^2 term -p x grad V(q) does not vanish identically"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "kind": "kernel",
+  "name": "harmonic oscillator, the symplectic Euler assignments in the other order",
+  "state": ["q", "p"],
+  "symbols": {"q": {"dim": "L"}, "p": {"dim": "L T^-1"}, "h": {"dim": "T"}, "w": {"dim": "T^-1"}},
+  "program": [
+    {"set": "q", "to": "q + h*p"},
+    {"set": "p", "to": "p - h*w^2*q"}
+  ],
+  "domain": ["w > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "(p^2 + w^2*q^2 - h*w^2*p*q)/2",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP (step semantics): the invariant of symplectic Euler (p first) is not one of the method with q first (the adjoint). Exactly, 2(I(Phi(z)) - I(z)) = -2 h^2 w^2 p^2 + 2 h^2 w^4 q^2 + 4 h^3 w^4 p q + 2 h^4 w^4 p^2"
+    },
+    {
+      "claim": "update_conserves",
+      "quantity": "(p^2 + w^2*q^2 + h*w^2*p*q)/2",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "by hand: q' = q + h p, p' = p - h w^2 q', so p'^2 + w^2 q'^2 + h w^2 p' q' = p^2 - h w^2 p q' + w^2 q'^2 = p^2 + w^2 q^2 + h w^2 p q (substituting q')"
+    }
+  ]
+}

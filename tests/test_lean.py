@@ -720,3 +720,137 @@ def test_update_judge_rejects_planner_tricks():
     assert judge(U, H, [v]).verdict == UNKNOWN              # the true claim's certificate
     assert judge(U, Hmod, [P.propose(U, H)[0], ("verified", "sorry"), ("refuted", "simp_all"),
                            ("verified", "decide")]).verdict == UNKNOWN
+
+
+# ---------------------------------------------------------------- straight-line kernels
+# `kernel` files in benchmark/kernels/, certificates in PhysVerify.Kernel: Lean runs the
+# assignments (`exec`), so the composition of sub-steps is no longer trusted Python.
+
+KER_MOD = "PhysVerify.Kernel"
+KER_BENCH = sorted((ROOT / "benchmark/kernels").glob("*.json"))
+
+
+def _load_ker(stem):
+    from physverify.kernel import load_kernel
+    return load_kernel(ROOT / f"benchmark/kernels/{stem}.json")
+
+
+@pytest.fixture(scope="module")
+def ker_results():
+    from physverify.variational import judge_file
+    t = time.time()
+    out = {p.stem: judge_file(_load_ker(p.stem)) for p in KER_BENCH}
+    print(f"\nkernel bench: {sum(map(len, out.values()))} claims, {time.time() - t:.0f}s")
+    return out
+
+
+@needs_lean
+@pytest.mark.parametrize("path", KER_BENCH, ids=[p.stem for p in KER_BENCH])
+def test_kernel_bench(ker_results, path):
+    """Every kernel claim gets its expected verdict; the Lean ones through `exec`."""
+    from physverify.variational import ORDER_KINDS
+    K = _load_ker(path.stem)
+    for raw, c, r in zip(K.source["claims"], K.claims, ker_results[path.stem]):
+        assert r.verdict != ("REFUTED" if raw["true"] else "VERIFIED"), (r.claim, r.detail)
+        assert r.verdict == c.expect, (r.claim, r.detail)
+        if c.kind not in ORDER_KINDS:
+            assert "kernel_" in r.detail and "; axioms: " in r.detail and "sorryAx" not in r.detail
+
+
+@needs_lean
+def test_kernel_statement_gives_exact_conservation():
+    """A VERIFIED kernel statement gives `kernel_conserves_meaning` for orbits of `exec prog`."""
+    from physverify.variational import update_terms
+    K = _load_ker("central-quartic-verlet")
+    c = K.claims[0]
+    t, P = update_terms(K, c), K.lean_prog()
+    r = lean_backend.check(
+        f"({K.lean_statement('verified', c)}) → ∀ (z : ℕ → ℕ → ℝ), "
+        f"(∀ k, z (k + 1) = exec {P} (z k)) → ∀ N, (∀ k < N, {t['D']} (z k)) → "
+        f"Expr.eval (z N) {t['J']} = Expr.eval (z 0) {t['J']}",
+        "rintro ⟨-, -, hcert⟩ z hz N hD\nexact kernel_conserves_meaning hcert z hz N hD",
+        module=KER_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_kernel_refuted_statement_gives_an_orbit():
+    from physverify.variational import update_terms
+    K = _load_ker("central-quartic-explicit-euler")
+    c = K.claims[0]
+    t, P = update_terms(K, c), K.lean_prog()
+    r = lean_backend.check(
+        f"({K.lean_statement('refuted', c)}) → ∃ z : ℕ → ℕ → ℝ, "
+        f"(∀ k, z (k + 1) = exec {P} (z k)) ∧ {t['D']} (z 0) ∧ "
+        f"Expr.eval (z 1) {t['J']} ≠ Expr.eval (z 0) {t['J']}",
+        "intro h\nobtain ⟨z, hz, hD, -, hne⟩ := kernel_refuted_meaning h\nexact ⟨z, hz, hD, hne⟩",
+        module=KER_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+@pytest.mark.parametrize("stem", ["oscillator-symplectic-euler", "central-quartic-explicit-euler"])
+def test_exec_equals_the_composed_map(stem):
+    """The old trusted step (Python substitution) checked in Lean for two ports: on the state
+    coordinates, `exec prog` is `updateStep Φ` for the composed Φ."""
+    from physverify.expr import to_lean
+    K = _load_ker(stem)
+    idx = K.index()
+    Phi = "([" + ", ".join(to_lean(e, idx) for e in K.phi) + "] : List Expr)"
+    pat = " | ".join(["_"] * K.n + ["j"])           # j = 0, …, n − 1, or j + n (impossible)
+    r = lean_backend.check(
+        f"∀ env : ℕ → ℝ, ∀ j < {K.n}, exec {K.lean_prog()} env j = updateStep {Phi} env j",
+        f"intro env j hj\nrcases j with {pat}\n"
+        f"all_goals first | (simp [exec, updateStep, updAux, Function.update_apply, Expr.eval]; done) "
+        f"| exact absurd hj (by omega)", module=KER_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_kernel_order_matters_in_lean():
+    """Symplectic Euler and its two assignments swapped are different `exec` maps: Lean proves
+    the drift reads the new p in one and the old p in the other."""
+    se, adj = _load_ker("oscillator-symplectic-euler"), _load_ker("oscillator-adjoint-symplectic-euler")
+    r = lean_backend.check(
+        f"∀ env : ℕ → ℝ, exec {se.lean_prog()} env 0 = env 0 + env 2 * (env 1 - env 2 * env 3 ^ (2 : ℤ) * env 0) ∧ "
+        f"exec {adj.lean_prog()} env 0 = env 0 + env 2 * env 1",
+        "intro env\nsimp [exec, Function.update_apply, Expr.eval]", module=KER_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_kernel_junk_step_not_verified():
+    """A dead temporary t := 1/(w − w) before symplectic Euler: the composed map is unchanged
+    and the identity still holds in Lean, but `ExecOK` fails at the first assignment, so the
+    certificate is rejected (UNKNOWN, never VERIFIED)."""
+    import json
+    from physverify.kernel import load_kernel
+    from physverify.tools import variational as P
+    from physverify.tools.kernel import EXEC, kernel_verified_tactic
+    from physverify.variational import UNKNOWN, VERIFIED, judge, update_terms
+    spec = json.loads((ROOT / "benchmark/kernels/oscillator-symplectic-euler.json").read_text())
+    good = _load_ker("oscillator-symplectic-euler")
+    c = good.claims[1]
+    assert judge(good, c, [("verified", kernel_verified_tactic(good, c))]).verdict == VERIFIED
+    spec["program"] = [{"set": "t", "to": "1/(w - w)"}] + spec["program"]
+    K = load_kernel(spec)
+    c = K.claims[1]
+    assert judge(K, c, [("verified", kernel_verified_tactic(K, c))]).verdict == UNKNOWN
+    t = update_terms(K, c)
+    intro, facts, _ = P._intro(K)
+    r = lean_backend.check(      # the identity alone does hold in Lean
+        f"∀ env, {t['D']} env → Expr.eval (exec {K.lean_prog()} env) {t['J']} = Expr.eval env {t['J']}",
+        f"{intro}\nsimp [{EXEC}, Expr.eval, Fn.eval{facts}] <;> {P.IDENT}", module=KER_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_kernel_judge_rejects_planner_tricks():
+    from physverify.tools import variational as P
+    from physverify.variational import UNKNOWN, judge
+    K = _load_ker("oscillator-symplectic-euler")
+    H, Hmod = K.claims[0], K.claims[1]
+    (v,) = P.propose(K, Hmod)
+    assert judge(K, H, [v]).verdict == UNKNOWN              # the true claim's certificate
+    assert judge(K, Hmod, [P.propose(K, H)[0], ("verified", "sorry"), ("refuted", "simp_all"),
+                           ("verified", "decide")]).verdict == UNKNOWN

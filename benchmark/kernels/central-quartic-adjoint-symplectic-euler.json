@@ -1,0 +1,38 @@
+{
+  "kind": "kernel",
+  "name": "central quartic potential in 2D, the symplectic Euler assignments in the other order",
+  "state": ["x", "y", "px", "py"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "px": {"dim": "L T^-1"}, "py": {"dim": "L T^-1"},
+              "h": {"dim": "T"}, "k": {"dim": "L^-2 T^-2"}},
+  "program": [
+    {"set": "x", "to": "x + h*px"},
+    {"set": "y", "to": "y + h*py"},
+    {"set": "px", "to": "px - h*k*(x^2 + y^2)*x"},
+    {"set": "py", "to": "py - h*k*(x^2 + y^2)*y"}
+  ],
+  "domain": ["k > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py - y*px",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "TRAP (step semantics): drift first, then kick. Because the kick reads the NEW q, this is the adjoint symplectic Euler method, not explicit Euler (explicit Euler needs temporaries, see central-quartic-explicit-euler, REFUTED). By hand: q' = q + h p, p' = p - h k|q'|^2 q', so q' x p' = q' x p = (q + h p) x p = q x p"
+    },
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py + y*px",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: the angular momentum with one sign flipped"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "x*py - y*px",
+      "p": 3,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "exactly conserved, so conserved to every order (explicit Euler fails at p = 2)"
+    }
+  ]
+}

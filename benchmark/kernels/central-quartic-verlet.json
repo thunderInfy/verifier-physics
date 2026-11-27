@@ -1,0 +1,33 @@
+{
+  "kind": "kernel",
+  "name": "central quartic potential in 2D, Stormer-Verlet kernel",
+  "state": ["x", "y", "px", "py"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "px": {"dim": "L T^-1"}, "py": {"dim": "L T^-1"},
+              "h": {"dim": "T"}, "k": {"dim": "L^-2 T^-2"}},
+  "program": [
+    {"set": "px", "to": "px - h/2*k*(x^2 + y^2)*x"},
+    {"set": "py", "to": "py - h/2*k*(x^2 + y^2)*y"},
+    {"set": "x", "to": "x + h*px"},
+    {"set": "y", "to": "y + h*py"},
+    {"set": "px", "to": "px - h/2*k*(x^2 + y^2)*x"},
+    {"set": "py", "to": "py - h/2*k*(x^2 + y^2)*y"}
+  ],
+  "domain": ["k > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py - y*px",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "half kick, drift, half kick (kick, drift, kick per component; the second kick reads the new q): each sub-step preserves L exactly"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "x*py - y*px",
+      "p": 5,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "exactly conserved, so conserved to every order"
+    }
+  ]
+}
