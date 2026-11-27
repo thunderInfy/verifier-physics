@@ -26,3 +26,31 @@ def test_every_repro_target_resolves():
         if not path.is_file() or name not in _functions(path):
             missing.append(t)
     assert not missing, missing
+
+
+def _paper_numbers():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("paper_numbers", PAPER / "paper_numbers.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_rusanov_sharp_bound_is_exactly_one_third():
+    """Along w_i = c, w_{i+-1} = -c the spec's own dH/du_i is 1 - 3c (exact Fractions): zero at c = 1/3,
+    negative at c = 334/1000. The checker's refuting pair at 334/1000 lies in the same sign cell, where
+    the closed form 1 - 2w_i + (w_{i-1} + w_{i+1})/2 is H's partial."""
+    from fractions import Fraction
+    from physverify.schemes import checks
+    pn = _paper_numbers()
+    for c in map(Fraction, ("1/3", "334/1000", "1/2", "1", "1/10")):
+        assert pn._rusanov_du0(-c, c, -c) == 1 - 3 * c
+    assert pn._rusanov_du0(Fraction(-1, 3), Fraction(1, 3), Fraction(-1, 3)) == 0
+    assert pn._rusanov_du0(Fraction(-334, 1000), Fraction(334, 1000), Fraction(-334, 1000)) < 0
+    r = checks.monotonicity(pn._with("burgers-rusanov", monotone_cfl="334/1000"))
+    w = r["witness"]["counterexample"]
+    assert r["status"] == checks.REFUTED and w["lam"] == "1" and w["increased"] == "u0"
+    assert tuple(w["state (um1, u0, up1)"]) == pn.PAIR_334
+    um1, u0, up1 = map(Fraction, pn.PAIR_334)
+    assert u0 >= 0 >= max(um1, up1) and max(-um1, -up1) <= u0
+    assert pn._rusanov_du0(um1, u0, up1) == 1 - 2 * u0 + (um1 + up1) / 2 < 0

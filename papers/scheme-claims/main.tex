@@ -24,7 +24,7 @@
 \makeatletter
 \newcommand{\reprorec}[2]{%
   \refstepcounter{repro}%
-  \textsuperscript{\hyperlink{repro.\therepro}{\scriptsize[\therepro]}}%
+  \textsuperscript{\hyperlink{reprorow.\therepro}{\scriptsize[\therepro]}}%
   \edef\@tempa{\noexpand\addtocontents{lor}{\string\reprorow{\therepro}{\noexpand\thepage}%
     {\noexpand\unexpanded{\noexpand\unexpanded{\unexpanded{#1}}}}{\detokenize{#2}}}}\@tempa}
 \newcommand{\rn}[2]{#1\reprorec{#1}{#2}}
@@ -33,7 +33,7 @@
 \newcommand{\printrepro}{%
   \begingroup\catcode`\_=12
   \def\reprorow##1##2##3##4{\global\reprorows\expandafter{\the\reprorows
-    \hypertarget{repro.##1}{##1} & ##2 & ##3 & \nolinkurl{##4}\\}}%
+    \hypertarget{reprorow.##1}{##1} & ##2 & ##3 & \nolinkurl{##4}\\}}%
   \@starttoc{lor}\endgroup
   {\small\begin{longtable}{@{}r r >{\raggedright\arraybackslash}p{4.6cm} >{\raggedright\arraybackslash}p{8.2cm}@{}}
   \toprule \# & page & number & reproduced by\\ \midrule\endhead
@@ -41,7 +41,6 @@
 \makeatother
 \def\UrlBreaks{\do\/\do\.\do\:\do\_}
 \newcommand{\todo}[1]{\textcolor{red!70!black}{\textbf{[TODO: #1]}}}
-\newcommand{\leanpending}{\todo{Lean replay: pending merge}}
 
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\V}{\textsf{VERIFIED}}
@@ -80,8 +79,10 @@ undecided and \rn{1}{paper_numbers.py::bench_counts} unscored, and gives
 \rn{0}{paper_numbers.py::bench_counts} wrong verdicts. That zero is on \emph{our own} benchmark: we
 wrote the sentences, chose their formal readings and fixed their expected truth values ourselves.
 This is the main threat to validity, and we discuss it with the other limits up front
-(Section~\ref{sec:trust}). The exact checks run in Python with rational arithmetic; replaying their
-certificates in the Lean proof assistant is being merged as we write \leanpending.
+(Section~\ref{sec:trust}). The exact checks run in Python with rational arithmetic, and most of their
+verdicts are replayed in the Lean proof assistant: on the
+\rn{30}{paper_numbers.py::lean_replay} example specs, the judge states
+\rn{532}{paper_numbers.py::lean_replay} theorems and the Lean kernel accepts all of them.
 \end{abstract}
 
 % ====================================================================================================
@@ -108,8 +109,9 @@ F(u_L, u_R) = \tfrac12\bigl(f(u_L) + f(u_R)\bigr) - \tfrac12\,\alpha\,(u_R - u_L
 The \emph{CFL number} is $\lambda \max|f'(u)| = \lambda\max|u|$, the number of cells a signal crosses
 in one step. A scheme is \emph{monotone} if $H$ is non-decreasing in each of its arguments: raising
 any one input value never lowers the output. Monotone schemes matter because of a theorem of
-Crandall and Majda \cite{crandallmajda1980}: a conservative, consistent, monotone scheme converges to
-the physically correct (entropy) solution.
+Crandall and Majda \cite{crandallmajda1980}: with $\lambda$ fixed, under the CFL condition, for bounded
+integrable initial data, a conservative, consistent, monotone scheme converges as $\Delta x \to 0$ to the
+physically correct (entropy) solution.
 
 \paragraph{The formal reading.} The checker reads a scheme as a JSON \emph{spec}. Here it holds the
 PDE flux \code{u\^{}2/2} and the numerical flux as written, with $|x|$ spelled
@@ -152,8 +154,20 @@ middle partial is\repro{paper_numbers.py::rusanov_cell_example}
 where every term on the right is non-negative on the cell and in the box $|w_j| \le 1/3$. Asked about
 $c = 1/2$ and $c = 334/1000$, the check returns \R, each time with an exact decreasing pair
 (at $c = 334/1000$: $\lambda = 1$, $u_{i\pm1} = -834499/2500000$,
-$u_i = 834833/2500000$, raised by $1/100000$).\repro{paper_numbers.py::rusanov_bounds} So the sharp
-bound lies in $[1/3, 334/1000)$. We had guessed $1/2$ (Section~\ref{sec:corrected}).
+$u_i = 834833/2500000$, raised by $1/100000$).\repro{paper_numbers.py::rusanov_bounds} The sharp
+bound is exactly $1/3$, and a closed form shows why. On the cell $u_i \ge 0$, $u_{i\pm1} \le 0$,
+$|u_{i\pm1}| \le u_i$, both interface speeds $\alpha$ equal $u_i$, so
+\[
+\frac{\partial H}{\partial u_i} = 1 - 2w_i + \tfrac12 (w_{i-1} + w_{i+1}).
+\]
+At $w_i = c$, $w_{i\pm1} = -c$ this is $1 - 3c$, which is negative for every $c > 1/3$. The
+checker's pair at $c = 334/1000$ lies in this cell, where the partial is
+\rn{$-833/500000$}{tests/test_paper_numbers.py::test_rusanov_sharp_bound_is_exactly_one_third}. A test
+evaluates the partial of the spec's own $H$ exactly along the family: it is
+\rn{0}{paper_numbers.py::rusanov_sharp_family} at $c = 1/3$ and
+\rn{$-1/500$}{paper_numbers.py::rusanov_sharp_family} at $c = 334/1000$, equal to $1 - 3c$ at every
+$c$ tried.\repro{tests/test_paper_numbers.py::test_rusanov_sharp_bound_is_exactly_one_third}
+We had guessed $1/2$ (Section~\ref{sec:corrected}).
 
 \paragraph{The verdict.} A trusted table (Section~\ref{sec:judge}) says that the monotonicity check is
 \EQV{} to the claim \code{monotone\_under\_cfl}. The judge therefore returns \R{} (exact) for the
@@ -166,12 +180,29 @@ $\alpha \ge \max|u|$ is monotone under $\lambda\alpha \le 1$: expected true, but
 cannot state the side condition, so it is a gap (\UF).\repro{paper_numbers.py::bench_counts}
 Because the scheme is also certified conservative and consistent, the table's Crandall--Majda row
 turns the monotonicity certificate at $c = 1/3$ into a verified claim that the fully discrete scheme
-selects the entropy solution.\repro{tests/test_schemes.py::test_harten_is_not_refuted_by_tadmor}
+selects the entropy solution.\repro{tests/test_schemes.py::test_crandall_majda_needs_conservation_and_consistency}
+The claim has that row's scope. The scheme is monotone only on the box $\lambda|u| \le 1/3$, and a
+monotone scheme obeys a maximum principle, so the solution stays in the range of the initial data. The
+precondition is therefore $\lambda\max|u_0| \le 1/3$, with $\lambda$ fixed as $\Delta x \to 0$ and
+bounded integrable initial data $u_0$.
 
 \paragraph{The Lean replay.} The refutation is a concrete statement: two rational states and a
 rational $\lambda$ at which $H$ decreases. In the Lean replay, the judge writes the negation of the
 monotonicity statement for the spec's $H$, serialised from the spec node for node, and a proof
-evaluates both sides. Theorem name and replay statistics: \leanpending.
+evaluates both sides. In the full pass over the example specs the theorem is
+\code{s11\_monotonicity\_ref} (the prefix is the spec's position in the run):
+\[
+\neg\bigl(\forall \lambda > 0,\ \mathtt{MonotoneOn3}\ (x \mapsto 0 \le 1 - \lambda x \wedge 0 \le 1 + \lambda x)\ H\bigr),
+\]
+where $\mathtt{MonotoneOn3}\ C\ H$ says that $H$ is non-decreasing in each argument on states whose
+entries all satisfy $C$, and $H$ is the spec's update with $|x|$ written as $\sqrt{x^2}$. Because the
+statement contains square roots, a companion theorem \code{s11\_monotonicity\_ref\_sqrt} proves that
+each argument of $\sqrt{\cdot}$ is non-negative, so that Lean's convention $\sqrt{x} = 0$ for $x < 0$
+cannot be what makes the statement true. Both are accepted, and the verdict's label becomes
+``proven (Lean)''.\repro{paper_numbers.py::lean_replay} In that pass the judge states
+\rn{532}{paper_numbers.py::lean_replay} theorems, and Lean accepts
+\rn{532}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} (README, ``Lean certificates
+for the exact scheme checks'').
 
 \medskip\noindent
 That is the whole pipeline: a sentence, a formal reading, an exact check that returns a witness, a
@@ -207,7 +238,7 @@ the two kinds of reasoning apart. Its parts:
 \item \textbf{A benchmark} of sentences phrased as papers phrase them, each split into formal
   readings with an expected truth value fixed in advance.
 \item \textbf{A Lean replay} of the exact certificates, so that the identities and counterexamples are
-  checked by a small kernel rather than by our Python \leanpending.
+  checked by a small kernel rather than by our Python (Section~\ref{sec:certs}).
 \end{itemize}
 The design follows the idea of certifying algorithms \cite{mcconnell2011}: the search can be
 complicated and untrusted, as long as its output carries a witness that a simple checker can confirm.
@@ -225,28 +256,31 @@ We state the limits first, because they bound every result that follows.
 covers the whole verifier, of which the scheme checker is one part.
 
 \begin{center}\small
-\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.6cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{6.2cm}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{6.6cm}@{}}
 \toprule
 Piece & Trusted & Where \\ \midrule
 Theory and evidence format & yes & \code{physverify/theory.py} \\
 Obligations: statement, guarantee, assumptions & yes & \code{physverify/obligations.py} \\
 Judge & yes & \code{physverify/judge.py} \\
 Lean definitions and theorems & kernel-checked & \code{lean/PhysVerify/} \\
+Scheme statements for Lean (from the spec) & yes & \code{physverify/schemes/lean\_cert.py} \\
+Scheme proofs for Lean (from the witness) & no & \code{physverify/schemes/lean\_planner.py} \\
 Interval replay checker for trajectories & validated numerics & \code{physverify/tools/enclosure.py} \\
 Tools and planner that search for proofs & no & \code{physverify/tools/}, \code{physverify/planner.py} \\
 \bottomrule
 \end{tabular}
 \end{center}
-The scheme statement generator and proof planner get their own rows when the Lean replay merges
-\leanpending. For the scheme checker itself, the trusted pieces today are the exact checks in
-\code{physverify/schemes/} (their verdicts rest on Python \code{Fraction} arithmetic) and the relation
-table in \code{claims.py}.
+The two scheme rows are the Lean replay: the statement generator is trusted, the proof planner is not.
+For the scheme checker itself, the other trusted pieces are the exact checks in
+\code{physverify/schemes/} (a verdict that Lean has not replayed rests on Python \code{Fraction}
+arithmetic) and the relation table in \code{claims.py}.
 
-\paragraph{What stays outside the Lean kernel.} Even once the replay lands, these steps are not
-checked by Lean:
+\paragraph{What stays outside the Lean kernel.} These steps are not checked by Lean:
 \begin{itemize}
 \item \textbf{The cell decomposition and its cover.} For the cell-based checks (monotonicity, TVD,
-  depth positivity) each cell's fact is a separate statement. The argument that the cells cover the
+  depth positivity) each cell's fact is a separate statement. Their label is
+  ``proven (Lean, per cell; cover in exact Python)'', so the label itself says what lies outside the
+  kernel. The argument that the cells cover the
   state space, the pruning of lower-dimensional cells, and the derivation of each cell's polynomial are
   exact Python. So is the step from the cell facts to the claim (a piecewise-polynomial $H$ with
   non-negative partials on closed covering cells is non-decreasing; Harten's lemma).
@@ -267,9 +301,10 @@ checked by Lean:
 \paragraph{The semi-discrete caveat.} Tadmor's entropy check \cite{tadmor1987,tadmor2003} certifies
 an inequality for the semi-discrete scheme (the method of lines, with exact time integration). It says
 nothing about forward-Euler time stepping. In this paper every entropy result keeps that label:
-``exact, semi-discrete only'', and once replayed, ``proven (Lean), semi-discrete only''. The verdict
-label written by the current Lean replay code drops this caveat when it upgrades a verdict to
-``proven (Lean)''. A fix is planned; until then, read every entropy-stability label as semi-discrete.
+``exact, semi-discrete only'', and once replayed, ``proven (Lean), semi-discrete only''. The current
+Lean replay code keeps the caveat on the check's own result, but the label of a \emph{claim} decided by
+that check becomes plain ``proven (Lean)'' when it is upgraded, so the caveat is dropped there. A fix
+is planned; until then, read every entropy-stability label as semi-discrete.
 
 \paragraph{The benchmark is ours.} The main threat to validity is that we wrote the benchmark: the
 \rn{23}{paper_numbers.py::bench_counts} sentences, their
@@ -368,9 +403,9 @@ Over all rows for one claim, any refutation refutes and any verification verifie
 verdict is \IC. That means a bug in a check, a spec or the table, never a result about the physics: the
 command line exits with code 3 and the tests fail.\repro{tests/test_schemes.py::test_contradictory_evidence_is_inconsistent_and_loud}
 The verdicts form a small lattice:
-\[
-\V,\ \R \ \text{(exact)} \qquad \NR,\ \RE \ \text{(empirical)} \qquad \U \qquad \IC.
-\]
+\begin{center}\small
+\V, \R{} (exact) \qquad \NR, \RE{} (empirical) \qquad \U \qquad \IC.
+\end{center}
 The benchmark adds \UF{} for readings no named claim expresses.
 
 \paragraph{Why a failed sufficient check decides nothing.} Tadmor's entropy inequality for the
@@ -477,8 +512,10 @@ numbers, replayed by evaluating the scheme's own expression:
   and Lax \cite{hartenhymanlax1976}: a monotone scheme is at most first
   order.\repro{tests/test_mono5.py::test_limited_schemes_are_not_monotone}
 \item \emph{Roe's flux without an entropy fix is not entropy stable.} At $(u_L, u_R) = (-1, 1)$,
-  Tadmor's quantity $Q$ is \rn{$-2/3$}{paper_numbers.py::certificate_examples}: the interface produces
-  entropy. (Exact, semi-discrete only.)\repro{tests/test_schemes.py::test_roe_entropy_counterexample}
+  Tadmor's quantity $Q$ is \rn{$-2/3$}{paper_numbers.py::certificate_examples}, that is,
+  $[v]F - [\psi] = 2/3 > 0$, where $[\cdot]$ is the jump across the interface, $v = \eta'(u) = u$ is the
+  entropy variable of $\eta = u^2/2$, $q$ its entropy flux and $\psi = vf - q$ the entropy potential. So the mathematical entropy $u^2/2$ increases across the interface,
+  whereas entropy stability requires it to dissipate. (Exact, semi-discrete only.)\repro{tests/test_schemes.py::test_roe_entropy_counterexample}
 \end{itemize}
 
 \paragraph{The Lean replay.} The exact certificates are replayed in Lean 4 \cite{lean4} with Mathlib
@@ -486,8 +523,43 @@ numbers, replayed by evaluating the scheme's own expression:
 the tactics, from the check's witness. General lemmas (a telescoping update conserves the total on
 every periodic grid; a polynomial with non-negative Bernstein coefficients is non-negative on its
 interval; Farkas combinations) are proved once. Lean never changes a verdict: a failed proof leaves the
-exact-Python label. Theorem count, accepted count and time: \leanpending. Which checks are not yet
-covered: \leanpending.
+exact-Python label. Each verdict's statements are listed in Table~\ref{tab:leanscope}; a cell-based
+verification carries the weaker label ``proven (Lean, per cell; cover in exact Python)''
+(Section~\ref{sec:trust}).
+
+\begin{table}[t]\small
+\caption{What the Lean replay states for each exact verdict (summarised from the README, ``Lean certificates for
+the exact scheme checks''; $\lambda = \Delta t/\Delta x$, $\nu = a\lambda$).}\label{tab:leanscope}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+verdict & Lean statement & label \\ \midrule
+conservation \V{} / \R & the total is conserved on every periodic grid, every component, every $\lambda > 0$; or the negation & proven (Lean) \\
+consistency \V{} / \R & $F(q, \ldots, q) = f(q)$ on the domain, per component; or the negation & proven (Lean) \\
+positivity \V{} / \R & $H$ a non-negative combination of the stencil for $\nu \in [\nu_0, \nu_1]$; or the negation & proven (Lean) \\
+monotonicity, TVD (Harten), depth positivity \V & per sign cell, every fact the check certifies: $p \ge 0$ on $\{a_j \ge 0\}$ & proven (Lean, per cell; cover in exact Python) \\
+TV increase, max-principle violation, monotonicity, entropy stability \R & the negated claim at the witness & proven (Lean) \\
+steady non-entropy step \R & the step identities for every $\lambda > 0$, and $u_L < u_R$, $f'(u_L) < f'(u_R)$ & proven (Lean) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+In the full pass over the \rn{30}{paper_numbers.py::lean_replay} example specs (README command
+\code{python -m physverify.schemes schemes/*.json schemes/*/*.json --lean}), the judge states
+\rn{532}{paper_numbers.py::lean_replay} theorems, \rn{42}{paper_numbers.py::lean_replay} of them
+the square-root side conditions, and no in-scope verdict is left unstated. Lean accepts
+\rn{532}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} of the 532. The README's
+cost table (section ``Lean certificates for the exact scheme checks'') gives, for a warm repeat on a
+2-CPU, 8\,GB machine shared with other jobs, a wall time of
+\rn{638\,s}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven}, of which Lean takes
+\rn{562\,s}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} (about
+\rn{0.95}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} theorems per second, peak
+memory \rn{3.7\,GB}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven}); these timings
+are indicative, and we did not re-measure them for this paper. The test named in the markers runs the
+same certification and prints its own time. Not yet replayed, so these verdicts keep the exact-Python
+label: consistency of a flux recovered from an update (no spec in the corpus needs it), the cells of the
+five-point monotonicity check (nothing in the corpus is \V{} there), the entropy check's \V{} cells,
+and the other exact checks (truncation order, von Neumann stability, hyperbolicity, and the scope
+checks of the shock studies).
 
 % ====================================================================================================
 \section{The benchmark}\label{sec:bench}
@@ -508,10 +580,14 @@ wrong & 0 & 0 & \rn{0}{paper_numbers.py::bench_counts} \\
 \end{center}
 The expected-true matches are all \V; the expected-false ones are
 \rn{16}{paper_numbers.py::bench_counts} \R{} and \rn{1}{paper_numbers.py::bench_counts} \RE. One
-more reading (C18, reading 4) is ``unsettled'' and not scored. The 9 gaps by verdict:
+more reading (C18, reading 4) is ``unsettled'' and not scored. The
+\rn{9}{paper_numbers.py::bench_counts} gaps by verdict:
 \rn{4}{paper_numbers.py::bench_counts} \UF, \rn{1}{paper_numbers.py::bench_counts} \U,
 \rn{4}{paper_numbers.py::bench_counts} \NR. A run takes under a minute:
-\code{uv run python -m physverify.schemes.bench benchmark/scheme-claims/}. A test fails if any verdict
+\begin{center}\small
+\code{uv run python -m physverify.schemes.bench benchmark/scheme-claims/}
+\end{center}
+A test fails if any verdict
 contradicts the expected truth, or if the record in \code{claims.json} drifts from what the checker
 gives.\repro{tests/test_claims_bench.py::test_bench_has_no_wrong_verdict_and_matches_what_is_recorded}
 
@@ -667,10 +743,18 @@ derives convergence from consistency and stability, but does not decide either p
 scheme. Our relation table uses such theorems as premises; a formal library of them would let the
 premises themselves be checked.
 
-\paragraph{Symbolic analysis of schemes.} Levandovskyy and Martin \cite{martin2012} generate finite
-difference schemes with Gr\"obner bases and derive von Neumann stability conditions with cylindrical
-algebraic decomposition, for linear constant-coefficient PDEs. As far as we could tell from the
-description, the output is a symbolic condition, not an independently checkable certificate.
+\paragraph{Symbolic analysis of schemes.} Computer algebra has long been used to automate stability
+and modified-equation analysis. Wirth's FSTAB package in MACSYMA \cite{wirth1980} performs local
+Fourier (von Neumann) stability analyses of sets of finite-difference equations by deriving their
+amplification matrices and eigenvalues. Ganzha and Vorozhtsov \cite{ganzha1999} carry out
+symbolic--numeric stability analysis of difference and finite-volume schemes on curvilinear grids
+in REDUCE and Mathematica. Levandovskyy and Martin \cite{martin2012} generate finite difference
+schemes with Gr\"obner bases in SINGULAR and derive von Neumann stability conditions for linear
+constant-coefficient schemes with cylindrical algebraic decomposition in Mathematica. PyModPDE
+\cite{pymodpde2020} derives the modified equation of a scheme symbolically, and its amplification factor; it reports the equation
+and gives no pass/fail verdict or certificate. As far as we found, none of these tools decides
+monotonicity, TVD or positivity for an arbitrary update formula, and none emits a certificate that a
+separate checker can replay; their outputs are symbolic conditions or expressions.
 
 \paragraph{Certified polynomial inequalities.} Solovyev and Hales \cite{solovyev2013} verify nonlinear
 inequalities in HOL Light with Taylor interval approximations, and discuss Bernstein-basis bounds.
@@ -691,13 +775,11 @@ ask for verdicts on claims about scheme properties. QuanTemp \cite{quantemp2024}
 real-world numerical claims with true/false/conflicting labels, without PDE discretisations or
 formal certificates.
 
-\paragraph{What we did not find.} In a search of the literature (summarised in our research notes),
-we found no general checker that takes an arbitrary update formula and returns checkable certificates
+\paragraph{What we did not find.} In two searches of the literature (summarised in our research
+notes; the second aimed at computer-algebra tools for modified-equation and stability analysis), we
+found no general checker that takes an arbitrary update formula and returns checkable certificates
 for conservation, order, stability, monotonicity, TVD or entropy properties, and no benchmark of
 true/false claims about numerical-method properties. A search can miss things.
-\todo{related work: a second, independent literature search, especially for computer-algebra tools in
-numerical analysis (e.g.\ automated modified-equation and stability analysis) that we have not
-reviewed}
 
 \paragraph{The classical theory.} The table rows rest on the Lax--Richtmyer equivalence theorem
 \cite{laxrichtmyer1956}, the Lax--Wendroff theorem \cite{laxwendroff1960}, Crandall and Majda's
@@ -739,7 +821,7 @@ number, and the test or function that reproduces it. A target
 run with \code{uv run python papers/scheme-claims/paper\_numbers.py} \textit{name}; it prints what the
 checker returns.
 ``(see text)'' marks a sentence whose numbers all come from one target. All numbers were taken from
-current main (commit \code{edf7254}). The merge gate is
+current main (commit \code{c3c32b6}). The merge gate is
 \code{uv run pytest -q tests/ --ignore=tests/test\_lean.py}.
 
 \printrepro

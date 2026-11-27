@@ -59,6 +59,37 @@ def rusanov_bounds() -> dict:
     return out
 
 
+PAIR_334 = ("-834499/2500000", "834833/2500000", "-834499/2500000")   # the checker's pair at c = 334/1000
+
+
+def _rusanov_du0(um1, u0, up1, lam="1") -> Fraction:
+    """dH/du_i of the spec's own update at a state where raising u_i keeps the sign cell (u_i >= 0,
+    u_{i+-1} <= 0, |u_{i+-1}| <= u_i). There H is quadratic in u_i, so the one-sided three-point
+    difference is the exact derivative; the third difference is checked to be zero."""
+    H = P.from_expr(checks.update(load(S / "burgers-rusanov.json")))
+    h = Fraction(1, 1000)
+    f = [P.evaluate(H, {"um1": Fraction(um1), "u0": Fraction(u0) + k * h, "up1": Fraction(up1), "lam": Fraction(lam)})
+         for k in range(4)]
+    assert f[3] - 3 * f[2] + 3 * f[1] - f[0] == 0, "H is not quadratic in u_i here"
+    return (-3 * f[0] + 4 * f[1] - f[2]) / (2 * h)
+
+
+def rusanov_sharp_family() -> dict:
+    """The sharp monotone bound 1/3. On the cell u_i >= 0, u_{i+-1} <= 0, |u_{i+-1}| <= u_i both alphas
+    equal u_i, so dH/du_i = 1 - 2 w_i + (w_{i-1} + w_{i+1})/2 (w = lam u); at w_i = c, w_{i+-1} = -c this
+    is 1 - 3c. Evaluated exactly from the spec's update at lam = 1."""
+    out = {}
+    for c in ("1/3", "334/1000", "1/2", "1"):
+        x = Fraction(c)
+        out[f"dH/du_i at c={c}"] = str(_rusanov_du0(-x, x, -x))
+        out[f"1 - 3c at c={c}"] = str(1 - 3 * x)
+    um1, u0, up1 = map(Fraction, PAIR_334)
+    out["checker pair at 334/1000 in the cell"] = str(u0 >= 0 >= um1 and -um1 <= u0 and up1 == um1)
+    out["dH/du_i at the checker pair"] = str(_rusanov_du0(um1, u0, up1))
+    out["closed form at the checker pair"] = str(1 - 2 * u0 + (um1 + up1) / 2)
+    return out
+
+
 def rusanov_cell_example() -> dict:
     """One of the 32 certified cells at c = 1/3: the first whose u0-partial is not affine-trivial."""
     r = checks.monotonicity(_with("burgers-rusanov", monotone_cfl="1/3"))
@@ -138,6 +169,34 @@ def certificate_examples() -> dict:
     for name in ("advection-minmod", "advection-superbee"):
         r = limiters.tvd_harten(load(S / "limiters" / f"{name}.json"))
         out[f"{name} TVD"] = f"{r['status']}: {r['detail']}"
+    return out
+
+
+def lean_replay() -> dict:
+    """The theorems the full `--lean` pass states (README, "Lean certificates for the exact scheme
+    checks"), written without running Lean: the specs in the README's order (schemes/*.json, then
+    schemes/*/*.json), so theorem s<i>_... belongs to the i-th spec. About a minute."""
+    from physverify import lean_backend
+    from physverify.schemes import lean_cert
+    paths = sorted(S.glob("*.json")) + sorted(S.glob("*/*.json"))
+    pairs = [(spec, check(spec)) for spec in map(load, paths)]
+    stated, real = [], lean_backend.check_batch
+    lean_backend.check_batch = lambda items, **kw: stated.extend(items) or {
+        n: lean_backend.LeanResult(False, set(), "not run") for n, _, _ in items}
+    try:
+        lean_cert.certify(pairs)
+    finally:
+        lean_backend.check_batch = real
+    names = [n for n, _, _ in stated]
+    i = paths.index(S / "broken-burgers-rusanov-wide-cfl.json")
+    rus = [n for n in names if n.startswith(f"s{i}_monotonicity")]
+    out = {"specs": str(len(paths)), "theorems stated": str(len(names)),
+           "sqrt side theorems": str(sum(n.endswith("_sqrt") for n in names)),
+           "Rusanov refutation theorems": ", ".join(rus),
+           "Rusanov refutation statement": next(s for n, s, _ in stated if n == rus[0])}
+    not_stated = sorted({(s["name"], r["check"], r["lean"]) for s, rep in pairs for r in rep["checks"]
+                         if r.get("lean", "").startswith("not stated")})
+    out["not stated"] = "; ".join(f"{a} {b}: {c}" for a, b, c in not_stated) or "none"
     return out
 
 
