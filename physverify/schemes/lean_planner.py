@@ -8,7 +8,7 @@ from __future__ import annotations
 from fractions import Fraction
 
 from ..expr import E, lit, parse, substitute, var, variables
-from . import checks, poly as P
+from . import checks, poly as P, univariate
 from .lean_cert import poly_lean, rat, real
 
 # `ring` falls back to `ring_nf` without failing, so the alternatives use `ring1` or end in `done`
@@ -89,15 +89,26 @@ def proof(spec: dict, L: dict, r: dict, k: int) -> str:
         return ("intro h\nexact not_nonnegComb " f"{kk} (by norm_num [unitVec, Fin.ext_iff]) "
                 f"(h {rat(lam)} (by norm_num) (by norm_num) (by norm_num))")
     nu = f"(({a.numerator} : ℝ) / {a.denominator} * lam)"
-    cs = []
+    cs, signs = [], []
+    box = "mul_nonneg (sub_nonneg.2 hlo) (sub_nonneg.2 hhi)"
     for x in checks.STENCIL5:
         p = coeffs.get(x, {})
         terms = [f"{rat(c)} * {nu} ^ {(mono[0][1] if mono else 0)}" for mono, c in p.items()]
         cs.append("(" + (" + ".join(terms) or "0") + ")")
-    sign = "first | (norm_num; done) | linarith | nlinarith [mul_nonneg (sub_nonneg.2 hlo) (sub_nonneg.2 hhi)]"
+        hints = [box]
+        if x in w.get("exact_decision", {}):
+            # p = c * g * h^2 (square-free decomposition): h^2 and h^2 times the CFL box as extra products
+            _, factors = univariate.squarefree(checks.nu_coefficients(p))
+            h = [Fraction(1)]
+            for i, f in factors:
+                h = univariate.mul(h, univariate.power(f, i // 2))
+            if univariate.deg(h) > 0:
+                hl = "(" + " + ".join(f"{rat(v)} * {nu} ^ {j}" for j, v in enumerate(h) if v) + ")"
+                hints += [f"sq_nonneg {hl}", f"mul_nonneg ({box}) (sq_nonneg {hl})"]
+        signs.append(f"first | (norm_num; done) | linarith | nlinarith [{', '.join(hints)}]")
     return ("intro lam hlam hlo hhi\n"
             f"refine nonnegComb_of {' '.join(cs)} ?_ ?_ ?_ ?_ ?_ ?_\n"
-            + "".join(f"· {sign}\n" for _ in range(5)) + "· intro w; beta_reduce\n  have := hlam.ne'\n  " + RING)
+            + "".join(f"· {s}\n" for s in signs) + "· intro w; beta_reduce\n  have := hlam.ne'\n  " + RING)
 
 
 # ---------------------------------------------------------------- per-cell certificates

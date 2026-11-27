@@ -7,4 +7,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv sync
-      - run: uv run pytest -q tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py tests/test_claims_bench_order.py tests/test_entropy_steady.py tests/test_systems.py tests/test_steady_smallnu.py tests/test_limiters.py tests/test_sw_positivity.py tests/test_mono5.py tests/test_shock_speed_rows.py tests/test_fixed_jump.py tests/test_conserved.py tests/test_scheme_lean_statements.py tests/test_variational.py tests/test_update_conserves.py tests/test_claimkinds.py
+      - run: uv run pytest -q tests/test_fast.py tests/test_schemes.py tests/test_claims_bench.py tests/test_claims_bench_order.py tests/test_entropy_steady.py tests/test_systems.py tests/test_steady_smallnu.py tests/test_limiters.py tests/test_sw_positivity.py tests/test_mono5.py tests/test_shock_speed_rows.py tests/test_fixed_jump.py tests/test_conserved.py tests/test_scheme_lean_statements.py tests/test_variational.py tests/test_update_conserves.py tests/test_claimkinds.py tests/test_univariate.py

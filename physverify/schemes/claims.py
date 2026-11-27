@@ -41,7 +41,7 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
              "von_neumann_small_cfl": EXACT, "hyperbolicity": EXACT,
              "depth_positivity": EMPIRICAL, "riemann_l1": EMPIRICAL, "depth_positivity_exact": EXACT,
              "tvd_harten": EXACT, "tv_increase": EXACT, "truncation_branches": EXACT, "truncation_smooth_data": EXACT,
-             "max_principle_violation": EXACT,
+             "max_principle_violation": EXACT, "tvd_linear": EXACT, "max_principle_linear": EXACT,
              "order_l1/combined": EMPIRICAL, "order_linf/combined": EMPIRICAL}
 GUARANTEE.update({"flux_lipschitz": EXACT, "shock_scope_monotone": EXACT, "shock_scope_tvd": EXACT})  # shockspeed.py
 GUARANTEE.update({"stationary_rh_violation": EXACT, "stationary_shock_rh_violation": EXACT})  # fixedjump.py
@@ -84,6 +84,17 @@ _HARTEN = ("Harten's lemma (1983): an update u_i - C_{i-1/2} Delta_{i-1/2} + D_{
            "certified on sign cells that cover the state space. The form is not unique, so a failure says nothing")
 _HARTEN_MP = ("the Harten certificate (upwind split) shows u_i^{n+1} = (1 - C) u_i + C u_{i-1} (or (1 - D) u_i + D u_{i+1}) "
               "with C, D in [0, 1] for every state: a convex combination of two stencil values")
+_LINEAR_TVD = ("linear constant-coefficient schemes u_i' = sum_k c_k(nu) u_{i+k} with sum_k c_k = 1 only: the differences "
+               "evolve by the same convolution, whose l1 norm on zero-sum (difference) vectors is sum_k |c_k|, and with "
+               "sum_k c_k = 1 that is <= 1 iff every c_k >= 0 (decided exactly on the claimed nu-range, Bernstein or "
+               "square-free decomposition + Sturm). The TVD direction holds on every periodic grid and on the line; the "
+               "refutation's box data (differences e_0 - e_w, w the stencil width) needs a periodic grid of N >= 2w "
+               "cells, or the line, for the two images not to overlap: on smaller periodic grids a scheme with a "
+               "negative coefficient can still be TVD")
+_LINEAR_MP = ("linear constant-coefficient schemes u_i' = sum_k c_k(nu) u_{i+k} with sum_k c_k = 1 only: every c_k >= 0 "
+              "makes u_i' a convex combination of its stencil values; a negative c_j gives u_i' = c_j < 0 for the data 1 "
+              "at i + j and 0 elsewhere in the stencil (any periodic grid with at least as many cells as the stencil, "
+              "or the line); nonnegativity decided exactly on the claimed nu-range")
 _TV_INCREASE = "one explicit periodic rational state whose total variation grows in one step at a nu in the claimed range"
 _BRANCHES = ("on each sign cell (the cells cover the state space) the update is a linear scheme; if each has "
              "truncation order >= p, every stencil sampled from smooth data lies in a cell whose linear scheme has "
@@ -195,12 +206,14 @@ CLAIMS = {
     "tvd_under_cfl": ("TVD: the total variation sum_i |u_{i+1} - u_i| does not increase in one step, for every "
                       "state and every nu = a*dt/dx in the claimed range",
                       (("tvd_harten", SUFFICIENT, _HARTEN),
-                       ("tv_increase", NECESSARY, _TV_INCREASE))),
+                       ("tv_increase", NECESSARY, _TV_INCREASE),
+                       ("tvd_linear", EQUIVALENT, _LINEAR_TVD))),
     "local_max_principle_under_cfl": ("local maximum principle: u_i^{n+1} lies between the smallest and largest "
                                       "values of its stencil, for every state and every nu = a*dt/dx in the claimed range",
                                       (("tvd_harten", SUFFICIENT, _HARTEN_MP),
                                        ("max_principle_violation", NECESSARY, "one explicit periodic rational state "
-                                        "and a nu in the claimed range with u_i^{n+1} outside its stencil's range"))),
+                                        "and a nu in the claimed range with u_i^{n+1} outside its stencil's range"),
+                                       ("max_principle_linear", EQUIVALENT, _LINEAR_MP))),
     "truncation_order_smooth_data": ("pointwise local truncation order p: the local truncation error is O(dx^p) at "
                                      "fixed dt/dx at every grid point of every smooth solution, extrema included "
                                      "(a statement about the truncation error, not the global error)",

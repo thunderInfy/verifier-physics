@@ -1,7 +1,10 @@
 # Outside benchmark, dev half: what the checker can state and decide
 
-The 99 dev items (9 sources, split in `FROZEN.md`) were read against the checker as it is on main
-(physverify/schemes, no changes). Readings and reasons are in `dev_readings.json`, following the rules and the gap
+The 99 dev items (9 sources, split in `FROZEN.md`) were read against the checker as it was on main
+(physverify/schemes, no changes). **Re-scored after a checker fix** (commit COMMIT): exact univariate
+nonnegativity in `positivity` and the linear TVD equivalence `tvd_linear`, both general, closed the two gaps on
+`harten_1982_highres:05`; no reading, spec or expected value changed, and no other verdict moved. Before the fix:
+12 of 14 readings decided, 7 / 6 MATCH, 0 WRONG. Readings and reasons are in `dev_readings.json`, following the rules and the gap
 taxonomy in `README.md` (committed before any item was classified). `run_dev.py` recomputes every verdict in about
 5 s; `tests/test_outside_dev.py` checks that the stored verdicts and scores are what the checker gives now. No
 heldout item was opened, formalised or run. The six claim names used (`consistent`, `positive_under_cfl`,
@@ -10,9 +13,11 @@ are checked against the claim-kind registry `physverify/claimkinds.py` by `tests
 used in the registry's reading.
 
 Every verdict below is exact (Python `Fraction` arithmetic, polynomial identities and explicit rational
-witnesses); none is empirical and none is a Lean proof. Two decisions also rest on a bridge lemma written in the
-reading (the reading's own reasoning, not checked by the code): `fjordholm_mishra_tadmor_2012_tecno:03` and the
-global-to-local maximum principle in `zhang_shu_2010_maxprinciple:04`.
+witnesses); none is empirical and none is a Lean proof. Three decisions also rest on a bridge lemma written in the
+reading (the reading's own reasoning, not checked by the code): `fjordholm_mishra_tadmor_2012_tecno:03`, the
+global-to-local maximum principle in `zhang_shu_2010_maxprinciple:04`, and the first reading of
+`harten_1982_highres:05` (TVD iff non-negative coefficients, through `positive_under_cfl`). Its second reading,
+through `tvd_under_cfl`, uses the same equivalence as a row of the claims table (`tvd_linear`) instead.
 
 ## 1. Statable fraction
 
@@ -37,24 +42,27 @@ VERIFIED verifies the instance only.
 
 ## 2. Decided fraction
 
-**12 of 14 readings are decided** (5 VERIFIED, 7 REFUTED, all exact). The two undecided readings are both on
+**14 of 14 readings are decided** (7 VERIFIED, 7 REFUTED, all exact). Before the checker fix the two readings of
 `harten_1982_highres:05` (Harten's scheme with Q(x) = x^2 + 1/4 on linear advection, TVNI for nu up to
-433/500 < sqrt(3)/2), and both are checker gaps, not hard cases:
+433/500 < sqrt(3)/2) were UNKNOWN, both from checker gaps, not hard cases:
 
-- `positive_under_cfl` gives UNKNOWN: the coefficient of u_{i+1} is (nu - 1/2)^2/2, non-negative with a double
-  root inside the interval, and the Bernstein test runs on the whole interval without subdividing it.
-- `tvd_under_cfl` gives UNKNOWN: `tvd_harten` certifies Harten's form only with the upwind split (D = 0), and this
-  centred scheme needs both C and D positive; the TV-increase search finds nothing, as it should.
+- `positive_under_cfl` was UNKNOWN: the coefficient of u_{i+1} is (nu - 1/2)^2/2, non-negative with a double
+  root inside the interval, which no Bernstein test (subdivided or not) certifies unless a cut lands on the
+  root. Now `positivity` decides it exactly: square-free decomposition, no root of odd multiplicity in the open
+  interval (Sturm count), positive at a sample point.
+- `tvd_under_cfl` was UNKNOWN: `tvd_harten` certifies Harten's form only with the upwind split (D = 0), and this
+  centred scheme needs both C and D positive. Now `tvd_linear` decides it: for a linear update with
+  sum_k c_k = 1, TVD for all data iff every c_k >= 0 on the range. `tvd_harten` is still UNKNOWN here.
 
 Scores per field (fields with no reading count as GAP when the expected value is TRUE/FALSE):
 
 | field | MATCH | WRONG | GAP | UNSCORED (UNSURE) |
 |---|---|---|---|---|
-| alone | 7 | 0 | 61 | 31 |
-| with hypotheses | 6 | 0 | 61 | 32 |
+| alone | 8 | 0 | 60 | 31 |
+| with hypotheses | 7 | 0 | 60 | 32 |
 
-All 13 matches rest on narrowed readings. Of the 68 alone and 67 with-hypotheses fields that have a TRUE/FALSE
-expectation, the checker decides 7 and 6, about 10%.
+All 15 matches rest on narrowed readings. Of the 68 alone and 67 with-hypotheses fields that have a TRUE/FALSE
+expectation, the checker decides 8 and 7, about 11% (7 and 6 before the fix).
 
 ## 3. Wrong count
 
@@ -85,6 +93,7 @@ The decided readings, with the witness or certificate each verdict rests on:
 | zhang_shu_2010_maxprinciple:02 | alone | REFUTED | the coefficient nu(1-nu) of u_{i-1} is negative at a nu in (1, 2] |
 | zhang_shu_2010_maxprinciple:04 | with hyp. | VERIFIED | local maximum principle from Harten's upwind form on [0, 1] |
 | zhang_shu_2010_maxprinciple:04 | alone | REFUTED | an explicit periodic state whose update leaves its stencil's range at a nu in [0, 2] |
+| harten_1982_highres:05 | both | VERIFIED | c_{+1} = (nu - 1/2)^2/2 >= 0 by the square-free/Sturm decision, c_{-1}, c_0 by Bernstein, on [0, 433/500]; TVD by the linear equivalence (re-scored) |
 | harten_1982_highres:01 | alone | REFUTED | U(x) = 1 - x^2/2 at x_i = 0: the stencil sits in a minmod branch with tau = O(dx), not O(dx^2) |
 | harten_1982_highres:11 | alone | REFUTED | the same witness (the order clause; the convergence clause is unformalised) |
 | mfa_oslo_notes:03 | with hyp. | VERIFIED | von Neumann certificate 1 - \|g\|^2 = (1 - z) Q, Q >= 0 on [0, 1] |
@@ -157,15 +166,17 @@ whether their hypotheses matter.
 - Low coverage is the result, not a failure to look: the dev sources are mostly about high-order reconstruction,
   2D meshes and theorems over classes of schemes, which are outside what a spec can say today.
 
-## Proposals (not implemented)
+## Proposals
 
-Small and general, from the two gaps above. Each would decide harten_1982_highres:05 without touching its reading:
+The two small, general proposals from the gaps above are implemented (commit COMMIT), in a different form from
+the one first proposed:
 
-1. `checks.positivity`: subdivide the nu interval (as `limiters.farkas_in_nu` already does) before calling the
-   Bernstein test inconclusive.
-2. `tvd_under_cfl` on a linear update: TVD iff every coefficient is non-negative (the bridge the scheme-claims
-   benchmark uses for C02), so `positivity` could be an EQUIVALENT row for linear schemes; or let `tvd_harten`
-   try the centred split as well as the upwind one.
+1. `checks.positivity`: subdividing the Bernstein test would not have been enough (an interior double root is
+   certified only by a cut landing on it), so the fallback is an exact decision instead
+   (`physverify/schemes/univariate.py`: square-free decomposition + Sturm counts, or an exact counterexample).
+2. `tvd_under_cfl` and `local_max_principle_under_cfl` on a linear update: the EQUIVALENT rows `tvd_linear` and
+   `max_principle_linear` (TVD, and the local maximum principle, iff every coefficient is non-negative, with
+   sum_k c_k = 1). `tvd_harten` with a general C, D split is still open.
 
 Larger items, in order of how many dev items they would open: claims over classes of schemes (27), reconstruction
 (50 mentions), semi-discrete order and order away from extrema (about 6).

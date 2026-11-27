@@ -580,7 +580,7 @@ below for how one becomes the other).
 |---|---|---|
 | Consistency F(u, u) = f(u) | exact: normal form of the residual is 0, or an exact rational point where it isn't | normal form, or counterexample u |
 | Conservation on a periodic grid | exact: the update telescopes as -(dt/dx)(F_{i+1/2} - F_{i-1/2}), or an exact periodic state whose total changes | recovered flux, or counterexample state |
-| Positivity of linear schemes on a claimed CFL range | exact: Bernstein coefficients of every c_k(nu) are >= 0 on the interval (endpoint values when c_k is affine in nu), or an exact nu where some c_k < 0 | coefficient list, or offending coefficient and nu |
+| Positivity of linear schemes on a claimed CFL range | exact: Bernstein coefficients of every c_k(nu) are >= 0 on the interval (endpoint values when c_k is affine in nu); where they are not, an exact decision (`univariate.py`): square-free decomposition c_k = c f_1 f_2^2 ..., no root of the odd-multiplicity part in the open interval (Sturm count) and c_k > 0 at a sample point, which certifies interior double roots that no Bernstein subdivision can; or an exact nu where some c_k < 0 | coefficient list, Bernstein coefficients, the decomposition, Sturm counts and sample point; or offending coefficient and nu |
 | Convergence order (combined, space, time; or one norm, L1 or Linf, for the combined study) | empirical only | L1 and Linf error tables |
 | Truncation order of linear schemes | exact: the Taylor coefficients e_j(nu) of the local truncation error vanish identically for j <= p, or an exact nu where some e_j != 0 | every e_j, the leading modified-equation term and its kind (diffusive, anti-diffusive, dispersive) |
 | Von Neumann stability of linear schemes on a claimed CFL range | exact: 1 - \|g\|^2 >= 0 on nu x cos(theta) by tensor Bernstein coefficients after stripping (1 - z), (1 + z), or an exact (nu, cos(theta)) with \|g\|^2 > 1 | \|g\|^2, the factorisation, the boxes and their Bernstein coefficients; or the point |
@@ -588,6 +588,7 @@ below for how one becomes the other).
 | Entropy stability (Tadmor), semi-discrete | exact for the semi-discrete inequality only, not the time stepping: Q = -[v](F - F*) >= 0 certified on sign cells, or an exact rational point with Q < 0 | F*, Q, per-cell D = Q/(uR - uL)^2 with a change of variables that makes it non-negative by form, or counterexample (uL, uR) |
 | Convergence to the rarefaction fan | empirical only | L1 error tables against u = (x - x0)/t, at two incommensurate dt/dx |
 | Steady non-entropy step (fully discrete) | exact refutation only: the four stencils of a step uL < uR with f'(uL) < f'(uR) (f'' >= 0 by form) are fixed, as normal forms in lam; a failed search is `UNKNOWN`, never `VERIFIED` | (uL, uR), how it was found (candidate or search), f'(uL), f'(uR), f(uL), f(uR) |
+| TVD of linear schemes on a claimed CFL range | exact, equivalent: with sum_k c_k = 1, TVD for all data iff every c_k(nu) >= 0 (decided as for positivity); a refutation is the box data u = 1 on w cells of a periodic grid of 2w cells (w the stencil width), stepped with the scheme's own update | the coefficients and their nonnegativity certificates; or the negative c_k(nu), the box data and both total variations |
 | TVD of limited schemes (linear advection) on a claimed CFL range | exact both ways: Harten's incremental form certified on every sign cell by Farkas identities with multipliers polynomial in nu (sufficient), or an exact periodic state whose total variation grows (necessary) | per cell and half-cell: the identities, their nu-pieces and Bernstein minima, cell counts; or the state, nu and both total variations |
 | Truncation order of limited schemes, per branch and on smooth data | exact: the truncation order of the linear scheme on each sign cell (sufficient when all are >= p), or an exact polynomial solution and grid placement whose local truncation error is a lower power of dx (necessary) | the branch table (slopes, order, leading e_j); or U(x), the placement, the cell and tau(dx) |
 | Monotonicity of the fully discrete update on a claimed CFL bound | exact: every partial of H(u_{i-1}, u_i, u_{i+1}) is >= 0 on every sign cell within lam*\|f'(u)\| <= c, or two exact states, one argument raised, with H lower | per cell: H, the three partials, and a certificate (by form, a Farkas identity in w = lam*u, or Bernstein in lam); or the decreasing pair |
@@ -1029,6 +1030,22 @@ since u_i^{n+1} = (1 - C) u_i + C u_{i-1} with C in [0, 1]. That is the claim
 `local_max_principle_under_cfl`, refuted by `max_principle_violation` (an exact state with
 u_i^{n+1} outside its stencil's range).
 
+For linear schemes the two claims are decided exactly, both ways, by `tvd_linear` and
+`max_principle_linear` (`linear.py`). If u_i^{n+1} = sum_k c_k(nu) u_{i+k} with sum_k c_k = 1, the
+differences Delta_{i+1/2} evolve by the same convolution, whose l1 norm on zero-sum vectors is
+sum_k |c_k|; with sum_k c_k = 1 that is <= 1 iff every c_k >= 0. So TVD for all data is equivalent to
+positivity of the coefficients on the claimed range, and so is the local maximum principle (a negative
+c_j gives u_i^{n+1} = c_j < 0 for the data 1 at i + j, 0 elsewhere). The nonnegativity is decided as
+for `positivity`, including the exact square-free/Sturm step. The TVD refutation steps the box data
+u = 1 on cells 1..w, 0 elsewhere, on a periodic grid of N = 2w cells (w the stencil width), with the
+scheme's own update: its differences e_0 - e_w have non-overlapping images, so TV goes from 2 to
+2 sum_k |c_k(nu)|. The TVD direction holds on every periodic grid and on the line; the refutation needs
+N >= 2w (or the line), which the row states. Lax-Wendroff on [0, 1]: c_1 = (nu^2 - nu)/2 = -3/32 at
+nu = 1/4, and TV goes from 2 to 19/8. Harten's three-point scheme with Q(x) = x^2 + 1/4 (the outside
+benchmark's `harten_1982_highres:05`) has c_{+1} = (nu - 1/2)^2/2, with a double root inside
+[0, 433/500]: Bernstein on the whole interval fails, the exact decision certifies it, and the scheme is
+TVD there, though `tvd_harten` (upwind split, D = 0) has no certificate for this centred scheme.
+
 | Spec | consistent, conservative | `tvd_under_cfl` | Witness |
 |---|---|---|---|
 | `advection-minmod`, nu in [0, 1] | VERIFIED | VERIFIED (Harten) | 18 cells, 18 half-cells certified (18 lower-dimensional halves dropped); the local maximum principle is VERIFIED too |
@@ -1152,7 +1169,7 @@ to refute.
 | `consistent` | consistency | equivalent | exact |
 | `conservative` | conservation (telescoping) | equivalent | exact |
 | | shock_speed (late window) | necessary | empirical |
-| `positive_under_cfl` | positivity (Bernstein) | equivalent | exact |
+| `positive_under_cfl` | positivity (Bernstein; square-free decomposition + Sturm where Bernstein fails) | equivalent | exact |
 | `entropy_stable_tadmor` | entropy_stability (Tadmor) | equivalent | exact (semi-discrete) |
 | `selects_entropy_solution_semidiscrete` | entropy_stability (Tadmor) | sufficient | exact (semi-discrete) |
 | | steady_nonentropy_step_semidiscrete (F(uL, uL) = F(uL, uR) = F(uR, uR), uL < uR, f'(uL) < f'(uR), f convex) | necessary | exact |
@@ -1174,8 +1191,10 @@ to refute.
 | | stationary_rh_violation (a fixed-point jump uL \| uR with f(uL) != f(uR)) | necessary | exact |
 | `tvd_under_cfl` | tvd_harten (Harten's incremental form on sign cells) | sufficient | exact |
 | | tv_increase (an explicit periodic state whose TV grows) | necessary | exact |
+| | tvd_linear (linear schemes with sum_k c_k = 1: TVD iff every c_k >= 0; the refutation needs a periodic grid of N >= 2w cells, or the line) | equivalent | exact |
 | `local_max_principle_under_cfl` | tvd_harten (a convex combination of two stencil values) | sufficient | exact |
 | | max_principle_violation (an explicit state outside its stencil's range) | necessary | exact |
+| | max_principle_linear (linear schemes with sum_k c_k = 1: the principle iff every c_k >= 0) | equivalent | exact |
 | `truncation_order_smooth_data` | truncation_branches (every branch's linear scheme has order >= p) | sufficient | exact |
 | | truncation_smooth_data (an explicit polynomial solution with a lower-order tau) | necessary | exact |
 | `converges_order_p_l1` | order_l1/combined | necessary | empirical |

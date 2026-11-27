@@ -493,7 +493,10 @@ def tvd_harten(spec: dict) -> dict:
         -s*N >= 0            (C >= 0, that is C*Delta^2 = -N*Delta >= 0)
         s*(N + Delta) >= 0   (C <= 1, that is (1 - C)*Delta^2 = Delta^2 + N*Delta >= 0).
     No division by Delta occurs. For a < 0 the mirror split (C = 0, D_{i+1/2} = N/(u_{i+1} - u_i))
-    is used. Harten's form is not unique, so a failure here is not a refutation: UNKNOWN."""
+    is used. Harten's form is not unique, so a failure here is not a refutation: UNKNOWN.
+
+    TODO: general C, D >= 0 with C + D <= 1 (centred schemes need both; for linear schemes
+    `linear.tvd_linear` decides TVD exactly instead). We plan a separate Lean statement of Harten's lemma."""
     r = _tvd_range(spec)
     if r is None:
         return result("tvd_harten", NOT_APPLICABLE, "TVD", "no CFL range claimed (claims.tvd_cfl)")

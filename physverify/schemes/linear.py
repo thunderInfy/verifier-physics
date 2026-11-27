@@ -25,7 +25,7 @@ from __future__ import annotations
 from fractions import Fraction
 from math import comb, factorial
 
-from . import checks, poly as P
+from . import checks, poly as P, univariate
 from .checks import NOT_APPLICABLE, REFUTED, UNKNOWN, VERIFIED, result
 
 OFFSET = dict(checks.OFFSET5)          # um2 .. up2 -> -2 .. 2
@@ -411,3 +411,128 @@ def lax_richtmyer_scope(spec: dict) -> dict:
     return result("lax_richtmyer_scope", VERIFIED, claim, "every precondition holds (structural, exact)",
                   {"a": str(a), "nu of the study": str(nu), "von Neumann range": [str(x) for x in r],
                    "order": p, "problem": test["problem"]["kind"]})
+
+
+# ---------------------------------------------------------------- TVD and the local maximum principle, linear schemes
+
+def _tvd_setup(spec: dict, check: str, claim_of) -> tuple:
+    """((lo, hi, a, {k: c_k}, claim), None) for a linear consistent scheme with claims.tvd_cfl, else (None, result)."""
+    r = spec.get("claims", {}).get("tvd_cfl")
+    if r is None:
+        return None, result(check, NOT_APPLICABLE, "TVD", "no CFL range claimed (claims.tvd_cfl)")
+    lo, hi = (Fraction(x) for x in r)
+    claim = claim_of(lo, hi)
+    if lo > hi:
+        return None, result(check, UNKNOWN, claim, "empty CFL range")
+    got, bad = coefficients(spec, check, claim)
+    if bad:
+        return None, bad
+    a, c = got
+    total: P.Poly = {}
+    for p in c.values():
+        total = P.add(total, p)
+    if total != P.const(1):
+        return None, result(check, UNKNOWN, claim, f"sum_k c_k = {P.show(total)}, not 1: the equivalence needs "
+                            "constants preserved (a consistent scheme)")
+    return (lo, hi, a, c, claim), None
+
+
+def negative_coefficient(c: dict, lo: Fraction, hi: Fraction) -> tuple[dict, tuple | None]:
+    """Decide c_k(nu) >= 0 on [lo, hi] for every k, exactly: Bernstein on the whole interval, else the
+    square-free/Sturm decision. (certificates, None), or (certificates, (k, nu, c_k(nu))) with c_k(nu) < 0
+    at a rational nu inside (lo, hi)."""
+    certs = {}
+    for k in sorted(c):
+        cl = checks.nu_coefficients(c[k])
+        if cl is None:
+            raise P.Undecided(f"coefficient c_{k} is not a polynomial in nu")
+        b = checks.bernstein(cl, lo, hi)
+        if min(b) >= 0:
+            certs[k] = {"bernstein": [str(x) for x in b]}
+            continue
+        d = univariate.nonneg_on(cl, lo, hi)
+        certs[k] = univariate.jsonable(d["certificate"])
+        if not d["nonneg"]:
+            x = d["counterexample"]["x"]
+            return certs, (k, x, checks._horner(cl, x))
+    return certs, None
+
+
+def _box_data(spec: dict, c: dict, a: Fraction, nu: Fraction) -> dict:
+    """The box counterexample: u = 1 on cells 1..w, 0 elsewhere, on a periodic grid of N = 2w cells,
+    stepped once with the spec's own update (Fraction arithmetic), cross-checked against the c_k."""
+    from . import limiters
+    ks = sorted(k for k in c if c[k])
+    w = ks[-1] - ks[0] + 1
+    n = 2 * w
+    u = [Fraction(1 if 1 <= j <= w else 0) for j in range(n)]
+    v = limiters._step(checks.update(spec), u, nu / a, checks.numerical_flux(spec))
+    conv = [sum((P.evaluate(c[k], {"nu": nu}) * u[(i + k) % n] for k in c), Fraction(0)) for i in range(n)]
+    if v != conv:
+        raise P.Undecided("the update and its coefficients disagree on the box data")
+    tv0, tv1 = limiters.total_variation(u), limiters.total_variation(v)
+    return {"stencil width w": w, "periodic grid N = 2w": n, "nu": str(nu), "lam": str(nu / a),
+            "periodic state u^n": [str(x) for x in u], "u^{n+1}": [str(x) for x in v],
+            "TV(u^n)": str(tv0), "TV(u^{n+1})": str(tv1)}, tv1 > tv0
+
+
+def tvd_linear(spec: dict) -> dict:
+    """TVD for a linear consistent scheme, decided exactly: TV-nonincreasing for all data iff every
+    c_k(nu) >= 0 on the claimed range (the theorem is stated with its row in claims.py). REFUTED comes with the box data and its TV before
+    and after one step, at a rational nu where some c_k < 0."""
+    from .limiters import tvd_claim
+    got, bad = _tvd_setup(spec, "tvd_linear", lambda lo, hi: tvd_claim((lo, hi)))
+    if bad:
+        return bad
+    lo, hi, a, c, claim = got
+    try:
+        certs, neg = negative_coefficient(c, lo, hi)
+        wit = {"nu": f"{a}*lam (a = {a})", "coefficients": _show_coefficients(c), "sum_k c_k": "1",
+               "nonnegativity": {f"c_{k}": v for k, v in certs.items()}}
+        if neg is None:
+            return result("tvd_linear", VERIFIED, claim,
+                          f"every c_k(nu) >= 0 on [{lo}, {hi}] and sum_k c_k = 1: each step is a convex combination "
+                          "of shifts, which does not increase the total variation", wit)
+        k, nu, v = neg
+        box, grows = _box_data(spec, c, a, nu)
+    except P.Undecided as ex:
+        return result("tvd_linear", UNKNOWN, claim, str(ex))
+    wit.update(negative={"k": k, "nu": str(nu), "c_k(nu)": str(v)}, counterexample=box)
+    if not grows:
+        return result("tvd_linear", UNKNOWN, claim, f"c_{k}({nu}) = {v} < 0, but the box data did not increase "
+                      "the total variation (a bug in this check)", wit)
+    return result("tvd_linear", REFUTED, claim,
+                  f"c_{k}(nu) = {v} < 0 at nu = {nu}: the box data on N = {box['periodic grid N = 2w']} periodic cells "
+                  f"has TV {box['TV(u^n)']} before and {box['TV(u^{n+1})']} after one step", wit)
+
+
+def max_principle_linear(spec: dict) -> dict:
+    """The local maximum principle for a linear consistent scheme, decided exactly: it holds for all
+    data iff every c_k(nu) >= 0 on the claimed range (see claims.py)."""
+    def claim_of(lo, hi):
+        return (f"local maximum principle: u_i^{{n+1}} lies between the smallest and largest values of its stencil "
+                f"for every state and every nu = a*dt/dx in [{lo}, {hi}]")
+    got, bad = _tvd_setup(spec, "max_principle_linear", claim_of)
+    if bad:
+        return bad
+    lo, hi, a, c, claim = got
+    try:
+        certs, neg = negative_coefficient(c, lo, hi)
+    except P.Undecided as ex:
+        return result("max_principle_linear", UNKNOWN, claim, str(ex))
+    wit = {"nu": f"{a}*lam (a = {a})", "coefficients": _show_coefficients(c), "sum_k c_k": "1",
+           "nonnegativity": {f"c_{k}": v for k, v in certs.items()}}
+    if neg is None:
+        return result("max_principle_linear", VERIFIED, claim,
+                      f"every c_k(nu) >= 0 on [{lo}, {hi}] and sum_k c_k = 1: u_i^{{n+1}} is a convex combination of "
+                      "its stencil values", wit)
+    k, nu, v = neg
+    ks = sorted(j for j in c if c[j])
+    stencil = {f"u_(i{j:+d})" if j else "u_i": "1" if j == k else "0" for j in range(ks[0], ks[-1] + 1)}
+    u = [Fraction(1 if j == k else 0) for j in range(ks[0], ks[-1] + 1)]
+    got_v = sum((P.evaluate(c[j], {"nu": nu}) * u[j - ks[0]] for j in c), Fraction(0))
+    wit.update(negative={"k": k, "nu": str(nu), "c_k(nu)": str(v)},
+               counterexample={"nu": str(nu), "lam": str(nu / a), "stencil values": stencil, "u_i^{n+1}": str(got_v)})
+    return result("max_principle_linear", REFUTED, claim,
+                  f"c_{k}(nu) = {v} < 0 at nu = {nu}: with 1 at offset {k} and 0 elsewhere in the stencil, "
+                  f"u_i^{{n+1}} = {got_v} < 0, below the stencil's range [0, 1]", wit)

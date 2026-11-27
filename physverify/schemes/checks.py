@@ -23,7 +23,7 @@ from itertools import combinations
 from math import comb
 
 from ..expr import E, diff, lit, parse, substitute, to_str, var
-from . import poly as P
+from . import poly as P, univariate
 
 VERIFIED, REFUTED, UNKNOWN, NOT_APPLICABLE = "VERIFIED", "REFUTED", "UNKNOWN", "NOT_APPLICABLE"
 EXACT = "exact (Python Fraction arithmetic; Lean certificate pending)"
@@ -523,11 +523,9 @@ def positivity(spec: dict) -> dict:
     wit: dict = {"nu": f"{a}*lam (a = {a})", "coefficients": {}, "bernstein": {}}
     for name in stencil_of(coeffs):
         p = coeffs.get(name, {})
-        if P.variables(p) - {"nu"} or any(k < 0 for m in p for _, k in m):
+        c = nu_coefficients(p)
+        if c is None:
             return result("positivity", UNKNOWN, claim, f"coefficient of {name} is not a polynomial in nu")
-        c = [Fraction(0)] * (1 + max((k for m in p for _, k in m), default=0))
-        for m, v in p.items():
-            c[m[0][1] if m else 0] += v
         b = bernstein(c, lo, hi)
         wit["coefficients"][name] = P.show(p)
         wit["bernstein"][name] = [str(x) for x in b]
@@ -536,13 +534,39 @@ def positivity(spec: dict) -> dict:
         grid = [lo, hi] + [lo + (hi - lo) * Fraction(j, 64) for j in range(1, 64)]
         bad = next((x for x in grid if _horner(c, x) < 0), None)
         if bad is None:
-            return result("positivity", UNKNOWN, claim, f"Bernstein test inconclusive for {name}", wit)
+            # Bernstein on the whole interval cannot certify an interior double root: decide exactly
+            d = univariate.nonneg_on(c, lo, hi)
+            wit.setdefault("exact_decision", {})[name] = univariate.jsonable(d["certificate"])
+            if d["nonneg"]:
+                continue
+            bad = d["counterexample"]["x"]
         wit.update(offending=name, violating_nu=str(bad), value=str(_horner(c, bad)))
         return result("positivity", REFUTED, claim,
                       f"coefficient of {name} = {P.show(p)} is {_horner(c, bad)} < 0 at nu = {bad}", wit)
+    if "exact_decision" in wit:
+        wit["lean"] = LEAN_STURM
+        return result("positivity", VERIFIED, claim,
+                      "u_i^{n+1} = sum_k c_k(nu) u_{i+k}^n with each c_k >= 0 on the interval: by non-negative "
+                      f"Bernstein coefficients, or, for {', '.join(wit['exact_decision'])}, by the exact "
+                      "square-free/Sturm decision (no root of odd multiplicity inside, positive at a sample point)", wit)
     return result("positivity", VERIFIED, claim,
                   "u_i^{n+1} = sum_k c_k(nu) u_{i+k}^n with all Bernstein coefficients of each c_k on the "
                   "interval >= 0 (for affine c_k these are the endpoint values)", wit)
+
+
+LEAN_STURM = ("the Sturm certificate itself is not replayed in Lean: the Lean statement of this verdict "
+              "(NonnegComb) is proved by nlinarith with the square of the even part as a hint, and if Lean "
+              "rejects that proof the verdict keeps the exact-Python label")
+
+
+def nu_coefficients(p: P.Poly) -> list | None:
+    """[c_0, c_1, ...] with p = sum_j c_j nu^j, or None if p is not a polynomial in nu alone."""
+    if P.variables(p) - {"nu"} or any(k < 0 for m in p for _, k in m):
+        return None
+    c = [Fraction(0)] * (1 + max((k for m in p for _, k in m), default=0))
+    for m, v in p.items():
+        c[m[0][1] if m else 0] += v
+    return c
 
 
 # ---------------------------------------------------------------- monotonicity (fully discrete, Crandall-Majda)

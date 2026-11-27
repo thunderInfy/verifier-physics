@@ -56,9 +56,9 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
     if "von_neumann_small_cfl" in wanted:
         out.append(linear.von_neumann_small_cfl(spec))
     if "tvd_cfl" in params or {"tvd_under_cfl", "local_max_principle_under_cfl"} & set(names):
-        out += [limiters.tvd_harten(spec), limiters.tv_increase(spec)]
+        out += [limiters.tvd_harten(spec), limiters.tv_increase(spec), linear.tvd_linear(spec)]
     if "local_max_principle_under_cfl" in names:
-        out.append(limiters.max_principle_violation(spec))
+        out += [limiters.max_principle_violation(spec), linear.max_principle_linear(spec)]
     if "smooth_truncation" in params or "truncation_order_smooth_data" in names:
         out += [limiters.truncation_branches(spec), limiters.truncation_smooth_data(spec)]
     # preconditions of the convergence rows for correct_shock_speed and limit_is_weak_solution

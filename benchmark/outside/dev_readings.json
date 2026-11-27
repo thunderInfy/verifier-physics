@@ -1140,13 +1140,13 @@
        "bridge": "for a linear update u_i^{n+1} = sum_k c_k u_{i+k} with sum_k c_k = 1, TVD iff every c_k >= 0: the differences evolve with the same c_k, and the l1 norm of that convolution is sum_k |c_k| (as in benchmark/scheme-claims C02)"
       }
      ],
-     "gap": "positivity's Bernstein test is not subdivided: the coefficient of u_{i+1} is (nu - 1/2)^2/2, non-negative with a double root at nu = 1/2, and its Bernstein coefficients on the whole interval are not all >= 0, so the check gives UNKNOWN",
+     "gap_closed": "decided since the exact univariate nonnegativity decision (square-free decomposition + Sturm) was added to positivity; before it, positivity's Bernstein test was not subdivided: the coefficient of u_{i+1} is (nu - 1/2)^2/2, non-negative with a double root at nu = 1/2, and its Bernstein coefficients on the whole interval are not all >= 0, so the check gives UNKNOWN",
      "actual": {
-      "verdict": "UNKNOWN",
+      "verdict": "VERIFIED",
       "components": [
        {
-        "named": "UNKNOWN",
-        "reading": "UNKNOWN"
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
        }
       ]
      }
@@ -1163,13 +1163,13 @@
        "relation": "same"
       }
      ],
-     "gap": "tvd_harten certifies Harten's form only with the upwind split (D = 0); this scheme has both C and D positive, so no certificate, and the TV-increase search finds nothing (there is nothing to find)",
+     "gap_closed": "decided since the linear TVD equivalence (tvd_linear: TVD iff every c_k >= 0, with sum c_k = 1) was added; tvd_harten still certifies Harten's form only with the upwind split (D = 0); this scheme has both C and D positive, so no certificate, and the TV-increase search finds nothing (there is nothing to find)",
      "actual": {
-      "verdict": "UNKNOWN",
+      "verdict": "VERIFIED",
       "components": [
        {
-        "named": "UNKNOWN",
-        "reading": "UNKNOWN"
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
        }
       ]
      }
@@ -1177,8 +1177,8 @@
    ],
    "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {
