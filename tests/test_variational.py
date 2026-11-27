@@ -1,12 +1,14 @@
 """Fast tests for variational-integrator claims (no Lean): claim format, statements, exact
 order, and the rational points the refutations use."""
+import json
 from fractions import Fraction
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-BENCH = sorted((ROOT / "benchmark/variational").glob("*.json"))
+BENCH = sorted(p for p in (ROOT / "benchmark/variational").glob("*.json")
+               if json.loads(p.read_text())["kind"] == "variational")    # update maps: test_update_conserves.py
 
 
 def _bench():

@@ -7,6 +7,9 @@
   identity then holds at random points. For a symmetry with generator ξ this is μ = −ξ(q1).
 * REFUTED (both kinds): rational q0, q1, h and parameters, q2 solving DEL exactly when DEL is
   affine in q2 (or the claimed update, for `del_equations`), and the claim failing there.
+* `update_conserves` (explicit maps): routed by the exact rational normal form of
+  J(Φ(z)) − J(z); VERIFIED by `simp` + `ring1`/`field_simp`, REFUTED at a rational z ∈ D
+  where J changes, replayed by `norm_num`.
 
 Nothing here is trusted: the judge only asks Lean whether the tactics prove its statement.
 """
@@ -20,7 +23,7 @@ import mpmath as mp
 
 from ..derivation import find_witness, lean_point
 from ..expr import E, diff, lit, simplify, substitute, to_lean
-from ..variational import Integrator, VClaim, del_exprs
+from ..variational import Integrator, NotPolynomial, UpdateMap, VClaim, del_exprs, update_defect
 from .eulerlagrange import (NONZERO, _denominators, _domain_intro, _env_lean, _solve, neval, phys_ok,
                             qeval)
 
@@ -387,7 +390,105 @@ def refutation_point(I: Integrator, c: VClaim, seed: int = 0) -> dict | None:
     return None
 
 
+# ---------------------------------------------------------------- explicit update maps
+
+UPD = "updateStep, updAux, Function.update_apply"
+PHYS1 = "Expr.physOK, Expr.eval, Fn.eval, Real.sqrt_ne_zero', Real.sqrt_pos"
+
+
+def update_points(U: UpdateMap, rng: random.Random, count: int):
+    for _ in range(count):
+        env = {s: rng.choice(_VALS) for s in U.params()}
+        env["h"] = rng.choice(_HS)
+        env.update({z: rng.choice(_VALS) for z in U.state})
+        yield env
+
+
+def update_point_ok(U: UpdateMap, c: VClaim, env: dict) -> dict | None:
+    """The state after the step if `env` is in D and Φ, J (at z and Φ(z)) are junk-free there."""
+    for op, a, b in U.domain:
+        x, y = qeval(a, env), qeval(b, env)
+        if x is None or y is None or not {">": x > y, "<": x < y, "!=": x != y}[op]:
+            return None
+    if not all(phys_ok(e, env) for e in [*U.phi, c.quantity]):
+        return None
+    new = [qeval(e, env) for e in U.phi]
+    if None in new:
+        return None
+    after = {**env, **dict(zip(U.state, new))}
+    return after if phys_ok(c.quantity, after) else None
+
+
+def update_refutation_point(U: UpdateMap, c: VClaim, seed: int = 0) -> dict | None:
+    """A rational z ∈ D (h > 0) with J(Φ(z)) ≠ J(z), exactly."""
+    rng = random.Random(seed)
+    for env in update_points(U, rng, 200):
+        after = update_point_ok(U, c, env)
+        if after is None:
+            continue
+        a, b = qeval(c.quantity, after), qeval(c.quantity, env)
+        if a is not None and b is not None and a != b:
+            return env
+    return None
+
+
+def update_verified_tactic(U: UpdateMap, c: VClaim) -> str:
+    idx = U.index()
+    intro, facts, hyps = _intro(U)
+    phys = f"simp [{PHYS1}, {NONZERO}{hyps}] <;> {CLOSE} | {_sign_close(U)}"
+    dens, seen = [], set()
+    for e in [*U.phi, c.quantity]:
+        for d in _denominators(e):
+            if repr(d) not in seen and not (d.kind == "lit" or d.kind == "var"):
+                seen.add(repr(d))
+                dens.append(d)
+    haves = "".join(
+        f"\nhave hden{i} : Expr.eval env {to_lean(d, idx)} ≠ 0 := by\n"
+        f"  simp [Expr.eval, Fn.eval, {NONZERO}{hyps}] <;> {CLOSE} | {_sign_close(U)}\n"
+        f"simp [Expr.eval, Fn.eval] at hden{i}" for i, d in enumerate(dens))
+    dh = "".join(f", hden{i}" for i in range(len(dens)))
+    return f"""{intro}{haves}
+refine ⟨⟨?_, ?_, ?_⟩, ?_⟩
+· simp only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]
+  (repeat' apply And.intro) <;> first | trivial | ({phys})
+· {phys}
+· simp [{UPD}, {PHYS1}, {NONZERO}{hyps}{dh}] <;> {CLOSE} | {_sign_close(U)}
+· simp [{UPD}, Expr.eval, Fn.eval{facts}] <;> {IDENT}"""
+
+
+def update_refuted_tactic(U: UpdateMap, w: dict) -> str:
+    return f"""refine ⟨{_env_lean(U, w)}, ?_, ⟨?_, ?_, ?_⟩, ?_⟩
+· simp [Expr.eval] <;> norm_num
+· simp [List.mem_cons, List.not_mem_nil, forall_eq_or_imp, {PHYS1}] <;> norm_num
+· simp [{PHYS1}] <;> norm_num
+· simp [{UPD}, {PHYS1}] <;> norm_num
+· simp [{UPD}, Expr.eval, Fn.eval] <;> norm_num"""
+
+
+def propose_update(U: UpdateMap, c: VClaim, seed: int = 0) -> list[tuple[str, str]]:
+    """Route by the exact normal form of J(Φ(z)) − J(z) when it exists (numerator ≡ 0:
+    verified; else a rational point where it is nonzero: refuted). Outside the rational
+    fragment, try both. Nothing here is trusted."""
+    if c.kind != "update_conserves":
+        return []
+    try:
+        num, _ = update_defect(U, c)
+        zero = not num
+    except NotPolynomial:
+        zero = None
+    out = []
+    if zero is not False and find_witness(U) is not None:
+        out.append(("verified", update_verified_tactic(U, c)))
+    if zero is not True:
+        w = update_refutation_point(U, c, seed)
+        if w is not None:
+            out.append(("refuted", update_refuted_tactic(U, w)))
+    return out
+
+
 def propose(I: Integrator, c: VClaim, seed: int = 0) -> list[tuple[str, str]]:
+    if isinstance(I, UpdateMap):
+        return propose_update(I, c, seed)
     rng = random.Random(seed)
     dels = del_exprs(I)
     if c.kind == "del_equations":

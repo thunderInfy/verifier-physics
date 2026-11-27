@@ -1,4 +1,5 @@
-"""Variational-integrator claims: discrete Euler–Lagrange equations, discrete Noether, order.
+"""Variational-integrator claims: discrete Euler–Lagrange equations, discrete Noether, order;
+and `update_conserves` for explicit update maps z' = Φ(z) (section "explicit update maps").
 
 Trusted, judge-owned: the claim format, the variable layout, the Lean statements and the exact
 order check. The untrusted planner (`tools/variational.py`) only supplies tactic text
@@ -50,7 +51,7 @@ from .expr import E, diff, lit, parse, simplify, substitute, to_lean, var, varia
 from .theory import Malformed
 
 KINDS = ("del_equations", "discrete_momentum_conserved", "consistent_order_p", "exact_order_p")
-ORDER_KINDS = ("consistent_order_p", "exact_order_p")
+ORDER_KINDS = ("consistent_order_p", "exact_order_p", "update_conserves_order_p")
 _ATOM = re.compile(r"^(.*?)(>|<|!=)(.*)$")
 EXACT_PY = "exact (Python)"
 
@@ -110,6 +111,31 @@ def _levels(I: Integrator, js) -> set[str]:
     return {I.level(q, j) for q in I.coords for j in js}
 
 
+def _parse_domain(spec: dict) -> list[tuple[str, E, E]]:
+    """The domain atoms, with `h > 0` always added."""
+    dom = []
+    atoms = list(spec.get("domain", []))
+    if "h>0" not in [a.replace(" ", "") for a in atoms]:
+        atoms.append("h > 0")
+    for a in atoms:
+        m = _ATOM.match(a)
+        if not m:
+            raise Malformed(f"domain atom {a!r} is not `a > b`, `a < b` or `a != b`")
+        dom.append((m.group(2), parse(m.group(1)), parse(m.group(3))))
+    return dom
+
+
+def _check_domain(name: str, domain, allowed: set[str]) -> None:
+    from .derivation import _discontinuous
+    for op, a, b in domain:
+        bad = (variables(a) | variables(b)) - allowed
+        if bad:
+            raise Malformed(f"claim {name!r}: domain atoms may not mention {sorted(bad)}")
+        bad = _discontinuous(a) or _discontinuous(b)
+        if bad:
+            raise Malformed(f"claim {name!r}: domain atoms must be continuous everywhere; found {bad}")
+
+
 def load_variational(spec: dict | str | Path) -> Integrator:
     if not isinstance(spec, dict):
         spec = json.loads(Path(spec).read_text())
@@ -131,15 +157,7 @@ def load_variational(spec: dict | str | Path) -> Integrator:
                 dims[f"{q}_{j}"] = dims[q]
             dims[f"{q}_dot"] = units.sub(dims[q], T)
             dims[f"{q}_ddot"] = units.sub(dims[q], units.smul(2, T))
-        dom = []
-        atoms = list(spec.get("domain", []))
-        if "h>0" not in [a.replace(" ", "") for a in atoms]:
-            atoms.append("h > 0")
-        for a in atoms:
-            m = _ATOM.match(a)
-            if not m:
-                raise Malformed(f"domain atom {a!r} is not `a > b`, `a < b` or `a != b`")
-            dom.append((m.group(2), parse(m.group(1)), parse(m.group(3))))
+        dom = _parse_domain(spec)
         claims = []
         for c in spec["claims"]:
             kind = c["claim"]
@@ -174,13 +192,7 @@ def _validate(I: Integrator) -> None:
     only(I.ld, lv01 | params, "the discrete Lagrangian")
     if I.lagrangian is not None:
         only(I.lagrangian, jet | (params - {"h"}), "the continuous Lagrangian")
-    for op, a, b in I.domain:
-        only(a, lv012 | params, "domain atoms")
-        only(b, lv012 | params, "domain atoms")
-        from .derivation import _discontinuous
-        bad = _discontinuous(a) or _discontinuous(b)
-        if bad:
-            raise Malformed(f"claim {I.name!r}: domain atoms must be continuous everywhere; found {bad}")
+    _check_domain(I.name, I.domain, lv012 | params)
     for c in I.claims:
         if c.kind == "del_equations":
             if len(c.update) != I.n:
@@ -221,6 +233,8 @@ def lean_laws(I: Integrator, c: VClaim) -> str:
 
 
 def statement(kind: str, I: Integrator, c: VClaim) -> str:
+    if isinstance(I, UpdateMap):
+        return update_statement(kind, I, c)
     t = lean_terms(I)
     n, Ld, D, ctx = t["n"], t["Ld"], t["D"], t["ctx"]
     if c.kind == "del_equations":
@@ -245,6 +259,9 @@ def judge_prefix(kind: str, I: Integrator, c: VClaim, witness) -> str:
     """The conjuncts the judge proves itself; the planner proves the rest."""
     if kind != "verified":
         return ""
+    if c.kind == "update_conserves":
+        return (f"refine ⟨rfl, by decide, by decide, ⟨{lean_point(I, witness)}, ?_⟩, ?_⟩\n"
+                "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
     if c.kind == "del_equations":
         return (f"refine ⟨by decide, by decide, ⟨{lean_point(I, witness)}, ?_⟩, ?_⟩\n"
                 "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
@@ -270,8 +287,19 @@ MEANING = {
         "(q0, q1, q2) in the domain, satisfying the real discrete Euler–Lagrange equations, "
         "with ∂DEL/∂q2 invertible (q2 is the step taken from (q0, q1); its local uniqueness, "
         "the implicit function theorem, is assumed), on which J(q1, q2) ≠ J(q0, q1)"),
+    ("update_conserves", VERIFIED): (
+        "PhysVerify.update_conserves_meaning: along every orbit z_k+1 = Φ(z_k) whose points "
+        "z_0..z_N-1 are in the domain, J(z_N) = J(z_0) exactly; the domain is non-empty and Φ "
+        "and J take no junk values on it (J also none at Φ(z))"),
+    ("update_conserves", REFUTED): (
+        "PhysVerify.update_refuted_meaning: a rational point z_0 in the domain whose orbit "
+        "under the explicit map has J(z_1) ≠ J(z_0) (no regularity condition: Φ is explicit)"),
 }
 MODULE = "PhysVerify.Discrete"
+
+
+def module_of(I) -> str:
+    return UPDATE_MODULE if isinstance(I, UpdateMap) else MODULE
 
 
 # ---------------------------------------------------------------- exact order (Python)
@@ -460,6 +488,8 @@ def order_verdict(c: VClaim, coeffs: dict[int, list[Poly]], labels: list[str], w
 
 
 def judge_order(I: Integrator, c: VClaim) -> Result:
+    if c.kind == "update_conserves_order_p":
+        return judge_update_order(I, c)
     t0 = time.monotonic()
     res = Result(claim_name(I, c), UNKNOWN, "n/a")
     try:
@@ -474,10 +504,247 @@ def judge_order(I: Integrator, c: VClaim) -> Result:
     return res
 
 
+# ---------------------------------------------------------------- explicit update maps
+# An integrator given as z' = Φ(z; h, params), no variational structure assumed. Claim file
+# (`"kind": "update_map"`, also in `benchmark/variational/`):
+# {
+#   "kind": "update_map", "name": "...",
+#   "state": ["x", "y", "px", "py"],                 # z; Lean index k for the k-th entry
+#   "symbols": {"x": {"dim": "L"}, ..., "h": {"dim": "T"}, "k": {...}},
+#   "update": [{"px": "px - h*k*x", "py": "..."},    # a list of steps, each a simultaneous
+#              {"x": "x + h*px", "y": "..."}],       # assignment (a single dict is one step)
+#   "domain": ["k > 0"],                             # atoms over z, h, parameters; h > 0 added
+#   "claims": [{"claim": "update_conserves", "quantity": "x*py - y*px", "expect": ...},
+#              {"claim": "update_conserves_order_p", "quantity": "...", "p": 1, ...}]
+# }
+# Steps run in order and each reads the state the previous one wrote, as code does. The judge
+# composes them by substitution into one simultaneous map Φ_k (`UpdateMap.phi`); Lean sees Φ
+# only, so that composition (a few lines of `substitute`) is trusted Python, like the literal
+# serialization of the claim file.
+#
+# `update_conserves`: J(Φ(z)) = J(z) on D. VERIFIED and REFUTED are Lean certificates
+# (`PhysVerify/Update.lean`). Because Φ is an explicit map, every z ∈ D starts an orbit, so a
+# REFUTED point needs no regularity condition (unlike `discrete_momentum_conserved`, where
+# q2 must be the step the implicit DEL takes). The exact decision behind the planner's
+# routing is `update_defect`: J(Φ(z)) − J(z) as a rational function, numerator ≡ 0 or not.
+#
+# `update_conserves_order_p` (exact Python): J(Φ(z)) − J(z) = O(h^{p+1}), i.e. the
+# coefficients of h^0 … h^p vanish identically: order at least p, as for `consistent_order_p`.
+# Polynomial Φ and J only (division by monomials allowed); anything else is UNKNOWN.
+
+UPDATE_KINDS = ("update_conserves", "update_conserves_order_p")
+UPDATE_MODULE = "PhysVerify.Update"
+
+
+@dataclass
+class UpdateMap:
+    name: str
+    state: list[str]
+    dims: dict[str, units.Dim]
+    declared: list[str]
+    phi: list[E]                        # Φ_k(z; h, params), simultaneous
+    domain: list[tuple[str, E, E]]
+    claims: list[VClaim]
+    source: dict = field(default_factory=dict)
+
+    @property
+    def n(self) -> int:
+        return len(self.state)
+
+    @property
+    def coords(self) -> list[str]:
+        return self.state
+
+    def params(self) -> list[str]:
+        """h and the parameters, in the order of their Lean indices."""
+        return sorted(set(self.declared) - set(self.state))
+
+    def index(self) -> dict[str, int]:
+        idx = {z: k for k, z in enumerate(self.state)}
+        idx.update({s: self.n + i for i, s in enumerate(self.params())})
+        return idx
+
+    def new_state(self) -> dict[str, E]:
+        return dict(zip(self.state, self.phi))
+
+
+def is_update_map(spec: dict) -> bool:
+    return spec.get("kind") == "update_map"
+
+
+def compose_steps(state: list[str], steps: list[dict[str, E]]) -> list[E]:
+    """Φ_k for a list of simultaneous steps run in order (each sees the previous one's state)."""
+    cur = {z: var(z) for z in state}
+    for st in steps:
+        cur.update({v: substitute(rhs, cur) for v, rhs in st.items()})
+    return [cur[z] for z in state]
+
+
+def load_update(spec: dict | str | Path) -> UpdateMap:
+    if not isinstance(spec, dict):
+        spec = json.loads(Path(spec).read_text())
+    if not is_update_map(spec):
+        raise Malformed(f"claim {spec.get('name')!r}: not an update-map claim")
+    name = spec.get("name")
+    try:
+        state = list(spec["state"])
+        declared = dict(spec["symbols"])
+        declared.setdefault("h", {"dim": "T"})
+        dims = {k: units.parse_dim(v["dim"]) for k, v in declared.items()}
+        if dims["h"] != units.parse_dim("T"):
+            raise Malformed("the step h must have dimension T")
+        for z in state:
+            if z not in dims:
+                raise Malformed(f"state variable {z!r} has no dimension")
+        raw = spec["update"]
+        raw = [raw] if isinstance(raw, dict) else list(raw)
+        steps = []
+        for st in raw:
+            bad = set(st) - set(state)
+            if bad:
+                raise Malformed(f"the update assigns {sorted(bad)}, which are not state variables")
+            steps.append({v: parse(rhs) for v, rhs in st.items()})
+        dom = _parse_domain(spec)
+        claims = []
+        for c in spec["claims"]:
+            kind = c["claim"]
+            if kind not in UPDATE_KINDS:
+                raise Malformed(f"unknown claim kind {kind!r} (use {UPDATE_KINDS})")
+            vc = VClaim(kind, c.get("expect", ""), c.get("why", ""), quantity=parse(c["quantity"]))
+            if kind == "update_conserves_order_p":
+                vc.p = int(c["p"])
+            claims.append(vc)
+    except (KeyError, ValueError, TypeError, AttributeError) as ex:
+        raise Malformed(f"claim {name!r}: {ex}") from ex
+    allowed = set(declared)
+    for st in steps:
+        for rhs in st.values():
+            bad = variables(rhs) - allowed
+            if bad:
+                raise Malformed(f"claim {name!r}: the update may not mention {sorted(bad)}")
+    U = UpdateMap(name, state, dims, sorted(declared), compose_steps(state, steps), dom, claims, spec)
+    _check_domain(name, dom, allowed)
+    for c in claims:
+        bad = variables(c.quantity) - allowed
+        if bad:
+            raise Malformed(f"claim {name!r}: the quantity may not mention {sorted(bad)}")
+        if c.kind == "update_conserves_order_p" and c.p < 1:
+            raise Malformed(f"claim {name!r}: the order p must be at least 1")
+    return U
+
+
+def load(spec: dict | str | Path) -> Integrator | UpdateMap:
+    if not isinstance(spec, dict):
+        spec = json.loads(Path(spec).read_text())
+    return load_update(spec) if is_update_map(spec) else load_variational(spec)
+
+
+# Exact rational functions: (numerator, denominator) polynomials, never reduced. A rational
+# function is identically zero iff its numerator polynomial is.
+
+def to_ratfn(e: E) -> tuple[Poly, Poly]:
+    k, a = e.kind, e.args
+    if k == "var": return p_var(e.name), p_const(1)
+    if k == "lit": return p_const(e.q), p_const(1)
+    if k == "neg":
+        n, d = to_ratfn(a[0])
+        return p_add({}, n, -1), d
+    if k in ("add", "sub"):
+        (n1, d1), (n2, d2) = to_ratfn(a[0]), to_ratfn(a[1])
+        if d1 == d2:
+            return p_add(n1, n2, 1 if k == "add" else -1), d1
+        return p_add(p_mul(n1, d2), p_mul(n2, d1), 1 if k == "add" else -1), p_mul(d1, d2)
+    if k == "mul":
+        (n1, d1), (n2, d2) = to_ratfn(a[0]), to_ratfn(a[1])
+        return p_mul(n1, n2), p_mul(d1, d2)
+    if k == "div":
+        (n1, d1), (n2, d2) = to_ratfn(a[0]), to_ratfn(a[1])
+        if not n2:
+            raise NotPolynomial("division by an identically zero expression")
+        return p_mul(n1, d2), p_mul(d1, n2)
+    if k == "powi":
+        n, d = to_ratfn(a[0])
+        if e.q < 0 and not n:
+            raise NotPolynomial("negative power of an identically zero expression")
+        n, d = (n, d) if e.q >= 0 else (d, n)
+        return p_pow(n, abs(int(e.q))), p_pow(d, abs(int(e.q)))
+    raise NotPolynomial(f"{k} is outside the rational fragment")
+
+
+def defect_expr(U: UpdateMap, c: VClaim) -> E:
+    """J(Φ(z)) − J(z)."""
+    return E("sub", (substitute(c.quantity, U.new_state()), c.quantity))
+
+
+def update_defect(U: UpdateMap, c: VClaim) -> tuple[Poly, Poly]:
+    """J(Φ(z)) − J(z) as an exact rational function (numerator, denominator); raises
+    `NotPolynomial` outside the rational fragment."""
+    return to_ratfn(defect_expr(U, c))
+
+
+def update_order_coeffs(U: UpdateMap, c: VClaim) -> dict[int, list[Poly]]:
+    """Coefficients of h^e of J(Φ(z)) − J(z) (polynomial in h, Laurent in monomials)."""
+    return {e: [q] for e, q in by_hpower(to_poly(defect_expr(U, c), {})).items()}
+
+
+def judge_update_order(U: UpdateMap, c: VClaim) -> Result:
+    t0 = time.monotonic()
+    res = Result(claim_name(U, c), UNKNOWN, dims_ok(U, c))
+    try:
+        coeffs = update_order_coeffs(U, c)
+    except NotPolynomial as ex:
+        res.detail = f"outside v1 (polynomial Φ and J only): {ex}"
+    else:
+        if any(e < 0 for e in coeffs):
+            res.detail = "outside v1: J(Φ(z)) − J(z) has negative powers of h"
+        else:
+            res.verdict, res.detail = order_verdict(c, coeffs, ["J"], "J(Φ(z)) − J(z)", lowest=1)
+    res.seconds = time.monotonic() - t0
+    return res
+
+
+def update_terms(U: UpdateMap, c: VClaim) -> dict[str, str]:
+    idx = U.index()
+    atoms = []
+    for op, a, b in U.domain:
+        la, lb = f"Expr.eval env {to_lean(a, idx)}", f"Expr.eval env {to_lean(b, idx)}"
+        atoms.append({">": f"{lb} < {la}", "<": f"{la} < {lb}", "!=": f"{la} ≠ {lb}"}[op])
+    by_index = sorted(idx, key=idx.get)
+    return {"n": str(U.n), "Phi": "([" + ", ".join(to_lean(e, idx) for e in U.phi) + "] : List Expr)",
+            "D": "(fun env : ℕ → ℝ => " + " ∧ ".join(atoms) + ")",
+            "J": to_lean(c.quantity, idx),
+            "ctx": "[" + ", ".join(units.lean_dim(U.dims[s]) for s in by_index) + "]"}
+
+
+def update_statement(kind: str, U: UpdateMap, c: VClaim) -> str:
+    t = update_terms(U, c)
+    if kind == "verified":
+        return (f"List.length {t['Phi']} = {t['n']} ∧ (Expr.dimOf {t['ctx']} {t['J']}).isSome = true ∧ "
+                f"UpdDims {t['ctx']} {t['Phi']} 0 = true ∧ UpdateVerified {t['Phi']} {t['D']} {t['J']}")
+    if kind == "refuted":
+        return f"UpdateRefuted {t['Phi']} {t['D']} {t['J']}"
+    raise KeyError((kind, c.kind))
+
+
+def update_dims_ok(U: UpdateMap, c: VClaim) -> str:
+    """Python mirror of `UpdDims` and of the `dimOf` check of J."""
+    try:
+        units.dim_of(c.quantity, U.dims)
+        for z, e in zip(U.state, U.phi):
+            d = units.dim_of(e, U.dims)
+            if d != U.dims[z]:
+                return f"mismatch: Φ_{z} has {units.fmt_dim(d)}, {z} has {units.fmt_dim(U.dims[z])}"
+    except units.DimError as ex:
+        return f"mismatch: {ex}"
+    return "ok"
+
+
 # ---------------------------------------------------------------- judge
 
 def dims_ok(I: Integrator, c: VClaim) -> str:
     """Python mirror of the kernel's `dimOf` checks (L_d, J), plus [L_d] = [L]·T."""
+    if isinstance(I, UpdateMap):
+        return update_dims_ok(I, c)
     try:
         dl = units.dim_of(I.ld, I.dims)
         if c.kind == "discrete_momentum_conserved":
@@ -507,7 +774,7 @@ def judge(I: Integrator, c: VClaim, candidates: list[tuple[str, str]], check=Non
             res.attempts.append("verified: no witness point in the domain")
             res.detail = "no rational point found in the domain; not attempting VERIFIED"
             continue
-        r = check(statement(kind, I, c), judge_prefix(kind, I, c, witness) + proof, module=MODULE)
+        r = check(statement(kind, I, c), judge_prefix(kind, I, c, witness) + proof, module=module_of(I))
         res.attempts.append(f"{kind}: {'ok' if r.ok else 'failed'}")
         if r.ok:
             res.verdict = VERIFIED if kind == "verified" else REFUTED
@@ -542,7 +809,7 @@ def judge_file(I: Integrator, propose=None, batch: bool = True) -> list[Result]:
         pending[name] = (i, kind, cands)
     if items:
         t0 = time.monotonic()
-        rs = lean_backend.check_batch(items, module=MODULE)
+        rs = lean_backend.check_batch(items, module=module_of(I))
         dt = (time.monotonic() - t0) / len(items)
         for name, (i, kind, cands) in pending.items():
             c, r = I.claims[i], rs[name]
@@ -567,7 +834,8 @@ def guarantee(c: VClaim, r: Result) -> str:
 
 
 def main(argv=None) -> int:
-    """`python -m physverify.variational benchmark/variational/`: the verdict table."""
+    """`python -m physverify.variational benchmark/variational/`: the verdict table (variational
+    integrators and explicit update maps)."""
     import sys
     paths = []
     for a in (argv if argv is not None else sys.argv[1:]) or ["benchmark/variational"]:
@@ -575,7 +843,7 @@ def main(argv=None) -> int:
         paths += sorted(p.glob("*.json")) if p.is_dir() else [p]
     rows, wrong, t0 = [], 0, time.monotonic()
     for p in paths:
-        I = load_variational(p)
+        I = load(p)
         for c, r in zip(I.claims, judge_file(I)):
             ok = r.verdict == c.expect
             wrong += not ok

@@ -1,0 +1,28 @@
+{
+  "kind": "update_map",
+  "name": "central quartic potential in 2D, Stormer-Verlet map",
+  "state": ["x", "y", "px", "py"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "px": {"dim": "L T^-1"}, "py": {"dim": "L T^-1"},
+              "h": {"dim": "T"}, "k": {"dim": "L^-2 T^-2"}},
+  "update": [{"px": "px - h/2*k*(x^2 + y^2)*x", "py": "py - h/2*k*(x^2 + y^2)*y"},
+             {"x": "x + h*px", "y": "y + h*py"},
+             {"px": "px - h/2*k*(x^2 + y^2)*x", "py": "py - h/2*k*(x^2 + y^2)*y"}],
+  "domain": ["k > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py - y*px",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "half kick, drift, half kick (the second kick at q'): each sub-step preserves L exactly"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "x*py - y*px",
+      "p": 5,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "exactly conserved, so conserved to every order"
+    }
+  ]
+}

@@ -518,9 +518,9 @@ def _load_var(stem):
 
 @pytest.fixture(scope="module")
 def var_results():
-    from physverify.variational import judge_file, load_variational
+    from physverify.variational import judge_file, load
     t = time.time()
-    out = {p.stem: judge_file(load_variational(p)) for p in VAR_BENCH}
+    out = {p.stem: judge_file(load(p)) for p in VAR_BENCH}
     print(f"\nvariational bench: {sum(map(len, out.values()))} claims, {time.time() - t:.0f}s")
     return out
 
@@ -528,13 +528,14 @@ def var_results():
 @needs_lean
 @pytest.mark.parametrize("path", VAR_BENCH, ids=[p.stem for p in VAR_BENCH])
 def test_variational_bench(var_results, path):
-    """True claims are never REFUTED, false ones never VERIFIED, and every claim gets its label."""
-    from physverify.variational import load_variational
-    I = load_variational(path)
+    """True claims are never REFUTED, false ones never VERIFIED, and every claim gets its label
+    (variational integrators and explicit update maps)."""
+    from physverify.variational import ORDER_KINDS, load
+    I = load(path)
     for raw, c, r in zip(I.source["claims"], I.claims, var_results[path.stem]):
         assert r.verdict != ("REFUTED" if raw["true"] else "VERIFIED"), (r.claim, r.detail)
         assert r.verdict == c.expect, (r.claim, r.detail)
-        if c.kind not in ("consistent_order_p", "exact_order_p") and r.verdict != "UNKNOWN":
+        if c.kind not in ORDER_KINDS and r.verdict != "UNKNOWN":
             assert "; axioms: " in r.detail and "sorryAx" not in r.detail
 
 
@@ -623,4 +624,99 @@ def test_variational_judge_rejects_planner_tricks():
     (v,) = P.propose(I, good)
     assert judge(I, wrong, [v]).verdict == UNKNOWN          # the true claim's certificate
     assert judge(I, good, [P.propose(I, wrong)[0], ("verified", "sorry"), ("refuted", "simp_all"),
+                           ("verified", "decide")]).verdict == UNKNOWN
+
+
+# ---------------------------------------------------------------- explicit update maps
+# `update_map` files in benchmark/variational/ (judged in test_variational_bench above),
+# certificates in PhysVerify.Update.
+
+UPD_MOD = "PhysVerify.Update"
+
+
+def _load_upd(stem):
+    from physverify.variational import load_update
+    return load_update(ROOT / f"benchmark/variational/{stem}.json")
+
+
+@needs_lean
+def test_update_statement_gives_exact_conservation():
+    """A VERIFIED update_conserves statement gives `update_conserves_meaning`: J is constant
+    along every orbit z_{k+1} = Φ(z_k) that stays in D."""
+    from physverify.variational import statement, update_terms
+    U = _load_upd("central-quartic-verlet")
+    c = U.claims[0]
+    t = update_terms(U, c)
+    r = lean_backend.check(
+        f"({statement('verified', U, c)}) → ∀ (z : ℕ → ℕ → ℝ), "
+        f"(∀ k, z (k + 1) = updateStep {t['Phi']} (z k)) → ∀ N, (∀ k < N, {t['D']} (z k)) → "
+        f"Expr.eval (z N) {t['J']} = Expr.eval (z 0) {t['J']}",
+        "rintro ⟨-, -, -, hcert⟩ z hz N hD\nexact update_conserves_meaning hcert z hz N hD",
+        module=UPD_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_update_refuted_statement_gives_an_orbit():
+    from physverify.variational import statement, update_terms
+    U = _load_upd("central-quartic-explicit-euler")
+    c = U.claims[0]
+    t = update_terms(U, c)
+    r = lean_backend.check(
+        f"({statement('refuted', U, c)}) → ∃ z : ℕ → ℕ → ℝ, "
+        f"(∀ k, z (k + 1) = updateStep {t['Phi']} (z k)) ∧ {t['D']} (z 0) ∧ "
+        f"Expr.eval (z 1) {t['J']} ≠ Expr.eval (z 0) {t['J']}",
+        "intro h\nobtain ⟨z, hz, hD, -, hne⟩ := update_refuted_meaning h\nexact ⟨z, hz, hD, hne⟩",
+        module=UPD_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_update_corrupted_claim_refuted_at_a_replayed_point():
+    """L with one sign flipped under symplectic Euler: the true claim's certificate does not
+    prove it, and the planner's refutation replays in Lean at a rational point."""
+    from physverify.expr import parse
+    from physverify.tools import variational as P
+    from physverify.variational import REFUTED, UNKNOWN, VERIFIED, VClaim, judge, judge_file
+    U = _load_upd("central-quartic-symplectic-euler")
+    good = U.claims[0]
+    bad = VClaim("update_conserves", quantity=parse("x*py + y*px"))
+    assert judge(U, good, [("verified", P.update_verified_tactic(U, good))]).verdict == VERIFIED
+    assert judge(U, bad, [("verified", P.update_verified_tactic(U, bad))]).verdict == UNKNOWN
+    w = P.update_refutation_point(U, bad)
+    r = judge(U, bad, [("refuted", P.update_refuted_tactic(U, w))])
+    assert r.verdict == REFUTED and "update_refuted_meaning" in r.detail
+    U.claims = [bad]
+    (r,) = judge_file(U)
+    assert r.verdict == REFUTED and r.attempts == ["refuted: ok"]
+
+
+@needs_lean
+def test_update_junk_quantity_not_verified():
+    """J = H + 1/(w − w): Lean's x/0 = 0 keeps J(Φ(z)) = J(z) true as an identity, but J is not
+    physOK anywhere, so the certificate is rejected (UNKNOWN, never VERIFIED)."""
+    from physverify.expr import parse
+    from physverify.tools import variational as P
+    from physverify.variational import UNKNOWN, VClaim, judge, update_terms
+    U = _load_upd("oscillator-implicit-midpoint-map")
+    junk = VClaim("update_conserves", quantity=parse("(p^2 + w^2*q^2)/2 + 1/(w - w)"))
+    assert judge(U, junk, [("verified", P.update_verified_tactic(U, junk))]).verdict == UNKNOWN
+    t = update_terms(U, junk)
+    intro, facts, _ = P._intro(U)
+    r = lean_backend.check(       # the identity alone does hold in Lean
+        f"∀ env, {t['D']} env → Expr.eval (updateStep {t['Phi']} env) {t['J']} = Expr.eval env {t['J']}",
+        f"{intro}\nhave hden0 : (4 : ℝ) + env 2 ^ 2 * env 3 ^ 2 ≠ 0 := by positivity\n"
+        f"simp [{P.UPD}, Expr.eval, Fn.eval{facts}] <;> {P.IDENT}", module=UPD_MOD)
+    assert r.ok, r.log[-2000:]
+
+
+@needs_lean
+def test_update_judge_rejects_planner_tricks():
+    from physverify.tools import variational as P
+    from physverify.variational import UNKNOWN, judge
+    U = _load_upd("oscillator-symplectic-euler-map")
+    H, Hmod = U.claims[0], U.claims[1]
+    (v,) = P.propose(U, Hmod)
+    assert judge(U, H, [v]).verdict == UNKNOWN              # the true claim's certificate
+    assert judge(U, Hmod, [P.propose(U, H)[0], ("verified", "sorry"), ("refuted", "simp_all"),
                            ("verified", "decide")]).verdict == UNKNOWN

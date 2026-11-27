@@ -1,0 +1,33 @@
+{
+  "kind": "update_map",
+  "name": "harmonic oscillator, implicit midpoint rule as an explicit map",
+  "state": ["q", "p"],
+  "symbols": {"q": {"dim": "L"}, "p": {"dim": "L T^-1"}, "h": {"dim": "T"}, "w": {"dim": "T^-1"}},
+  "update": {"q": "((4 - h^2*w^2)*q + 4*h*p)/(4 + h^2*w^2)",
+             "p": "((4 - h^2*w^2)*p - 4*h*w^2*q)/(4 + h^2*w^2)"},
+  "domain": ["w > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "(p^2 + w^2*q^2)/2",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "z' = (I - hA/2)^-1 (I + hA/2) z for A = [[0, 1], [-w^2, 0]] (solved by hand: det(I - hA/2) = 1 + h^2 w^2/4); the Cayley transform of A preserves the quadratic invariant"
+    },
+    {
+      "claim": "update_conserves",
+      "quantity": "(p^2 - w^2*q^2)/2",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: the energy with one sign flipped (the Lagrangian, not the Hamiltonian)"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "(p^2 + w^2*q^2)/2",
+      "p": 2,
+      "true": true,
+      "expect": "UNKNOWN",
+      "why": "true (H is exactly conserved), but the order check takes polynomial maps only and this one divides by 4 + h^2 w^2"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "kind": "update_map",
+  "name": "central quartic potential in 2D, symplectic Euler map",
+  "state": ["x", "y", "px", "py"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "px": {"dim": "L T^-1"}, "py": {"dim": "L T^-1"},
+              "h": {"dim": "T"}, "k": {"dim": "L^-2 T^-2"}},
+  "update": [{"px": "px - h*k*(x^2 + y^2)*x", "py": "py - h*k*(x^2 + y^2)*y"},
+             {"x": "x + h*px", "y": "y + h*py"}],
+  "domain": ["k > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py - y*px",
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the kick p' = p - h grad V(q) changes p along q (q x grad V = 0), the drift q' = q + h p' changes q along p' (p' x p' = 0): each preserves L exactly"
+    },
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py + y*px",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: the angular momentum with one sign flipped"
+    }
+  ]
+}

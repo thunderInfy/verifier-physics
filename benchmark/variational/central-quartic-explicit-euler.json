@@ -1,0 +1,35 @@
+{
+  "kind": "update_map",
+  "name": "central quartic potential in 2D, explicit Euler map",
+  "state": ["x", "y", "px", "py"],
+  "symbols": {"x": {"dim": "L"}, "y": {"dim": "L"}, "px": {"dim": "L T^-1"}, "py": {"dim": "L T^-1"},
+              "h": {"dim": "T"}, "k": {"dim": "L^-2 T^-2"}},
+  "update": {"x": "x + h*px", "y": "y + h*py",
+             "px": "px - h*k*(x^2 + y^2)*x", "py": "py - h*k*(x^2 + y^2)*y"},
+  "domain": ["k > 0"],
+  "claims": [
+    {
+      "claim": "update_conserves",
+      "quantity": "x*py - y*px",
+      "true": false,
+      "expect": "REFUTED",
+      "why": "TRAP: V = k|q|^4/4 is rotation invariant, but explicit Euler changes L = q x p by -h^2 p x grad V(q), nonzero off the radial direction"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "x*py - y*px",
+      "p": 1,
+      "true": true,
+      "expect": "VERIFIED",
+      "why": "the h^1 term of L(Phi(z)) - L(z) is h (p x p - q x grad V) = 0, since grad V is parallel to q"
+    },
+    {
+      "claim": "update_conserves_order_p",
+      "quantity": "x*py - y*px",
+      "p": 2,
+      "true": false,
+      "expect": "REFUTED",
+      "why": "the h^2 term -p x grad V(q) does not vanish identically"
+    }
+  ]
+}
