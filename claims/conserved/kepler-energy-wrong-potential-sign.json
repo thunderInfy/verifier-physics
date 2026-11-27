@@ -1,0 +1,32 @@
+{
+  "kind": "conserved",
+  "name": "Kepler energy with + GM m / r",
+  "true": false,
+  "expect": "REFUTED",
+  "why": "dQ/dt = -2 GM m r_dot / r^2 on the EL surface",
+  "coordinates": [
+    "r",
+    "th"
+  ],
+  "symbols": {
+    "r": {
+      "dim": "L"
+    },
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "GM": {
+      "dim": "L^3 T^-2"
+    }
+  },
+  "lagrangian": "m/2*(r_dot^2 + r^2*th_dot^2) + GM*m/r",
+  "domain": [
+    "m > 0",
+    "r > 0",
+    "GM > 0"
+  ],
+  "quantity": "m/2*(r_dot^2 + r^2*th_dot^2) + GM*m/r"
+}

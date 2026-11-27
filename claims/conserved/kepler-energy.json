@@ -1,0 +1,32 @@
+{
+  "kind": "conserved",
+  "name": "Kepler energy",
+  "true": true,
+  "expect": "VERIFIED",
+  "why": "L has no explicit t; E = sum qdot dL/dqdot - L",
+  "coordinates": [
+    "r",
+    "th"
+  ],
+  "symbols": {
+    "r": {
+      "dim": "L"
+    },
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "GM": {
+      "dim": "L^3 T^-2"
+    }
+  },
+  "lagrangian": "m/2*(r_dot^2 + r^2*th_dot^2) + GM*m/r",
+  "domain": [
+    "m > 0",
+    "r > 0",
+    "GM > 0"
+  ],
+  "quantity": "m/2*(r_dot^2 + r^2*th_dot^2) - GM*m/r"
+}

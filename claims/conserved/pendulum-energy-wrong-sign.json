@@ -1,0 +1,31 @@
+{
+  "kind": "conserved",
+  "name": "pendulum energy with the potential's sign flipped",
+  "true": false,
+  "expect": "REFUTED",
+  "why": "on the EL surface dQ/dt = -2 m g l th_dot sin(th)",
+  "coordinates": [
+    "th"
+  ],
+  "symbols": {
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "l": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "m*l^2*th_dot^2/2 + m*g*l*cos(th)",
+  "domain": [
+    "m > 0",
+    "l > 0",
+    "g > 0"
+  ],
+  "quantity": "m*l^2/2*th_dot^2 + m*g*l*cos(th)"
+}

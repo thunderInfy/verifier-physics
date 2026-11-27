@@ -1,0 +1,33 @@
+{
+  "kind": "conserved",
+  "name": "charged particle in uniform B: kinetic x momentum",
+  "true": false,
+  "expect": "REFUTED",
+  "why": "m x_ddot = qe B y_dot: the Lorentz force changes m x_dot",
+  "coordinates": [
+    "x",
+    "y"
+  ],
+  "symbols": {
+    "x": {
+      "dim": "L"
+    },
+    "y": {
+      "dim": "L"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "qe": {
+      "dim": "I T"
+    },
+    "B": {
+      "dim": "M T^-2 I^-1"
+    }
+  },
+  "lagrangian": "m/2*(x_dot^2 + y_dot^2) - qe*B*y*x_dot",
+  "domain": [
+    "m > 0"
+  ],
+  "quantity": "m*x_dot"
+}

@@ -1,0 +1,30 @@
+{
+  "kind": "conserved",
+  "name": "pendulum energy divided by l, with l unconstrained",
+  "true": null,
+  "expect": "UNKNOWN",
+  "why": "ill-posed: l = 0 is in the domain and Q divides by l (Lean's x/0 = 0 would make dQ/dt = 0 there)",
+  "coordinates": [
+    "th"
+  ],
+  "symbols": {
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "l": {
+      "dim": "L"
+    },
+    "g": {
+      "dim": "L T^-2"
+    }
+  },
+  "lagrangian": "m*l^2*th_dot^2/2 + m*g*l*cos(th)",
+  "domain": [
+    "m > 0",
+    "g > 0"
+  ],
+  "quantity": "(m*l^2/2*th_dot^2 - m*g*l*cos(th))/l"
+}

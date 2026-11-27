@@ -1,0 +1,41 @@
+{
+  "kind": "conserved",
+  "name": "coupled oscillators: energy of oscillator 1 alone",
+  "true": false,
+  "expect": "REFUTED",
+  "why": "the coupling kc > 0 exchanges energy: dQ/dt = kc x1_dot (x2 - x1)",
+  "coordinates": [
+    "x1",
+    "x2"
+  ],
+  "symbols": {
+    "x1": {
+      "dim": "L"
+    },
+    "x2": {
+      "dim": "L"
+    },
+    "m1": {
+      "dim": "M"
+    },
+    "m2": {
+      "dim": "M"
+    },
+    "k1": {
+      "dim": "M T^-2"
+    },
+    "k2": {
+      "dim": "M T^-2"
+    },
+    "kc": {
+      "dim": "M T^-2"
+    }
+  },
+  "lagrangian": "m1/2*x1_dot^2 + m2/2*x2_dot^2 - k1/2*x1^2 - k2/2*x2^2 - kc/2*(x1 - x2)^2",
+  "domain": [
+    "m1 > 0",
+    "m2 > 0",
+    "kc > 0"
+  ],
+  "quantity": "m1/2*x1_dot^2 + k1/2*x1^2"
+}

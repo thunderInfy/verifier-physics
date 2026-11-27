@@ -1,0 +1,32 @@
+{
+  "kind": "conserved",
+  "name": "Kepler Laplace-Runge-Lenz vector, x component",
+  "true": true,
+  "expect": "VERIFIED",
+  "why": "A = p x L - m GM m r_hat; x component in polar coordinates",
+  "coordinates": [
+    "r",
+    "th"
+  ],
+  "symbols": {
+    "r": {
+      "dim": "L"
+    },
+    "th": {
+      "dim": "1"
+    },
+    "m": {
+      "dim": "M"
+    },
+    "GM": {
+      "dim": "L^3 T^-2"
+    }
+  },
+  "lagrangian": "m/2*(r_dot^2 + r^2*th_dot^2) + GM*m/r",
+  "domain": [
+    "m > 0",
+    "r > 0",
+    "GM > 0"
+  ],
+  "quantity": "m^2*(r^2*th_dot*(r_dot*sin(th) + r*th_dot*cos(th)) - GM*cos(th))"
+}
