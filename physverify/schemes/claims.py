@@ -260,6 +260,30 @@ def unmet_requirements(requires, by_check: dict) -> list[str]:
     return [f"{c}: {status(c)}" for c in requires if not (status(c) == VERIFIED and strength(c, VERIFIED) == EXACT)]
 
 
+CAVEAT = "; "      # separates a guarantee label from its caveats, as in checks.ENTROPY_EXACT
+
+
+def caveats(guarantee: str) -> list[str]:
+    """The caveats a guarantee label carries after its base, which is a word and an optional
+    parenthesised detail: "exact (Python Fraction arithmetic; Lean certificate pending); semi-discrete
+    inequality only, time stepping not certified" carries one, "proven (Lean)" and "exact" none."""
+    word = guarantee.split(CAVEAT, 1)[0]
+    end = guarantee.index(")") + 1 if "(" in word else len(word)
+    return [c for c in guarantee[end:].split(CAVEAT) if c]
+
+
+def with_caveats(label: str, guarantees) -> str:
+    """A verdict's guarantee: `label`, then every caveat of the check guarantees it rests on, once each
+    in the order given. A verdict never claims more than its checks; without caveats it is `label`."""
+    return CAVEAT.join([label, *dict.fromkeys(c for g in guarantees for c in caveats(g))])
+
+
+def rests_on(name: str, decided_by, table=CLAIMS) -> list[str]:
+    """The checks a verdict rests on: the deciding checks and the exact checks their rows require, sorted."""
+    rows = {row[0]: row for row in table[name][1]}
+    return sorted(set(decided_by) | {c for d in decided_by for c in (rows[d][3] if len(rows[d]) > 3 else ())})
+
+
 def validate(names, table=CLAIMS) -> None:
     bad = [n for n in names if n not in table]
     if bad:
@@ -292,6 +316,9 @@ def judge_one(name: str, results: list[dict], table=CLAIMS) -> dict:
         guarantee = EXACT if any(e["guarantee"] == EXACT for e in decided) else EMPIRICAL
         decided = [e for e in decided if e["guarantee"] == guarantee]
         verdict = label("refuted" if ref else "verified", guarantee)
+        if guarantee == EXACT:
+            need = rests_on(name, [e["check"] for e in decided], table)
+            guarantee = with_caveats(EXACT, [by_check[c].get("guarantee") or "" for c in need if c in by_check])
     elif pick("suspicious"):
         verdict, guarantee, decided = SUSPICIOUS, EMPIRICAL, pick("suspicious")
     elif pick("not_refuted"):

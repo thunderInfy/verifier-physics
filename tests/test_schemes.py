@@ -470,7 +470,9 @@ def test_harten_is_not_refuted_by_tadmor(results, verdicts):
                                                                 "stationary_rh_violation": C.UNKNOWN}
     assert harten["selects_entropy_solution_semidiscrete"]["verdict"] == C.UNKNOWN
     roe = verdicts["broken-burgers-roe-no-entropy-fix"]
-    assert roe["entropy_stable_tadmor"]["verdict"] == C.REFUTED and roe["entropy_stable_tadmor"]["guarantee"] == C.EXACT
+    # the verdict keeps the check's caveat
+    assert roe["entropy_stable_tadmor"]["verdict"] == C.REFUTED
+    assert roe["entropy_stable_tadmor"]["guarantee"] == C.EXACT + "; semi-discrete inequality only, time stepping not certified"
     assert roe["selects_entropy_solution"]["decided_by"] == ["steady_nonentropy_step"]    # exact beats empirical
     semi = roe["selects_entropy_solution_semidiscrete"]                   # Tadmor fails (sufficient: says nothing),
     assert semi["verdict"] == C.REFUTED and semi["decided_by"] == ["steady_nonentropy_step_semidiscrete"]  # the step refutes

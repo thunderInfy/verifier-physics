@@ -418,16 +418,22 @@ def certify(pairs: list[tuple[dict, dict]], timeout: int | None = None, planner=
     return results
 
 
+def verdict_label(labels: list[str]) -> str | None:
+    """The Lean guarantee of a verdict whose checks carry `labels`, or None unless every one is a Lean
+    label: the weaker label if any of them is per cell, then the caveats of all of them."""
+    from . import claims as C
+    if not labels or not all(x.startswith("proven (Lean") for x in labels):
+        return None
+    return C.with_caveats(LEAN_CELLS if any(x.startswith(LEAN_CELLS) for x in labels) else LEAN, labels)
+
+
 def relabel_claims(report: dict) -> None:
     """A claim decided exactly gets a Lean guarantee when every check it rests on (the deciding checks
-    and the exact checks their rows require) has one: the weaker label if any of them is per cell."""
+    and the exact checks their rows require) has one."""
     from . import claims as C
     by = {r["check"]: r for r in report["checks"]}
     for v in report["claims"]:
-        if v["guarantee"] != C.EXACT:
+        if not v["guarantee"].startswith(C.EXACT):
             continue
-        rows = {row[0]: row for row in C.CLAIMS[v["claim"]][1]}
-        need = set(v["decided_by"]) | {c for d in v["decided_by"] for c in (rows[d][3] if len(rows[d]) > 3 else ())}
-        labels = {by.get(c, {}).get("guarantee") or "" for c in need}
-        if need and all(x.startswith("proven (Lean") for x in labels):
-            v["guarantee"] = LEAN_CELLS if any(x.startswith(LEAN_CELLS) for x in labels) else LEAN
+        need = C.rests_on(v["claim"], v["decided_by"])
+        v["guarantee"] = verdict_label([by.get(c, {}).get("guarantee") or "" for c in need]) or v["guarantee"]
