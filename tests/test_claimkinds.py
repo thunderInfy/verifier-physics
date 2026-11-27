@@ -6,14 +6,14 @@ import json
 import re
 from pathlib import Path
 
-from physverify import claimkinds, conserved, derivation, obligations, variational
+from physverify import claimkinds, conserved, derivation, obligations, reconstruction, variational
 from physverify.claimkinds import KINDS, LAYERS
 from physverify.schemes import bench as scheme_bench, claims as scheme_claims
 
 ROOT = Path(__file__).resolve().parent.parent
 # directory -> layer of the claim names its JSON files use
 FILES = {"schemes": "schemes", "benchmark/scheme-claims": "schemes", "benchmark/outside": "schemes",
-         "benchmark/variational": "variational"}
+         "benchmark/variational": "variational", "benchmark/reconstruction": "reconstruction"}
 
 
 def _names_in(obj):
@@ -45,7 +45,7 @@ def code_usage() -> dict[str, set[str]]:
     return {"schemes": set(scheme_claims.CLAIMS),
             "variational": set(variational.KINDS) | set(variational.UPDATE_KINDS),
             "conserved": {conserved.KIND}, "derivation": {derivation.KIND},
-            "theory": set(obligations.KINDS)}
+            "theory": set(obligations.KINDS), "reconstruction": set(reconstruction.CLAIMS)}
 
 
 def usage() -> dict[str, set[str]]:
@@ -91,10 +91,11 @@ def test_order_kinds_have_order_params():
 
 
 # how each layer's param keys start (claimkinds docstring, `params`), and the code that reads them
-ROOTS = {"schemes": "claims.", "variational": "claims[].", "theory": "args."}
+ROOTS = {"schemes": "claims.", "variational": "claims[].", "theory": "args.", "reconstruction": "claims[]."}
 SOURCES = {"schemes": sorted((ROOT / "physverify/schemes").glob("*.py")),
            "variational": [ROOT / "physverify/variational.py"],
-           "theory": [ROOT / "physverify/obligations.py", *sorted((ROOT / "physverify/tools").glob("*.py"))]}
+           "theory": [ROOT / "physverify/obligations.py", *sorted((ROOT / "physverify/tools").glob("*.py"))],
+           "reconstruction": [ROOT / "physverify/reconstruction.py"]}
 
 
 def _params(layer: str):
@@ -156,12 +157,14 @@ def test_specs_declare_the_param_keys_their_claims_read():
             want.setdefault(name, []).append(key)
     missing = [(where, n, key) for where, spec in _scheme_specs() for n in spec["named_claims"]
                for key in want.get(n, []) if not _lookup(spec.get("claims", {}), key) and (where, n) not in PARAM_EXCEPTIONS]
-    want = {}
-    for name, label, key, _ in _params("variational"):
-        want.setdefault(name, []).append(key)
-    for p in sorted((ROOT / "benchmark/variational").glob("*.json")):
-        for c in json.loads(p.read_text())["claims"]:
-            missing += [(p.name, c["claim"], key) for key in want.get(c["claim"], []) if not _lookup(c, key)]
+    for layer in ("variational", "reconstruction"):
+        want = {}
+        for name, label, key, optional in _params(layer):
+            if not optional:
+                want.setdefault(name, []).append(key)
+        for p in sorted((ROOT / f"benchmark/{layer}").glob("*.json")):
+            for c in json.loads(p.read_text())["claims"]:
+                missing += [(p.name, c["claim"], key) for key in want.get(c["claim"], []) if not _lookup(c, key)]
     assert missing == []
 
 

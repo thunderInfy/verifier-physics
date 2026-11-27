@@ -10,12 +10,13 @@ reading live here, and every layer checks its names against `KINDS` at import (`
 Fields of an entry:
   gloss       one plain-English line
   quantifier  the quantifier structure in one line
-  layers      where the name is used: schemes, variational, conserved, derivation, theory
+  layers      where the name is used: schemes, variational, conserved, derivation, theory, reconstruction
   meaning     the Lean theorem that gives the claim its proven semantics, or None (gloss only)
   params      {label: {layer: key}}: for each parameter of the claim, where each layer reads it.
               schemes: a dotted path from the spec root (`claims.consistent_order`), with a final `?`
                 when the key is optional (the check then uses a default);
-              variational: `claims[].p`, a key of the claim's own entry in the spec's `claims` list;
+              variational, reconstruction: `claims[].p`, a key of the claim's own entry in the spec's
+                `claims` list (a final `?` again marks an optional key);
               theory: `args.law`, `args.evidence`, an argument of the obligation, which the planning
                 tool fills from the theory file (a law's name) or an evidence file (its id), not a
                 spec key.
@@ -30,7 +31,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-LAYERS = ("schemes", "variational", "conserved", "derivation", "theory")
+LAYERS = ("schemes", "variational", "conserved", "derivation", "theory", "reconstruction")
 
 KINDS: dict[str, dict] = {
     # discrete schemes (physverify/schemes/claims.py, CLAIMS)
@@ -192,6 +193,17 @@ KINDS: dict[str, dict] = {
                       "<= M h^{p+1} wherever |R| <= M (on every compact set some M works)",
         "layers": ["variational"], "meaning": "update_order_meaning",
         "params": {"p": {"variational": "claims[].p"}}},
+    # reconstructions (physverify/reconstruction.py)
+    "reconstruction_order_p": {
+        "gloss": "a WENO-type reconstruction (or its conservative difference) is accurate to order at least p, in "
+                 "the stated regime (f' != 0, or a critical point of order n_cp) and for the stated eps = c dx^m",
+        "quantifier": "for every smooth f in the regime: reconstruction - exact value = O(dx^p) (form point), or the "
+                      "difference of the errors at x_{i+1/2} and x_{i-1/2}, over dx, = O(dx^p) (form "
+                      "flux_difference); at least p",
+        "layers": ["reconstruction"], "meaning": None,
+        "params": {"p": {"reconstruction": "claims[].p"}, "form": {"reconstruction": "claims[].form?"},
+                   "regime": {"reconstruction": "claims[].regime"}, "n_cp": {"reconstruction": "claims[].n_cp?"},
+                   "eps": {"reconstruction": "claims[].eps?"}}},
     # continuous conserved quantities (physverify/conserved.py)
     "conserved": {
         "gloss": "Q is constant along every solution of the Euler–Lagrange equations of L that stays in D",
