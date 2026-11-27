@@ -53,8 +53,10 @@ hash rule.
 
 Only the dev half (9 sources, 99 items) is formalised and run; the heldout half is run once, later, with the
 checker commit pinned. `dev_readings.json` holds, for every dev item and each expected field (`alone`,
-`with_hypotheses`), either one or more formal readings or the reason there is none. `DEV_RESULTS.md` has the
-scores; `run_dev.py` recomputes them (`uv run python benchmark/outside/run_dev.py [--write]`).
+`with_hypotheses`), either one or more formal readings or the reason there is none. The readings' specs are in
+`specs/`. `DEV_RESULTS.md` has the scores; `run_dev.py` recomputes them
+(`uv run python benchmark/outside/run_dev.py [--write]`), and `tests/test_outside_dev.py` checks the stored ones.
+`ERRATA_PROPOSED.md` collects expected values we think are wrong, for the team to decide (none so far).
 
 ### Readings
 
