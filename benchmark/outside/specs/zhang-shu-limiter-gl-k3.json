@@ -1,0 +1,19 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Scaling limiter, degree 3, M_j and m_j over the 3 Gauss-Lobatto points S_j",
+ "source": "Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8) with (2.11), Theorem 2.5; S_j from Table 2.1 (N = 3)",
+ "reconstruction": {
+  "degree": 3,
+  "theta": [
+   "1",
+   "upper",
+   "lower"
+  ],
+  "extrema_over": [
+   "-1/2",
+   "0",
+   "1/2"
+  ],
+  "center": "avg"
+ }
+}

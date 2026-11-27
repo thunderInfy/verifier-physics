@@ -1,0 +1,15 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Scaling limiter, degree 2, M_j and m_j over the whole cell",
+ "source": "Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8)-(2.9), Lemma 2.4; Zhang and Shu, Proc. R. Soc. A 467 (2011), (2.9)-(2.10), Lemma 1: p~ = theta (p - ubar) + ubar, theta = min{|(M - ubar)/(M_j - ubar)|, |(m - ubar)/(m_j - ubar)|, 1}",
+ "reconstruction": {
+  "degree": 2,
+  "theta": [
+   "1",
+   "upper",
+   "lower"
+  ],
+  "extrema_over": "cell",
+  "center": "avg"
+ }
+}

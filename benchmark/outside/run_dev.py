@@ -121,8 +121,8 @@ def run(data: dict, checker=check) -> dict:
     for key, (c, names) in groups.items():
         if c["claim"] in reconstruction.CLAIMS:
             spec = json.loads((SPECS / c["spec"]).read_text())
-            r = reconstruction.check_claim(spec["reconstruction"], {"claim": c["claim"], **c["params"]})
-            out[key] = {c["claim"]: r["verdict"]}
+            out[key] = {n: reconstruction.check_claim(spec["reconstruction"], {"claim": n, **c["params"]})["verdict"]
+                        for n in dict.fromkeys(names)}
             continue
         names = list(dict.fromkeys(names))
         report = checker(bench._spec(SPECS, c["spec"], c.get("override", {}), names))

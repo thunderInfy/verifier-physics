@@ -1757,6 +1757,32 @@ a rational solution, re-checked by recomputing the ENO choices directly. Results
 k = 1, 2, 3 with either tie rule and fails for the linear stencils {i-1, i} and {i-1, i, i+1}. The exact supremum
 of J / D is 1, 2 and 7/2 for k = 1, 2, 3. k >= 4 is UNKNOWN: 4^6 branch pairs, and the elimination takes minutes.
 
+### The scaling limiter
+
+Zhang and Shu's bound-preserving limiter p~ = ubar + theta (p - ubar), theta = min(1, |M - ubar|/|M_x - ubar|,
+|m - ubar|/|m_x - ubar|), with M_x, m_x the extrema of p over the cell or over the Gauss–Lobatto points. This was
+the next mechanism in the same dev survey's ranking, so its readings are tuned on the dev items too. The bench
+(`benchmark/reconstruction/limiter/`, committed first) also has typo variants: theta without the 1 or without the
+lower term, scaling about p(0), and too few points. `physverify/limiter.py` decides three claims for every
+polynomial of degree k <= 3 and all m <= M:
+
+- `limiter_keeps_average`: an identity when the centre is the average functional.
+- `limiter_bounds` (on a set of points or the cell): VERIFIED when theta has both ratio terms, ubar is in
+  [m, M] and the set is dominated by the extrema set at degree k (for k >= 2: a subset of it, or S is the cell;
+  -(y - y')^2 peaks off the points otherwise).
+- `limiter_accuracy`: max |p~ - p| <= C max dist(p, [m, M]). VERIFIED when the 1 is in theta and the average is a
+  non-negative combination of the values on S. C is a bound on max |q| / max q over zero-mean q of degree k: from
+  the k + 1 Newton–Cotes nodes, C <= max_a max L_a / w_a - 1, with each max certified by Sturm. That gives 1, 5, 7
+  for k = 1, 2, 3; these are upper bounds, not the suprema.
+
+Each REFUTED verdict comes with a datum (p, m, M) from a fixed list of simple candidates. The datum is checked by
+exact evaluation, and for accuracy, d = 0 is certified by Sturm while theta != 1. When no candidate works the
+verdict is UNKNOWN. Results: every Zhang–Shu claim is VERIFIED for k = 1, 2, 3 (cell and Gauss–Lobatto). The bounds
+fail without ubar in [m, M]. The Gauss–Lobatto limiter bounds the points but not the whole cell for k = 2, 3 (it
+does for k = 1). Dropping the 1 breaks the accuracy, dropping the lower term breaks the bounds, scaling about p(0)
+breaks the average, and the two cell ends alone break the accuracy for k = 2. The accuracy clause does not need
+ubar in [m, M], which the sources assume.
+
 ## Class theorems
 
 The checks above decide a property of one concrete scheme. A theorem about every scheme with a

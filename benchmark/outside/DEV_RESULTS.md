@@ -1,7 +1,8 @@
 # Outside benchmark, dev half: what the checker can state and decide
 
 The 99 dev items (9 sources, split in `FROZEN.md`) were read against the checker as it was on main
-(physverify/schemes, no changes). **Re-scored after four checker additions; the fourth is tuned on these items.**
+(physverify/schemes, no changes). **Re-scored after five checker additions; the fourth and fifth are tuned on these
+items.**
 (1) A checker fix (commit 055abd1):
 exact univariate nonnegativity in `positivity` and the linear TVD equivalence `tvd_linear`, both general, closed
 the two gaps on `harten_1982_highres:05`; no reading, spec or expected value changed, and no other verdict moved.
@@ -19,15 +20,20 @@ motivated by fjordholm_mishra_tadmor_2012_tecno:06, :07 and :08. Because the cla
 coverage of these items, their 6 readings (flagged `tuned_on` in `dev_readings.json`) and the 8 MATCH fields
 resting only on them measure how far the tuning reached, not how the checker does on unseen claims. The same
 survey found a reading for jiang_shu_1995_weno:01 (with hypotheses) that needed no checker change, and moved its
-alone field to `family_unspecified`. The numbers below include all four; the numbers before (4) were 12 of 99
-items stated, 16 of 17 readings decided, 9 / 9 MATCH; the first-round numbers (before any of them) are 9 of 99
-items stated, 12 of 14 readings decided, 7 / 6 MATCH, 0 WRONG. Readings and reasons are in `dev_readings.json`, following the rules and the gap
+alone field to `family_unspecified`. (5) The scaling limiter, **also tuned on the dev items**: the next mechanism
+in the same survey's ranking, motivated by zhang_shu_2010_maxprinciple:06, :07 and zhang_shu_2011_survey:05.
+`limiter_keeps_average`, `limiter_bounds` and `limiter_accuracy` (`physverify/limiter.py`; bench specs and
+expected verdicts first, commit a929b43, now in `benchmark/reconstruction/limiter/`) decide the limiter's
+properties exactly for degrees k <= 3. Its 3 readings are flagged `tuned_on` as well. The numbers below include
+all five; the numbers before (5) were 19 of 99 items stated, 23 of 24 readings decided, 13 / 14 MATCH; before (4)
+12 of 99 items stated, 16 of 17 readings decided, 9 / 9 MATCH; the first-round numbers (before any of them) are 9
+of 99 items stated, 12 of 14 readings decided, 7 / 6 MATCH, 0 WRONG. Readings and reasons are in `dev_readings.json`, following the rules and the gap
 taxonomy in `README.md` (committed before any item was classified). `run_dev.py` recomputes every verdict in about
 5 s; `tests/test_outside_dev.py` checks that the stored verdicts and scores are what the checker gives now. No
-heldout item was opened, formalised or run. The eleven claim names used (`consistent`, `positive_under_cfl`,
+heldout item was opened, formalised or run. The fourteen claim names used (`consistent`, `positive_under_cfl`,
 `von_neumann_stable_under_cfl`, `local_max_principle_under_cfl`, `tvd_under_cfl`, `truncation_order_smooth_data`,
 `stated_identity`, `reconstruction_order_p`, `cell_average_max_principle`, `eno_sign_property`,
-`eno_jump_ratio_at_most`)
+`eno_jump_ratio_at_most`, `limiter_keeps_average`, `limiter_bounds`, `limiter_accuracy`)
 are checked against the claim-kind registry `physverify/claimkinds.py` by `tests/test_claimkinds.py`, and each is
 used in the registry's reading.
 
@@ -38,18 +44,22 @@ global-to-local maximum principle in `zhang_shu_2010_maxprinciple:04`, and the f
 `harten_1982_highres:05` (TVD iff non-negative coefficients, through `positive_under_cfl`). Its second reading,
 through `tvd_under_cfl`, uses the same equivalence as a row of the claims table (`tvd_linear`) instead. A
 fourth bridge is in `fjordholm_mishra_tadmor_2012_tecno:08` (reconstruction v3): the paper's identification (3.20)
-of the scaled ENO reconstruction with plain ENO on the data mu^{i+1}, in the scalar case.
+of the scaled ENO reconstruction with plain ENO on the data mu^{i+1}, in the scalar case. The limiter readings
+add three: "(k+1)-th order accurate limiter" read as max |p~ - p| <= C_k max dist(p, [m, M]) (zhang_shu_2010:06,
+zhang_shu_2011_survey:05, and the order clause of zhang_shu_2010:07), and, for :07, the step (2.10) as the
+cell-average step fed by the limited polynomials, whose average and Gauss–Lobatto values the limiter claims put
+in place for Theorem 2.2.
 
 ## 1. Statable fraction
 
-**19 of 99 dev items** have at least one formal reading: 16 for the `alone` field, 17 for `with_hypotheses`
-(before reconstruction v3: 12 of 99, 10 and 10; first round: 9 of 99, 8 and 7). Six of the 19 are stated only
-with the claim kinds tuned on these items (marked *tuned* below).
+**22 of 99 dev items** have at least one formal reading: 19 for the `alone` field, 20 for `with_hypotheses`
+(before the limiter: 19 of 99, 16 and 17; before reconstruction v3: 12 of 99, 10 and 10; first round: 9 of 99, 8
+and 7). Nine of the 22 are stated only with the claim kinds tuned on these items (marked *tuned* below).
 
 | property | stated / items | stated items |
 |---|---|---|
 | positivity | 5 / 26 | zhang_shu_2010_maxprinciple:02, :04, :05 (*tuned*), zhang_shu_2011_survey:04, :13 (*tuned*) |
-| order | 5 / 24 | harten_1982_highres:01, fjordholm_mishra_tadmor_2012_tecno:02 (its entropy clause only), :03, jiang_shu_1995_weno:01, :05 (with hypotheses) |
+| order | 8 / 24 | harten_1982_highres:01, fjordholm_mishra_tadmor_2012_tecno:02 (its entropy clause only), :03, jiang_shu_1995_weno:01, :05 (with hypotheses), zhang_shu_2010_maxprinciple:06, :07, zhang_shu_2011_survey:05 (*tuned*) |
 | stability | 3 / 11 | mfa_oslo_notes:03, :04, :05 |
 | entropy | 1 / 11 | fjordholm_mishra_tadmor_2012_tecno:04 |
 | convergence | 1 / 8 | harten_1982_highres:11 (its order clause only) |
@@ -58,19 +68,21 @@ with the claim kinds tuned on these items (marked *tuned* below).
 | monotone | 0 / 2 | |
 | conservation | 0 / 1 | |
 
-Every one of the 24 readings narrows its sentence: linear advection (a = 1) for a general flux or sign of a, one
+Every one of the 27 readings narrows its sentence: linear advection (a = 1) for a general flux or sign of a, one
 viscosity Q, a scalar instance of a system (Burgers with u^2/2 for the two TeCNO identities), a two-stage SSP method for "SSP high order time discretizations",
 a Courant range [0, 2] standing for "no CFL restriction", or (WENO, jiang_shu_1995_weno:05) one split flux
 component, the order as the truncation error at one point, and eps = 0 for "eps negligible", or (reconstruction
 v3) f(u) = u with the Lax–Friedrichs flux and degrees k <= 3 for the Gauss–Lobatto items, k = 2, 3 for the ENO
 items, read in the weak form of the sign property (the strict form fails on linear data for every k >= 2; see
-`benchmark/reconstruction/eno/README.md`). Each narrowing is recorded in the reading. A narrowed
+`benchmark/reconstruction/eno/README.md`), or (the limiter) degrees k <= 3 for "every k", with :07 also narrowed
+to f(u) = u and the Lax–Friedrichs flux. Each narrowing is recorded in the reading. A narrowed
 VERIFIED verifies the instance only.
 
 ## 2. Decided fraction
 
-**23 of 24 readings are decided** (15 VERIFIED, 8 REFUTED, all exact; before reconstruction v3 16 of 17; first
-round 12 of 14). All 7 new readings are VERIFIED. The one undecided
+**26 of 27 readings are decided** (18 VERIFIED, 8 REFUTED, all exact; before the limiter 23 of 24; before
+reconstruction v3 16 of 17; first round 12 of 14). The 7 readings of reconstruction v3 and the 3 limiter readings
+are all VERIFIED. The one undecided
 reading is tecno:02's (expected UNSURE): its entropy-conservation clause is VERIFIED by `stated_identity`, but its
 second-order clause has no named claim, so the conjunction is UNKNOWN. Before the checker fix the two readings of
 `harten_1982_highres:05` (Harten's scheme with Q(x) = x^2 + 1/4 on linear advection, TVNI for nu up to
@@ -88,14 +100,14 @@ Scores per field (fields with no reading count as GAP when the expected value is
 
 | field | MATCH | WRONG | GAP | UNSCORED (UNSURE) |
 |---|---|---|---|---|
-| alone | 13 | 0 | 55 | 31 |
-| with hypotheses | 14 | 0 | 53 | 32 |
+| alone | 16 | 0 | 52 | 31 |
+| with hypotheses | 17 | 0 | 50 | 32 |
 
-All 27 matches rest on narrowed readings, and 8 of them (zhang_shu_2010_maxprinciple:05, zhang_shu_2011_survey:04,
-:13 and fjordholm_mishra_tadmor_2012_tecno:08, both fields each) rest only on readings made with the checker tuned
-on these items. Of the 68 alone and 67 with-hypotheses fields that have a TRUE/FALSE expectation, the checker
-decides 13 and 14, about 20% (before reconstruction v3 9 and 9; without the tuned readings 9 and 10; first round
-7 and 6).
+All 33 matches rest on narrowed readings, and 14 of them (zhang_shu_2010_maxprinciple:05, :06, :07,
+zhang_shu_2011_survey:04, :05, :13 and fjordholm_mishra_tadmor_2012_tecno:08, both fields each) rest only on
+readings made with the checker tuned on these items. Of the 68 alone and 67 with-hypotheses fields that have a
+TRUE/FALSE expectation, the checker decides 16 and 17, about 24% (before the limiter 13 and 14; before
+reconstruction v3 9 and 9; without the tuned readings 9 and 10, unchanged; first round 7 and 6).
 
 ## 3. Wrong count
 
@@ -184,17 +196,20 @@ The decided readings, with the witness or certificate each verdict rests on:
 | fjordholm_mishra_tadmor_2012_tecno:06 | both (UNSURE) | VERIFIED (*tuned*) | ENO of point values, k = 2, 3, both tie rules: every failing system (D > 0 and J < 0, D = 0 and J != 0, ...) on each of the 14 (k = 2) or 88 (k = 3) non-empty selection branches is infeasible (Fourier–Motzkin, exact) |
 | fjordholm_mishra_tadmor_2012_tecno:07 | both (UNSURE) | VERIFIED (*tuned*) | J / D <= 2 (k = 2) and <= 7/2 (k = 3), both tie rules, the same way; the constants are the exact suprema (C_3 = 7/2 is our computation, not a published value we checked) |
 | fjordholm_mishra_tadmor_2012_tecno:08 | both | VERIFIED (*tuned*) | as tecno:06, through the bridge (3.20): in the scalar case the scaled reconstruction is plain ENO on the data mu^{i+1}, onto all data |
+| zhang_shu_2010_maxprinciple:06 | both | VERIFIED (*tuned*) | the limiter (2.8)-(2.9), M_j, m_j over the cell, k = 1, 2, 3: p~ - p = (theta - 1)(p - ubar) with 0 <= theta <= 1, and max \|p~ - p\| <= C_k max dist(p, [m, M]) with C_k <= 1, 5, 7, a bound on max \|q\| / max q over zero-mean q of degree k from the Newton–Cotes nodes (weights > 0, max of each Lagrange basis polynomial certified by Sturm); the hypothesis ubar in [m, M] is not needed for this clause |
+| zhang_shu_2011_survey:05 | both | VERIFIED (*tuned*) | the same lemma, (2.9)-(2.10): the same three specs |
+| zhang_shu_2010_maxprinciple:07 | both | VERIFIED (*tuned*) | k = 1, 2, 3 with M_j, m_j over the Gauss–Lobatto points (2.11): the average is kept (identity), p~ is in [m, M] at every Gauss–Lobatto point (the points where M_j, m_j are taken, so the bound argument applies), the accuracy bound holds with the same C_k (the average is a non-negative combination of the point values: weights 1/2, 1/2 and 1/6, 2/3, 1/6), and `cell_average_max_principle` as for :05 on [0, min w_alpha] |
 | fjordholm_mishra_tadmor_2012_tecno:04 | both | REFUTED | identity (3.3) as transcribed, Burgers, D = 1: LHS - RHS = (u_{i+1}^2 - 2 u_i^2 + u_{i-1}^2)/2, which is 1/2 at (u_{i-1}, u_i, u_{i+1}) = (0, 0, 1); with the minus sign of Lemma 3.2 it normalises to 0 |
 
 ## 4. Gap taxonomy
 
-Primary reason per unformalised field (the first in the README's order that blocks a reading; 87 items have no
-reading at all, and 4 lack one for a single field):
+Primary reason per unformalised field (the first in the README's order that blocks a reading; 77 items have no
+reading at all, and 5 lack one for a single field):
 
 | reason | primary (fields entries) | items, any mention | what it would take |
 |---|---|---|---|
 | `scheme-class` | 27 | 27 | theorems about every scheme with a property (monotone ⇒ TVD, conservative ⇔ flux form, Lax–Wendroff, Crandall–Majda, Harten's lemma). A spec is one scheme. This needs statements over parametrised schemes, i.e. Lean proofs with the flux as a variable, not more checks |
-| `reconstruction` | 14 | 41 | what is left after reconstruction v3 (`notes/reconstruction-survey.md`): the scaling limiter and its accuracy (3 primary items), WENO at discontinuities (1), ENO accuracy and the no-Gibbs clause (1), FV/DG schemes as a whole with time stepping (5), an l1 identity, nonlinearity, a semi-discrete invariant region (3, not reconstruction claims). Before v3: 21 primary, 48 any |
+| `reconstruction` | 11 | 38 | what is left after reconstruction v3 and the limiter (`notes/reconstruction-survey.md`): WENO at discontinuities (1), ENO accuracy and the no-Gibbs clause (1), FV/DG schemes as a whole with time stepping (5), an l1 identity, nonlinearity, a semi-discrete invariant region (3, not reconstruction claims). Before the limiter: 14 primary, 41 any; before v3: 21 primary, 48 any |
 | `multi-d` | 15 | 16 | 2D rectangles and triangles (the two maximum-principle sources and TeCNO), plus one d-dimensional WENO theorem |
 | `system` | 9 | 18 | Euler, general systems with entropy variables, constant-coefficient systems with several fields. Counted only where a scalar narrowing would change the truth or lose the point |
 | `claim-kind-missing` | 6 | 22 | listed below |
@@ -280,7 +295,7 @@ the one first proposed:
    sum_k c_k = 1). `tvd_harten` with a general C, D split is still open.
 
 Larger items, in order of how many dev items they would open: claims over classes of schemes (27), reconstruction
-(41 mentions after reconstruction v3, the scaling limiter first), semi-discrete order and order away from
-extrema (about 6).
+(38 mentions after reconstruction v3 and the limiter; what is left needs time stepping, discontinuous data or 2D),
+semi-discrete order and order away from extrema (about 6).
 
 Expected-value corrections: one proposed (jiang_shu_1995_weno:02, with hypotheses, §3); see `ERRATA_PROPOSED.md`.

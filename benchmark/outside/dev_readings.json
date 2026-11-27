@@ -440,36 +440,247 @@
   },
   {
    "id": "zhang_shu_2010_maxprinciple:06",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "for every polynomial p_j of degree k with average ubar and every m <= M, the limited p~_j of (2.8)-(2.9) (M_j, m_j over the cell) differs from p_j by at most C_k times the overshoot of p_j over [m, M], so a (k+1)-th order accurate p_j gives a (k+1)-th order accurate p~_j",
+     "narrowing": "degrees k = 1, 2, 3 (the sentence is for every k); the cell in the local coordinate y in [-1/2, 1/2]; M_j and m_j as exact extrema; a ratio with a zero denominator left out of theta (p constant at ubar)",
+     "instance_from_justification": false,
+     "tuned_on": "limiter v4: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md, the 'limiter' rows)",
+     "formalization": [
+      {
+       "spec": "zhang-shu-limiter-cell-k1.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "'(k+1)-th order accurate limiter' read as the bound max_I |p~ - p| <= C_k max_I dist(p, [m, M]) with C_k depending on k only: dist(p(y), [m, M]) <= |p(y) - u(y)| for every u with values in [m, M], so max |p~ - u| <= (1 + C_k) max |p - u| = O(dx^(k+1)) when p is (k+1)-th order accurate (the accuracy of p is part of the notion, as the item's justification says); both sides are unchanged by the affine map of I_j to y in [-1/2, 1/2], so C_k does not depend on dx"
+      },
+      {
+       "spec": "zhang-shu-limiter-cell-k2.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "'(k+1)-th order accurate limiter' read as the bound max_I |p~ - p| <= C_k max_I dist(p, [m, M]) with C_k depending on k only: dist(p(y), [m, M]) <= |p(y) - u(y)| for every u with values in [m, M], so max |p~ - u| <= (1 + C_k) max |p - u| = O(dx^(k+1)) when p is (k+1)-th order accurate (the accuracy of p is part of the notion, as the item's justification says); both sides are unchanged by the affine map of I_j to y in [-1/2, 1/2], so C_k does not depend on dx"
+      },
+      {
+       "spec": "zhang-shu-limiter-cell-k3.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "'(k+1)-th order accurate limiter' read as the bound max_I |p~ - p| <= C_k max_I dist(p, [m, M]) with C_k depending on k only: dist(p(y), [m, M]) <= |p(y) - u(y)| for every u with values in [m, M], so max |p~ - u| <= (1 + C_k) max |p - u| = O(dx^(k+1)) when p is (k+1)-th order accurate (the accuracy of p is part of the notion, as the item's justification says); both sides are unchanged by the affine map of I_j to y in [-1/2, 1/2], so C_k does not depend on dx"
+      }
      ],
-     "note": "accuracy of the scaling limiter on polynomials"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {
    "id": "zhang_shu_2010_maxprinciple:07",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "with the limiter (2.8) on the Gauss-Lobatto points (2.11), p~_j keeps the average ubar_j, lies in [m, M] at every Gauss-Lobatto point, and differs from p_j by at most C_k times its overshoot; the Lax-Friedrichs cell-average step fed by the p~_j then keeps ubar^{n+1}_j in [m, M] for lambda a in [0, min w_alpha], and its spatial order is that of (2.1)",
+     "narrowing": "f(u) = u, so a = 1 and the Lax-Friedrichs flux is h(u, v) = u; degrees k = 1, 2, 3 (N = 2, 3, 3 Gauss-Lobatto points, rational: min w_alpha = 1/2, 1/6, 1/6); one Euler-forward step, cell 0; the order clause read, as the item's justification does, as the limiter's perturbation being O(dx^(k+1)) on top of the assumed order of (2.1); the cell in y in [-1/2, 1/2]",
+     "instance_from_justification": false,
+     "tuned_on": "limiter v4: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md, the 'limiter' rows); the cell-average step is reconstruction v3's tuned kind",
+     "formalization": [
+      {
+       "spec": "zhang-shu-limiter-gl-k1.json",
+       "claim": "limiter_keeps_average",
+       "relation": "same",
+       "params": {},
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-limiter-gl-k1.json",
+       "claim": "limiter_bounds",
+       "relation": "same",
+       "params": {
+        "on": [
+         "-1/2",
+         "1/2"
+        ]
+       },
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-gl-k1-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/2"
+        ]
+       },
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-limiter-gl-k1.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "the order clause as the item's justification reads it: the edge values change by at most C_k max dist(p_j, [m, M]) <= C_k max |p_j - u| = O(dx^(k+1)) (the GL limiter's theta is at least the cell limiter's, p. 10; limiter_accuracy decides it for the GL points directly), so the scheme keeps the formal order of (2.1)"
+      },
+      {
+       "spec": "zhang-shu-limiter-gl-k2.json",
+       "claim": "limiter_keeps_average",
+       "relation": "same",
+       "params": {},
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-limiter-gl-k2.json",
+       "claim": "limiter_bounds",
+       "relation": "same",
+       "params": {
+        "on": [
+         "-1/2",
+         "0",
+         "1/2"
+        ]
+       },
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-gl-k2-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/6"
+        ]
+       },
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-limiter-gl-k2.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "the order clause as the item's justification reads it: the edge values change by at most C_k max dist(p_j, [m, M]) <= C_k max |p_j - u| = O(dx^(k+1)) (the GL limiter's theta is at least the cell limiter's, p. 10; limiter_accuracy decides it for the GL points directly), so the scheme keeps the formal order of (2.1)"
+      },
+      {
+       "spec": "zhang-shu-limiter-gl-k3.json",
+       "claim": "limiter_keeps_average",
+       "relation": "same",
+       "params": {},
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-limiter-gl-k3.json",
+       "claim": "limiter_bounds",
+       "relation": "same",
+       "params": {
+        "on": [
+         "-1/2",
+         "0",
+         "1/2"
+        ]
+       },
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-gl-k3-lf-advection.json",
+       "claim": "cell_average_max_principle",
+       "relation": "same",
+       "params": {
+        "lam": [
+         "0",
+         "1/6"
+        ]
+       },
+       "bridge": "the step (2.10) is (2.1) fed by the limited polynomials: by limiter_keeps_average p~_j has average ubar^n_j (in [m, M] by hypothesis), and by limiter_bounds every Gauss-Lobatto value of p~_j, the two cell ends included, is in [m, M], also for the neighbours j - 1, j + 1 whose end values enter the fluxes; these are the hypotheses of cell_average_max_principle on degree-k polynomials, so ubar^{n+1}_j is in [m, M] (Theorem 2.2, the proof on p. 11)"
+      },
+      {
+       "spec": "zhang-shu-limiter-gl-k3.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "the order clause as the item's justification reads it: the edge values change by at most C_k max dist(p_j, [m, M]) <= C_k max |p_j - u| = O(dx^(k+1)) (the GL limiter's theta is at least the cell limiter's, p. 10; limiter_accuracy decides it for the GL points directly), so the scheme keeps the formal order of (2.1)"
+      }
      ],
-     "note": "order and maximum principle of the revised high-order scheme"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {
@@ -817,19 +1028,59 @@
   },
   {
    "id": "zhang_shu_2011_survey:05",
-   "readings": [],
-   "unformalized": [
+   "readings": [
     {
-     "fields": "both",
-     "reasons": [
-      "reconstruction"
+     "field": "both",
+     "reading": "for every polynomial p_j of degree k with average ubar and every m <= M, the limited p~_j of (2.9)-(2.10) (M_j, m_j over the cell) differs from p_j by at most C_k times the overshoot of p_j over [m, M], so a (k+1)-th order accurate p_j gives a (k+1)-th order accurate p~_j",
+     "narrowing": "degrees k = 1, 2, 3 (the sentence is for every k); the cell in the local coordinate y in [-1/2, 1/2]; M_j and m_j as exact extrema; a ratio with a zero denominator left out of theta (p constant at ubar)",
+     "instance_from_justification": false,
+     "tuned_on": "limiter v4: claim kinds chosen by their coverage of the dev items (notes/reconstruction-survey.md, the 'limiter' rows)",
+     "formalization": [
+      {
+       "spec": "zhang-shu-limiter-cell-k1.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "'(k+1)-th order accurate limiter' read as the bound max_I |p~ - p| <= C_k max_I dist(p, [m, M]) with C_k depending on k only: dist(p(y), [m, M]) <= |p(y) - u(y)| for every u with values in [m, M], so max |p~ - u| <= (1 + C_k) max |p - u| = O(dx^(k+1)) when p is (k+1)-th order accurate (the accuracy of p is part of the notion, as the item's justification says); both sides are unchanged by the affine map of I_j to y in [-1/2, 1/2], so C_k does not depend on dx"
+      },
+      {
+       "spec": "zhang-shu-limiter-cell-k2.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "'(k+1)-th order accurate limiter' read as the bound max_I |p~ - p| <= C_k max_I dist(p, [m, M]) with C_k depending on k only: dist(p(y), [m, M]) <= |p(y) - u(y)| for every u with values in [m, M], so max |p~ - u| <= (1 + C_k) max |p - u| = O(dx^(k+1)) when p is (k+1)-th order accurate (the accuracy of p is part of the notion, as the item's justification says); both sides are unchanged by the affine map of I_j to y in [-1/2, 1/2], so C_k does not depend on dx"
+      },
+      {
+       "spec": "zhang-shu-limiter-cell-k3.json",
+       "claim": "limiter_accuracy",
+       "relation": "same",
+       "params": {},
+       "bridge": "'(k+1)-th order accurate limiter' read as the bound max_I |p~ - p| <= C_k max_I dist(p, [m, M]) with C_k depending on k only: dist(p(y), [m, M]) <= |p(y) - u(y)| for every u with values in [m, M], so max |p~ - u| <= (1 + C_k) max |p - u| = O(dx^(k+1)) when p is (k+1)-th order accurate (the accuracy of p is part of the notion, as the item's justification says); both sides are unchanged by the affine map of I_j to y in [-1/2, 1/2], so C_k does not depend on dx"
+      }
      ],
-     "note": "accuracy of the scaling limiter"
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
     }
    ],
+   "unformalized": [],
    "score": {
-    "alone": "GAP",
-    "with_hypotheses": "GAP"
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
    }
   },
   {
