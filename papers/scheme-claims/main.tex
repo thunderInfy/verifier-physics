@@ -74,9 +74,10 @@ necessary or equivalent, with stated preconditions), so a failed sufficient chec
 a passed necessary check never verifies. We evaluate it twice. On an outside benchmark of verbatim
 sentences from published sources, with expected values fixed before any checker run, only the
 development half has been run so far: the checker can state a formal reading for
-\rn{9}{paper_numbers.py::outside_dev} of its \rn{99}{paper_numbers.py::outside_dev} sentences, every one
-of them narrowed to an instance. It decides \rn{12}{paper_numbers.py::outside_dev} of the
-\rn{14}{paper_numbers.py::outside_dev} readings and gets none wrong. Most of these sentences are about
+\rn{11}{paper_numbers.py::outside_dev} of its \rn{99}{paper_numbers.py::outside_dev} sentences, every one
+of them narrowed to an instance. It decides \rn{13}{paper_numbers.py::outside_dev} of the
+\rn{16}{paper_numbers.py::outside_dev} readings and gets none wrong (re-scored after we added a claim
+kind for printed identities; the first run gave 9, and 12 of 14). Most of these sentences are about
 high-order reconstruction, two space dimensions or whole classes of schemes, which the checker cannot
 yet express. Two naive readings that we rejected would have been wrong verdicts; they show that the
 error-prone step is reading the claim, not checking it. On our own benchmark of
@@ -86,7 +87,7 @@ formal readings, the checker decides \rn{34}{paper_numbers.py::bench_counts} cor
 and gives \rn{0}{paper_numbers.py::bench_counts} wrong verdicts; we wrote those sentences and their
 expected values ourselves (Section~\ref{sec:trust}). The exact checks run in Python with rational
 arithmetic, and many of their verdicts are replayed in the Lean proof assistant: on the
-\rn{30}{paper_numbers.py::lean_replay} example specs, the judge states
+\rn{30}{paper_numbers.py::lean_replay} example specs of the last full run, the judge states
 \rn{532}{paper_numbers.py::lean_replay} theorems and the Lean kernel accepts all of them.
 \end{abstract}
 
@@ -204,7 +205,8 @@ entries all satisfy $C$, and $H$ is the spec's update with $|x|$ written as $\sq
 statement contains square roots, a companion theorem \code{s11\_monotonicity\_ref\_sqrt} proves that
 each argument of $\sqrt{\cdot}$ is non-negative, so that Lean's convention $\sqrt{x} = 0$ for $x < 0$
 cannot be what makes the statement true. Both are accepted, and the verdict's label becomes
-``proven (Lean)''.\repro{paper_numbers.py::lean_replay} In that pass the judge states
+``proven (Lean)''.\repro{paper_numbers.py::lean_replay} In that pass, over the
+\rn{30}{paper_numbers.py::lean_replay} specs outside \code{schemes/identity/}, the judge states
 \rn{532}{paper_numbers.py::lean_replay} theorems, and Lean accepts
 \rn{532}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} (README, ``Lean certificates
 for the exact scheme checks'').
@@ -254,10 +256,12 @@ sentences copied from \rn{15}{paper_numbers.py::outside_dev} published papers, r
 notes by collectors who had not looked at the checker, with expected values fixed before any checker
 run (Section~\ref{sec:outside}).
 So far only its development half has been run, and the first result is about coverage: the checker
-can state a formal reading for \rn{9}{paper_numbers.py::outside_dev} of the
-\rn{99}{paper_numbers.py::outside_dev} sentences. Of the \rn{14}{paper_numbers.py::outside_dev}
-readings it decides \rn{12}{paper_numbers.py::outside_dev}, all exactly, and none of them is wrong.
-That zero is on easy readings (linear schemes, a CFL range), and the more useful finding is that two
+can state a formal reading for \rn{11}{paper_numbers.py::outside_dev} of the
+\rn{99}{paper_numbers.py::outside_dev} sentences. Of the \rn{16}{paper_numbers.py::outside_dev}
+readings it decides \rn{13}{paper_numbers.py::outside_dev}, all exactly, and none of them is wrong.
+These are re-scored numbers: after the first run (9 sentences; 12 of 14 readings) we added a claim kind
+for printed identities, and it gave readings to two more sentences.
+That zero is on easy readings (linear schemes, a CFL range, a rational identity), and the more useful finding is that two
 plausible readings we rejected would have been wrong verdicts. On our own benchmark there are 0 wrong
 verdicts among \rn{44}{paper_numbers.py::bench_counts} readings; since we wrote it, that number shows
 less than it seems (Section~\ref{sec:trust}).
@@ -288,7 +292,13 @@ Tools and planner that search for proofs & no & \code{physverify/tools/}, \code{
 The two scheme rows are the Lean replay: the statement generator is trusted, the proof planner is not.
 For the scheme checker itself, the other trusted pieces are the exact checks in
 \code{physverify/schemes/} (a verdict that Lean has not replayed rests on Python \code{Fraction}
-arithmetic) and the relation table in \code{claims.py}.
+arithmetic) and the relation table in \code{claims.py}. The \code{stated\_identity} kind, which
+checks that a formula a source prints satisfies its defining identity (an entropy pair, a cell entropy
+balance, a viscosity coefficient, an amplification factor), also trusts the rational normal form of
+\code{poly.py}, and has no Lean meaning theorem. It decides polynomial and rational identities only:
+an entropy with a logarithm (the physical entropy of the Euler equations, the logarithmic mean of
+entropy-conservative fluxes) or an exponential comes out \U, never
+\R.\repro{tests/test_stated_identity.py::test_unknown_names_its_reason}
 
 \paragraph{What stays outside the Lean kernel.} These steps are not checked by Lean:
 \begin{itemize}
@@ -340,7 +350,8 @@ were written by us, knowing the expected values, and only its development half h
 \paragraph{Scope.} One space dimension. Scalar conservation laws, plus $2\times2$ systems for
 hyperbolicity, conservation, consistency and depth positivity (shallow water). Three-point stencils,
 and five-point stencils for limited schemes of linear advection. Polynomials, $|\cdot|$, $\min$,
-$\max$, $\mathrm{minmod}$, and square roots of even powers; division only by monomials. Anything else
+$\max$, $\mathrm{minmod}$, and square roots of even powers; division only by monomials, except in
+\code{stated\_identity}, which allows any rational function. Anything else
 returns \U, which is never a wrong verdict. Global order of accuracy for nonlinear schemes is
 empirical only.
 
@@ -446,8 +457,8 @@ scope check (linear update with coefficients in $\Delta t/\Delta x$ only, combin
 certified $\Delta t/\Delta x$, smooth data). For a nonlinear scheme the scope check returns \NA, and the
 row cannot fire.\repro{tests/test_schemes.py::test_lax_richtmyer_never_fires_for_nonlinear_schemes}
 
-\paragraph{Selected rows.} The full table has \rn{21}{paper_numbers.py::table_size} named claims
-and \rn{37}{paper_numbers.py::table_size} rows. Some of the rows used in this paper:
+\paragraph{Selected rows.} The full table has \rn{22}{paper_numbers.py::table_size} named claims
+and \rn{38}{paper_numbers.py::table_size} rows. Some of the rows used in this paper:
 \begin{center}\small
 \begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{4.7cm}>{\raggedright\arraybackslash}X l l@{}}
 \toprule
@@ -562,11 +573,17 @@ steady non-entropy step \R & the step identities for every $\lambda > 0$, and $u
 \end{tabularx}
 \end{table}
 
-In the full pass over the \rn{30}{paper_numbers.py::lean_replay} example specs (README command
+In the last full pass, over the \rn{30}{paper_numbers.py::lean_replay} example specs outside
+\code{schemes/identity/} (README command
 \code{python -m physverify.schemes schemes/*.json schemes/*/*.json --lean}), the judge states
 \rn{532}{paper_numbers.py::lean_replay} theorems, \rn{42}{paper_numbers.py::lean_replay} of them
 the square-root side conditions, and no in-scope verdict is left unstated. Lean accepts
-\rn{532}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} of the 532. The README's
+\rn{532}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} of the 532. That pass
+predates the \rn{13}{paper_numbers.py::lean_replay} specs of \code{schemes/identity/} (the
+\code{stated\_identity} rows of Section~\ref{sec:outside}); on them the judge states
+\rn{26}{paper_numbers.py::lean_replay} more theorems (consistency and conservation of each spec's
+numerical flux), bringing the total to \rn{558}{paper_numbers.py::lean_replay}, and we have not run
+Lean on those 26. The README's
 cost table (section ``Lean certificates for the exact scheme checks'') gives, for a warm repeat on a
 2-CPU, 8\,GB machine shared with other jobs, a wall time of
 \rn{638\,s}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven}, of which Lean takes
@@ -738,41 +755,50 @@ below), fixed in the README before any item was classified. The runner
 the stored verdicts and scores are what the checker gives
 now.\repro{tests/test_outside_dev.py::test_stored_verdicts_and_scores_are_what_the_checker_gives_now}
 
+\paragraph{Re-scored after a checker addition.} The numbers below are from a second scoring of the
+development half. The first run found that two sentences needed a claim kind for a formula the source
+prints (an entropy flux, an entropy-conservative flux); we then added the \code{stated\_identity} kind
+(Section~\ref{sec:trust}) and re-scored, so the development half is no longer untouched by checker
+changes made after seeing it. The first run gave readings for 9 of the 99 sentences and decided 12 of
+its 14 readings, with none wrong.
+
 \paragraph{How much can be stated.} The checker can state a formal reading for
-\rn{9}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} of the
-\rn{99}{paper_numbers.py::outside_dev} development sentences (\rn{8}{paper_numbers.py::outside_dev}
-for the field alone, \rn{7}{paper_numbers.py::outside_dev} with hypotheses). By property
+\rn{11}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} of the
+\rn{99}{paper_numbers.py::outside_dev} development sentences (\rn{10}{paper_numbers.py::outside_dev}
+for the field alone, \rn{9}{paper_numbers.py::outside_dev} with hypotheses). By property
 tag:\repro{paper_numbers.py::outside_dev}
 \begin{center}\small
 \begin{tabular}{@{}lrlr@{}}
 \toprule
 property & stated / items & property & stated / items \\ \midrule
 positivity & 2 / 26 & convergence & 1 / 8 \\
-order & 2 / 24 & other & 0 / 8 \\
+order & 3 / 24 & other & 0 / 8 \\
 stability & 3 / 11 & TVD & 1 / 8 \\
-entropy & 0 / 11 & monotone & 0 / 2 \\
+entropy & 1 / 11 & monotone & 0 / 2 \\
  & & conservation & 0 / 1 \\
 \bottomrule
 \end{tabular}
 \end{center}
-All \rn{14}{paper_numbers.py::outside_dev} readings narrow their sentence.
+All \rn{16}{paper_numbers.py::outside_dev} readings narrow their sentence.
 
-\paragraph{How much is decided.} \rn{12}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results}
-of the \rn{14}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} readings are decided:
-\rn{5}{paper_numbers.py::outside_dev} \V{} and \rn{7}{paper_numbers.py::outside_dev} \R, all exact
-(rational arithmetic; none of them has been replayed in Lean). The two undecided readings are both on
-one sentence of Harten's report \cite{harten1983} (a three-point scheme with viscosity
+\paragraph{How much is decided.} \rn{13}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results}
+of the \rn{16}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} readings are decided:
+\rn{5}{paper_numbers.py::outside_dev} \V{} and \rn{8}{paper_numbers.py::outside_dev} \R, all exact
+(rational arithmetic; none of them has been replayed in Lean). Of the
+\rn{3}{paper_numbers.py::outside_dev} undecided readings, one is \code{tecno:02}'s (expected UNSURE):
+\code{stated\_identity} verifies its entropy-conservation clause, but its second-order clause has no
+claim kind, so the conjunction is \U. The other two are both on one sentence of Harten's report \cite{harten1983} (a three-point scheme with viscosity
 $Q(x) = x^2 + 1/4$ on linear advection), and both are \U{} because of checker limits, not hard cases.
 The positivity check runs the Bernstein test on the whole $\nu$-interval without subdividing it, and
 one coefficient, $(\nu - 1/2)^2/2$, has a double root inside. The TVD check certifies Harten's form only
 with the upwind split. Counting the fields that have a TRUE or FALSE expectation, the checker decides
-\rn{7}{paper_numbers.py::outside_dev} of \rn{68}{paper_numbers.py::outside_dev} alone and
-\rn{6}{paper_numbers.py::outside_dev} of \rn{67}{paper_numbers.py::outside_dev} with hypotheses; all
-\rn{13}{paper_numbers.py::outside_dev} matches are on narrowed readings.
+\rn{8}{paper_numbers.py::outside_dev} of \rn{68}{paper_numbers.py::outside_dev} alone and
+\rn{7}{paper_numbers.py::outside_dev} of \rn{67}{paper_numbers.py::outside_dev} with hypotheses; all
+\rn{15}{paper_numbers.py::outside_dev} matches are on narrowed readings.
 
 \paragraph{Wrong verdicts.} \rn{0}{tests/test_outside_dev.py::test_no_wrong_verdict_and_every_gap_reading_is_explained}
 in both fields, and no \IC. This zero says little. The readings that reached the checker are the
-easy kind: linear schemes, a CFL range, one smooth extremum.
+easy kind: linear schemes, a CFL range, one smooth extremum, one rational identity.
 
 \paragraph{The gaps.} Each item field without a reading has one entry (covering one field or both)
 that lists its reasons. The table gives, for each reason, the entries for which it is the primary
@@ -784,8 +810,8 @@ reason & primary & any & what it would take \\ \midrule
 class of schemes & 27 & 27 & theorems about every scheme with a property (monotone implies TVD, the Lax--Wendroff theorem); a spec is one scheme \\
 reconstruction & 23 & 50 & WENO/ENO stencil selection, polynomial reconstructions, DG and finite-volume limiters \\
 multi-D & 15 & 16 & 2D rectangles and triangles \\
-system & 10 & 19 & Euler, general systems with entropy variables \\
-claim kind missing & 7 & 24 & semi-discrete order, order away from extrema, energy identities, E-fluxes, numerical entropy flux identities \\
+system & 9 & 18 & Euler, general systems with entropy variables \\
+claim kind missing & 6 & 22 & semi-discrete order, order away from extrema, energy identities summed over the grid, E-fluxes \\
 not checkable & 7 & 7 & numerical observations, comparisons, existential wording \\
 illegible & 2 & 2 & the formula is illegible in the scan \\
 variable coefficients & 1 & 7 & a velocity that varies in space \\
@@ -813,13 +839,17 @@ because their truth value differs from the sentence's. Run once, outside the sto
 gives a verdict against the expected value (it would be scored \textsf{WRONG}). Item identifiers are
 shortened.\repro{paper_numbers.py::outside_naive_readings}
 \begin{itemize}
-\item \emph{An entropy flux, as we transcribed it} (Fjordholm, Mishra and Tadmor \cite{fjordholm2012tecno},
+\item \emph{An entropy flux, as printed} (Fjordholm, Mishra and Tadmor \cite{fjordholm2012tecno},
   Lemma~3.1; item \code{tecno:04}, FALSE in both fields). The sentence says the scheme with flux (3.2) is
   entropy stable, \emph{with} a cell entropy identity (3.3) whose numerical entropy flux $\hat Q$ is
-  defined in the same sentence. The entropy flux as we transcribed it (the sign as printed, in our
-  reading of Lemma~3.1, is $+\tfrac12$) fails the identity. The sign in the paper's own Lemma~3.2,
-  $-\tfrac12$, satisfies it.\footnote{The transcription is being re-checked by a second, independent
-  transcription. We have not searched for an erratum.} At $f \equiv 0$, $D = 1$, $\Delta x = 1$ and
+  defined in the same sentence. The entropy flux as printed (two independent readings of Lemma~3.1 agree
+  that its sign is $+\tfrac12$) fails the identity. The sign in the paper's own Lemma~3.2,
+  $-\tfrac12$, satisfies it.\footnote{Two readings of p.~551 agree with the collector's transcription on the
+  printed sign, one of them blind (by a team member who had not seen our item, on another copy of the
+  paper on the author's site). Lemma~3.2 of the same paper and the authors' 2010
+  precursor both use the minus sign. We found no erratum or later version, but we did not check the
+  journal's own erratum links. See \code{benchmark/outside/notes/tecno04-transcription.md}.} At
+  $f \equiv 0$, $D = 1$, $\Delta x = 1$ and
   $(u_{i-1}, u_i, u_{i+1}) = (0, 0, 1)$, the scheme gives $\tfrac{d}{dt}E(u_i) =
   \rn{0}{paper_numbers.py::outside_naive_readings}$; the identity with $+\tfrac12$ requires
   \rn{$-1/2$}{paper_numbers.py::outside_naive_readings}, and with $-\tfrac12$ it requires
@@ -827,7 +857,11 @@ shortened.\repro{paper_numbers.py::outside_naive_readings}
   sentence becomes \code{entropy\_stable\_tadmor} on Burgers' equation with the entropy-conservative
   flux and $D = 1$, and the checker returns \V{} (exact; semi-discrete only). That verdict is correct
   about the scheme. It is scored wrong because the sentence's content includes the printed formula,
-  which no named claim looks at.
+  which in the first run no named claim looked at. The stored reading now uses the
+  \code{stated\_identity} kind, which decides the printed identity directly: with the printed sign it
+  is \R, with residual $\tfrac12(u_{i+1}^2 - 2u_i^2 + u_{i-1}^2)$, which is
+  \rn{$1/2$}{tests/test_stated_identity.py::test_tecno04_witness_and_residual} at $(0, 0, 1)$; with the
+  sign of Lemma~3.2 it is \V.\repro{tests/test_stated_identity.py::test_residual_is_the_sign_flip}
 \item \emph{Energy growth} (Mishra, Fjordholm and Abgrall \cite{mishranotes2023}, Lemma~2.3; item
   \code{mfa:02}, FALSE). ``The energy grows at every time step for any choice of $\Delta x$, $\Delta t$'',
   for the centred scheme on linear advection. Read as ``the centred scheme is not von Neumann stable'', it
@@ -840,7 +874,8 @@ shortened.\repro{paper_numbers.py::outside_naive_readings}
 The two cases show where outside claims go wrong: in reading the claim, not in checking it. A named
 claim can be true of the scheme while the formula the paper prints is false (or, in the second case,
 while the sentence says more than the property). Without a claim kind for the printed object, here an
-identity for a stated numerical entropy flux, the checker cannot see the formula at all. A person
+identity for a stated numerical entropy flux, the checker cannot see the formula at all; that is why
+we added \code{stated\_identity}. A person
 choosing a reading by the property the paper means would get a confident, exact, wrong-scored verdict.
 
 \paragraph{The formaliser was not blind.} The sentences and expected values were fixed blind, but we
@@ -1098,8 +1133,8 @@ current main (commit \code{9e906e7}). The merge gate is
 \paragraph{Claim kinds.} Table~\ref{tab:kinds} is generated from the registry
 \code{physverify/claimkinds.py} (\code{paper\_numbers.py --write-table}), and a test fails if the
 table in the paper drifts from it.\repro{tests/test_paper_numbers.py::test_claim_kind_table_matches_the_registry}
-Of the \rn{32}{paper_numbers.py::claim_kinds} kinds, \rn{9}{paper_numbers.py::claim_kinds} have a
-Lean meaning theorem; of the \rn{21}{paper_numbers.py::claim_kinds} kinds used for schemes, only
+Of the \rn{33}{paper_numbers.py::claim_kinds} kinds, \rn{9}{paper_numbers.py::claim_kinds} have a
+Lean meaning theorem; of the \rn{22}{paper_numbers.py::claim_kinds} kinds used for schemes, only
 \rn{2}{paper_numbers.py::claim_kinds} do (\code{conservative} and \code{positive\_under\_cfl}).
 
 A Lean \emph{label} on a verdict is a different thing: it says that the certificate behind the verdict
@@ -1114,8 +1149,8 @@ rows, consistency of a recovered flux, the entropy check's \V{} cells) or are em
 their exact-Python or empirical label. We count a \V{} reading if all its components carry a Lean label, and a \R{}
 reading if one of its refuting components does. The count is of the theorems the judge states
 (\rn{401}{paper_numbers.py::bench_lean_labels} for the benchmark's specs), taken as accepted: we did not
-run Lean on the benchmark's specs for this paper, only on the example specs, where all 532 stated
-theorems were accepted. Only \rn{5}{paper_numbers.py::bench_lean_labels} of the 34 verdicts rest
+run Lean on the benchmark's specs for this paper, only on the 30 example specs of the last full run,
+where all 532 stated theorems were accepted. Only \rn{5}{paper_numbers.py::bench_lean_labels} of the 34 verdicts rest
 entirely on claim kinds with a meaning theorem. For the rest, even a Lean-labelled verdict says that a
 certificate is correct, while the step from the certificate to the claim's English gloss is ours.
 

@@ -190,7 +190,14 @@ def lean_replay() -> dict:
     names = [n for n, _, _ in stated]
     i = paths.index(S / "broken-burgers-rusanov-wide-cfl.json")
     rus = [n for n in names if n.startswith(f"s{i}_monotonicity")]
+    # the stated_identity rows (schemes/identity/) came after the last full Lean run, which covered the others
+    ident = {f"s{j}_" for j, p in enumerate(paths) if p.parent.name == "identity"}
+    new = [n for n in names if any(n.startswith(s) for s in ident)]
     out = {"specs": str(len(paths)), "theorems stated": str(len(names)),
+           "specs in schemes/identity": str(len(ident)),
+           "theorems stated for schemes/identity": str(len(new)),
+           "specs outside schemes/identity": str(len(paths) - len(ident)),
+           "theorems stated outside schemes/identity": str(len(names) - len(new)),
            "sqrt side theorems": str(sum(n.endswith("_sqrt") for n in names)),
            "Rusanov refutation theorems": ", ".join(rus),
            "Rusanov refutation statement": next(s for n, s, _ in stated if n == rus[0])}

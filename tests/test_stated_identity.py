@@ -20,6 +20,7 @@ EXPECTED = {
     "entropy-pair-burgers": C.VERIFIED,
     "broken-entropy-pair-burgers": C.REFUTED,
     "entropy-pair-burgers-exp": C.UNKNOWN,          # a true pair, but exp is outside the rational fragment
+    "entropy-pair-burgers-log": C.UNKNOWN,          # a true pair (eta = u log u), but log is outside it too
     "viscosity-lax-friedrichs": C.VERIFIED,
     "broken-viscosity-lax-friedrichs": C.REFUTED,     # Q = lam*a^2 is Lax-Wendroff's
     "amplification-upwind": C.VERIFIED,
@@ -65,8 +66,9 @@ def test_residual_is_the_sign_flip(checked):
         assert _check(spec, checked)["witness"]["residual LHS - RHS"] == want
 
 
-def test_unknown_names_its_reason(checked):
-    r = _check("entropy-pair-burgers-exp", checked)
+@pytest.mark.parametrize("name", ["entropy-pair-burgers-exp", "entropy-pair-burgers-log"])
+def test_unknown_names_its_reason(name, checked):
+    r = _check(name, checked)
     assert r["status"] == C.UNKNOWN and "app" in r["detail"]
 
 

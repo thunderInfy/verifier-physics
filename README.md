@@ -1356,7 +1356,11 @@ means N normalises to 0. REFUTED means an exact rational point in the domain, wi
 N/Dn != 0. For `amplification` that point is a rational nu and a rational point
 ((1 - t^2) + 2ti)/(1 + t^2) on the unit circle, evaluated in exact complex rationals. Everything
 else is UNKNOWN: exp, log, non-integer powers, or a non-zero N with no witness found. No verdict
-comes from floating-point sampling. The rows are in `schemes/identity/` and `tests/test_stated_identity.py`.
+comes from floating-point sampling. So the check decides polynomial and rational identities only: an
+entropy pair with a log term (the physical entropy of the Euler equations, the logarithmic mean in
+entropy-conservative fluxes) or with exp comes out UNKNOWN, never REFUTED, even when the pair is true
+(rows `entropy-pair-burgers-log` and `entropy-pair-burgers-exp`). The rows are in `schemes/identity/` and
+`tests/test_stated_identity.py`.
 In `benchmark/outside`, the identity (3.3) of `fjordholm_mishra_tadmor_2012_tecno:04` as
 transcribed is REFUTED (residual (up1^2 - 2 u0^2 + um1^2)/2, the difference across the cell of
 v-bar [v]), and it is VERIFIED with the minus sign that the paper's Lemma 3.2 uses.

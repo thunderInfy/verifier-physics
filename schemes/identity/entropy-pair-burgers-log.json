@@ -1,0 +1,20 @@
+{
+ "name": "Burgers with eta = u log u, q = (u^2/2) log u + u^2/4 (a true pair on u > 0, outside the rational fragment)",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uL*uR + uR^2)/6"
+ },
+ "named_claims": [
+  "stated_identity"
+ ],
+ "claims": {
+  "stated_identity": {
+   "form": "entropy_pair",
+   "eta": "u*log(u)",
+   "q": "u^2/2*log(u) + u^2/4",
+   "domain": ["u > 0"]
+  }
+ }
+}
