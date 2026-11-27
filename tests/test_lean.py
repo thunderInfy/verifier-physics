@@ -496,6 +496,49 @@ def test_wrong_certificates_fall_back_to_exact_python():
     assert (pos["status"], pos["guarantee"]) == (checks.REFUTED, checks.EXACT)
 
 
+# ---------------------------------------------------------------- TVD through Harten's lemma
+# `-k harten`: the TVD claim itself, `TVD H` for every lam in the range, proven through
+# `tvd_of_incremental` (Harten.harten_tvd_of_form) with the incremental-form certificate's C, D.
+
+HARTEN_SPECS = [ROOT / "schemes/limiters/advection-minmod.json",
+                ROOT / "benchmark/outside/specs/harten-q-quadratic-advection.json",
+                ROOT / "benchmark/outside/specs/lax-friedrichs-global-advection.json"]
+
+
+@pytest.fixture(scope="module")
+def harten_certified():
+    pairs = [(schemes.load(p), None) for p in HARTEN_SPECS]
+    pairs = [(s, schemes.check(s)) for s, _ in pairs]
+    t = time.time()
+    results = lean_cert.certify(pairs)
+    print(f"\nHarten TVD replay: {len(results)} theorems, {time.time() - t:.0f}s")
+    return pairs, results
+
+
+def test_harten_tvd_replays_with_the_whole_statement_label(harten_certified):
+    pairs, results = harten_certified
+    for spec, rep in pairs:
+        r = next(x for x in rep["checks"] if x["check"] == "tvd_harten")
+        assert r["status"] == checks.VERIFIED and r["guarantee"] == lean_cert.LEAN, (spec["name"], r.get("lean"))
+        v = next(x for x in rep["claims"] if x["claim"] == "tvd_under_cfl")
+        assert v["guarantee"] == lean_cert.LEAN and v["lean_check"] == "tvd_harten", spec["name"]
+
+
+def test_harten_wrong_coefficient_is_rejected():
+    """A D larger than the scheme's (2 nu instead of nu in the upwind split) breaks the form identity;
+    the row keeps its exact-Python label and its status."""
+    def bad(spec, r):
+        return lean_planner.harten_proof(spec, r).replace("=> (((1 : ℝ) * lam) * (x2 - x1)", "=> ((2 * ((1 : ℝ) * lam)) * (x2 - x1)", 1)
+    planner = types.SimpleNamespace(**{k: getattr(lean_planner, k) for k in dir(lean_planner) if not k.startswith("__")})
+    planner.harten_proof = bad
+    spec = schemes.load(ROOT / "schemes/limiters/advection-minmod.json")
+    rep = schemes.check(spec)
+    r = next(x for x in rep["checks"] if x["check"] == "tvd_harten")
+    assert bad(spec, r) != lean_planner.harten_proof(spec, r)
+    lean_cert.certify([(spec, rep)], planner=planner)
+    assert (r["status"], r["guarantee"]) == (checks.VERIFIED, checks.EXACT)
+
+
 # ---------------------------------------------------------------- variational integrators
 # Claim files in benchmark/variational/ (physverify/variational.py), certificates in
 # PhysVerify.Discrete. Skipped cleanly where there is no Lean toolchain or no Mathlib build.

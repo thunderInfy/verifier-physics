@@ -201,7 +201,7 @@ def cell_proof(p, atoms: list, hint) -> str:
 
 # ---------------------------------------------------------------- TVD through Harten's lemma
 
-def _sqrt_terms(e: E, names: dict) -> tuple[list, E]:
+def _sqrt_terms(e: E, names: dict, prefix: str = "s") -> tuple[list, E]:
     """For each distinct sqrt(t^2) in e, innermost first: (the Lean text of t with the square roots
     inside it already named s0, s1, ..., which `_pw` generalizes them to; t as a polynomial in the
     flux arguments uLL, uL, uR and _s0, _s1, ...). Also e itself with its square roots so named."""
@@ -220,7 +220,7 @@ def _sqrt_terms(e: E, names: dict) -> tuple[list, E]:
             if x.args[0].kind != "powi" or x.args[0].q != 2:
                 raise ValueError("a square root of something other than a square")
             t = named(x.args[0].args[0])
-            out.append((real(t, {**names, **{f"_s{k}": f"s{k}" for k in range(len(ids))}}, set(), []), P.from_expr(t)))
+            out.append((real(t, {**names, **{f"_s{k}": f"{prefix}{k}" for k in range(len(ids))}}, set(), []), P.from_expr(t)))
             ids[to_str(x)] = len(ids)
     walk(e)
     return out, named(e)
@@ -511,6 +511,10 @@ def harten_proof(spec: dict, r: dict) -> str:
                 f"(fun h => by\n      have e : w 2 = w 1 := by linarith\n      rw [e{',' if zd else ''}{zd}]\n      ring)")
     rws.append("hd")
     form.append(f"  rw [{', '.join(rws)}]")
+    if Bt:                  # name the square roots of both interfaces, so ring sees small atoms
+        for pre, args in (("sp", ("(w 1)", "(w 2)", "(w 3)")), ("sm", ("(w 0)", "(w 1)", "(w 2)"))):
+            ts, _ = _sqrt_terms(h.L, dict(zip(("uLL", "uL", "uR"), args)), pre)
+            form += [f"  generalize Real.sqrt (({t}) ^ 2) = {pre}{k}" for k, (t, _) in enumerate(ts)]
     form.append("  " + RING)
     # the bounds
     if h.form == "upwind":
