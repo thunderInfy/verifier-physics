@@ -1,0 +1,33 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO5-JS, finite-volume reconstruction from cell averages",
+ "source": "Jiang and Shu, J. Comput. Phys. 126 (1996), (3.2)-(3.4) read as a finite-volume reconstruction of u at x_{i+1/2}",
+ "reconstruction": {
+  "data": "cell_averages",
+  "target": "value",
+  "point": "1/2",
+  "candidates": ["(2*vm2 - 7*vm1 + 11*v0)/6", "(-vm1 + 5*v0 + 2*vp1)/6", "(2*v0 + 5*vp1 - vp2)/6"],
+  "weights": {
+   "kind": "js",
+   "d": ["1/10", "6/10", "3/10"],
+   "beta": ["13/12*(vm2 - 2*vm1 + v0)^2 + 1/4*(vm2 - 4*vm1 + 3*v0)^2",
+            "13/12*(vm1 - 2*v0 + vp1)^2 + 1/4*(vm1 - vp1)^2",
+            "13/12*(v0 - 2*vp1 + vp2)^2 + 1/4*(3*v0 - 4*vp1 + vp2)^2"],
+   "q": 2
+  }
+ },
+ "claims": [
+  {"claim": "reconstruction_order_p", "p": 5, "form": "point", "regime": "generic", "eps": {"c": "1/1000000", "m": "0"},
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "as for the flux form: the averages of u are point values of the sliding average of u, with the same leading betas"},
+  {"claim": "reconstruction_order_p", "p": 6, "form": "point", "regime": "generic", "eps": {"c": "1/1000000", "m": "0"},
+   "expect": "REFUTED", "confidence": "derived", "why": "linear part has a dx^5 term"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "point", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "u'(x_i) = 0 makes the slope of the averages O(dx^2), which enters beta only at dx^6; the dx^4 cancellation of the flux form carries over"},
+  {"claim": "reconstruction_order_p", "p": 3, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived", "why": "convex weights of third-order candidates"},
+  {"claim": "reconstruction_order_p", "p": 4, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "REFUTED", "confidence": "derived", "why": "Henrick et al. mechanism, as for the flux form"}
+ ]
+}

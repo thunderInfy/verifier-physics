@@ -1,0 +1,30 @@
+{
+ "kind": "reconstruction",
+ "name": "fifth-order linear (upwind-biased) reconstruction: the WENO5 candidates with the fixed weights d_k",
+ "source": "sanity check: the linear weights of Jiang and Shu, Table 2 (r = 3)",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(2*vm2 - 7*vm1 + 11*v0)/6", "(-vm1 + 5*v0 + 2*vp1)/6", "(2*v0 + 5*vp1 - vp2)/6"],
+  "weights": {"kind": "linear", "d": ["1/10", "6/10", "3/10"]}
+ },
+ "claims": [
+  {"claim": "reconstruction_order_p", "p": 5, "form": "point", "regime": "generic",
+   "expect": "VERIFIED", "confidence": "derived", "why": "the 5-point upwind-biased reconstruction is fifth order"},
+  {"claim": "reconstruction_order_p", "p": 6, "form": "point", "regime": "generic",
+   "expect": "REFUTED", "confidence": "derived", "why": "error -(1/60) h^(5) dx^5 + ..., non-zero"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "point", "regime": "critical", "n_cp": 1,
+   "expect": "VERIFIED", "confidence": "derived", "why": "linear: the regime does not matter"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "point", "regime": "critical", "n_cp": 2,
+   "expect": "VERIFIED", "confidence": "derived", "why": "linear: the regime does not matter"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "generic",
+   "expect": "VERIFIED", "confidence": "derived", "why": "difference of a smooth dx^5 error term"},
+  {"claim": "reconstruction_order_p", "p": 6, "form": "flux_difference", "regime": "generic",
+   "expect": "REFUTED", "confidence": "derived", "why": "the difference of C(x) dx^5 is C'(x) dx^5, non-zero"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "critical", "n_cp": 1,
+   "expect": "VERIFIED", "confidence": "derived", "why": "linear: the regime does not matter"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "critical", "n_cp": 2,
+   "expect": "VERIFIED", "confidence": "derived", "why": "linear: the regime does not matter"}
+ ]
+}

@@ -1,0 +1,37 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO5-JS flux form with a deliberate typo: 1/3 instead of 1/4 in beta_1",
+ "source": "weno5-js-fd.json with one coefficient changed, to show what a transcription error does",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(2*vm2 - 7*vm1 + 11*v0)/6", "(-vm1 + 5*v0 + 2*vp1)/6", "(2*v0 + 5*vp1 - vp2)/6"],
+  "weights": {
+   "kind": "js",
+   "d": ["1/10", "6/10", "3/10"],
+   "beta": ["13/12*(vm2 - 2*vm1 + v0)^2 + 1/4*(vm2 - 4*vm1 + 3*v0)^2",
+            "13/12*(vm1 - 2*v0 + vp1)^2 + 1/3*(vm1 - vp1)^2",
+            "13/12*(v0 - 2*vp1 + vp2)^2 + 1/4*(3*v0 - 4*vp1 + vp2)^2"],
+   "q": 2
+  }
+ },
+ "claims": [
+  {"claim": "reconstruction_order_p", "p": 5, "form": "point", "regime": "generic", "eps": {"c": "1/1000000", "m": "0"},
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "eps fixed: omega_k - d_k = O(beta/eps) = O(dx^2) whatever the beta coefficients, so the typo is invisible asymptotically"},
+  {"claim": "reconstruction_order_p", "p": 3, "form": "point", "regime": "generic", "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived", "why": "convex weights of third-order candidates"},
+  {"claim": "reconstruction_order_p", "p": 4, "form": "point", "regime": "generic", "eps": "0",
+   "expect": "REFUTED", "confidence": "derived",
+   "why": "leading betas f'^2 dx^2 (1, 4/3, 1): the limit weights are not d_k, so the dx^3 candidate errors do not cancel"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "point", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "at f'(x_i) = 0 the 1/4 terms are O(dx^6) against (13/12) f''^2 dx^4, so the typo enters the weights at O(dx^2) only"},
+  {"claim": "reconstruction_order_p", "p": 2, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived", "why": "convex weights: each reconstruction is O(dx^3), the difference O(dx^2)"},
+  {"claim": "reconstruction_order_p", "p": 3, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "REFUTED", "confidence": "derived",
+   "why": "at the i-1/2 stencil f' = -f'' dx, so the first-difference terms are (f'' dx^2)^2, as large as the 13/12 terms; with the typo the leading betas differ and the limit weights are not d_k there"}
+ ]
+}

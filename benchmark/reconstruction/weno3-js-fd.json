@@ -1,0 +1,28 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO3-JS (r = 2), finite-difference flux form",
+ "source": "Jiang and Shu, J. Comput. Phys. 126 (1996), r = 2: candidates from Table 1, C_k = 1/3, 2/3 (Table 2), IS_k = (f[j+k-1, 1])^2 (2.19); critical points: Henrick, Aslam and Powers (2005), Table 10",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(-vm1 + 3*v0)/2", "(v0 + vp1)/2"],
+  "weights": {"kind": "js", "d": ["1/3", "2/3"], "beta": ["(v0 - vm1)^2", "(vp1 - v0)^2"], "q": 2}
+ },
+ "claims": [
+  {"claim": "reconstruction_order_p", "p": 3, "form": "flux_difference", "regime": "generic", "eps": {"c": "1/1000000", "m": "0"},
+   "expect": "VERIFIED", "confidence": "derived", "why": "eps fixed: weights d_k + O(dx^2)"},
+  {"claim": "reconstruction_order_p", "p": 3, "form": "flux_difference", "regime": "generic", "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "f' != 0: beta_0, beta_1 = (f' dx)^2 (1 -+ (f''/f') dx + ...), omega_k = d_k + O(dx), but uniformly in the centre, so the difference keeps order 3 (Jiang and Shu p. 7, 'in most smooth regions')"},
+  {"claim": "reconstruction_order_p", "p": 4, "form": "flux_difference", "regime": "generic", "eps": "0",
+   "expect": "REFUTED", "confidence": "derived", "why": "the linear part already has a non-zero dx^3 term"},
+  {"claim": "reconstruction_order_p", "p": 1, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived", "why": "convex weights of second-order candidates: O(dx^2)/dx"},
+  {"claim": "reconstruction_order_p", "p": 2, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "REFUTED", "confidence": "derived",
+   "why": "at the i-1/2 stencil the leading betas are (9/4, 1/4) f''^2 dx^4, the limit weights are not d_k; Henrick et al. Table 10 gives rate 1"},
+  {"claim": "reconstruction_order_p", "p": 3, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": {"c": "1/1000000", "m": "0"},
+   "expect": "VERIFIED", "confidence": "derived", "why": "eps fixed: beta = O(dx^4) << eps, weights d_k + O(dx^4)"}
+ ]
+}
