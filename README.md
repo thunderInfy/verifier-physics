@@ -1652,6 +1652,41 @@ domains (positivity of h, Riemann-invariant bounds) take its place. Positivity o
 exactly (above); the Riemann-invariant bounds are not checked yet. The eigenvalues need square roots. We report them, but no check depends on
 them.
 
+### Reconstructions: the order of WENO weights, critical points included
+
+`physverify/reconstruction.py` decides `reconstruction_order_p`: a WENO-type reconstruction, written as
+expressions over the stencil values (candidates q_k, linear weights d_k, indicators beta_k,
+alpha_k = d_k/(eps + beta_k)^q), has error O(dx^p) for every smooth f in a regime: f' != 0, or a critical
+point of order n_cp (f' = ... = f^(n_cp) = 0 at x_i). The claim names eps = c dx^m (rational m) or eps = 0, and
+a form: one reconstruction at x_i + s dx, or the conservative difference (R - T at i+1/2 minus R - T at i-1/2,
+over dx). Data are point values (target f, or the primitive h of the finite-difference flux form) or cell averages.
+
+The error is a power series in dx^(1/L), with coefficients that are polynomials in the Taylor jet (exact
+`Fraction`s). The weights' denominators are cleared. Their leading terms must be positive for every jet in the
+regime, which is shown by form; otherwise the answer is UNKNOWN. VERIFIED means every coefficient below dx^p is
+the zero polynomial; no jet is sampled. REFUTED gives a rational jet, the order k < p and the exact dx^k
+coefficient. Tests re-check every REFUTED witness, and every eps = 0 VERIFIED row on sampled jets, by evaluating
+the formulas directly at rational dx.
+
+`uv run python -m physverify.reconstruction` runs `benchmark/reconstruction/` (43 claims, expected verdicts
+committed before the checker existed; all 43 agree). Leading orders for WENO5-JS (Jiang–Shu indicators), flux
+form:
+
+| form | regime | eps | leading order |
+|---|---|---|---|
+| point or difference | f' != 0 | 10^-6, dx^2 or 0 | 5 |
+| difference | f' = 0, f'' != 0 | 0 or dx^4 | **3** (the drop Henrick, Aslam and Powers found) |
+| difference | f' = 0, f'' != 0 | dx^2 or 10^-6 fixed | 5 |
+| point (one reconstruction) | f' = 0, f'' != 0 | 0 | 5 |
+| point / difference | f' = f'' = 0 | 0 | 3 / 2 |
+
+The drop at a critical point is a property of the difference. At x_{i+1/2} alone the O(dx) weight errors
+d_k (f'''/f'')(4/5 - 4(k-1)) dx cancel against the candidate errors (1/4, -1/12, 1/12) f''' dx^3. At x_{i-1/2}
+(f' = -f'' dx there) they do not. With a fixed eps the order is 5 at critical points too, because IS_k = O(dx^4)
+is eventually small against eps. Other rows: WENO3-JS drops to 1 at critical points (eps = 0), the linear
+weights give 5 everywhere, and a typo of 1/3 for 1/4 in beta_1 is invisible with fixed eps but gives order 3
+with eps = 0 where f' != 0.
+
 ## Class theorems
 
 The checks above decide a property of one concrete scheme. A theorem about every scheme with a
