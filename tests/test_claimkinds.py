@@ -8,7 +8,7 @@ from pathlib import Path
 
 from physverify import claimkinds, conserved, derivation, obligations, variational
 from physverify.claimkinds import KINDS, LAYERS
-from physverify.schemes import claims as scheme_claims
+from physverify.schemes import bench as scheme_bench, claims as scheme_claims
 
 ROOT = Path(__file__).resolve().parent.parent
 # directory -> layer of the claim names its JSON files use
@@ -74,7 +74,11 @@ def test_entries_are_well_formed():
         assert set(k) == {"gloss", "quantifier", "layers", "meaning", "params"}, name
         assert k["gloss"] and k["quantifier"] and "\n" not in k["gloss"] + k["quantifier"], name
         assert k["layers"] and set(k["layers"]) <= set(LAYERS), name
-        assert isinstance(k["params"], list), name
+        assert isinstance(k["params"], dict), name
+        for label, keys in k["params"].items():
+            assert keys and set(keys) <= set(k["layers"]), (name, label)
+            for layer, key in keys.items():
+                assert key.startswith(ROOTS[layer]), (name, label, key)
 
 
 def test_theory_kinds_match_the_obligation_table():
@@ -83,7 +87,91 @@ def test_theory_kinds_match_the_obligation_table():
 
 def test_order_kinds_have_order_params():
     for name in variational.ORDER_KINDS:
-        assert KINDS[name]["params"] == ["p"], name
+        assert KINDS[name]["params"]["p"]["variational"] == "claims[].p", name
+
+
+# how each layer's param keys start (claimkinds docstring, `params`), and the code that reads them
+ROOTS = {"schemes": "claims.", "variational": "claims[].", "theory": "args."}
+SOURCES = {"schemes": sorted((ROOT / "physverify/schemes").glob("*.py")),
+           "variational": [ROOT / "physverify/variational.py"],
+           "theory": [ROOT / "physverify/obligations.py", *sorted((ROOT / "physverify/tools").glob("*.py"))]}
+
+
+def _params(layer: str):
+    """(claim name, param label, key without the root, optional) for every param `layer` reads."""
+    for name, k in KINDS.items():
+        for label, keys in k["params"].items():
+            if layer in keys:
+                key = keys[layer].removeprefix(ROOTS[layer])
+                yield name, label, key.rstrip("?"), key.endswith("?")
+
+
+def test_param_keys_are_read_by_their_layer():
+    """Every component of a param key is read, as a string literal, in the layer's code."""
+    for layer, paths in SOURCES.items():
+        code = "\n".join(p.read_text() for p in paths)
+        for name, label, key, _ in _params(layer):
+            for part in key.split("."):
+                assert f'"{part}"' in code, (layer, name, label, part)
+
+
+def _lookup(obj, key: str) -> bool:
+    for part in key.split("."):
+        if not isinstance(obj, dict) or part not in obj:
+            return False
+        obj = obj[part]
+    return True
+
+
+def _scheme_specs():
+    """(where, spec) for every scheme spec: the files (and specs nested in them), and every component
+    of the claims benchmark as the bench builds it (base spec plus override)."""
+    def walk(obj, where):
+        if isinstance(obj, dict):
+            if "named_claims" in obj:
+                yield where, obj
+            for k, v in obj.items():
+                yield from walk(v, f"{where}/{k}")
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                yield from walk(v, f"{where}[{i}]")
+    for d in ("schemes", "benchmark/scheme-claims/specs"):
+        for p in sorted((ROOT / d).rglob("*.json")):
+            yield from walk(json.loads(p.read_text()), str(p.relative_to(ROOT)))
+    base = ROOT / "benchmark/scheme-claims"
+    for c in scheme_bench.components(json.loads((base / "claims.json").read_text())):
+        if "unformalized" not in c:
+            yield (f"claims.json: {c['spec']} {c.get('override', {})}",
+                   scheme_bench._spec(base, c["spec"], c.get("override", {}), [c["claim"]]))
+
+
+# (where, claim name) -> why a spec using the claim may lack a param key; none today
+PARAM_EXCEPTIONS: dict[tuple[str, str], str] = {}
+
+
+def test_specs_declare_the_param_keys_their_claims_read():
+    want = {}
+    for name, label, key, optional in _params("schemes"):
+        if not optional:
+            want.setdefault(name, []).append(key)
+    missing = [(where, n, key) for where, spec in _scheme_specs() for n in spec["named_claims"]
+               for key in want.get(n, []) if not _lookup(spec.get("claims", {}), key) and (where, n) not in PARAM_EXCEPTIONS]
+    want = {}
+    for name, label, key, _ in _params("variational"):
+        want.setdefault(name, []).append(key)
+    for p in sorted((ROOT / "benchmark/variational").glob("*.json")):
+        for c in json.loads(p.read_text())["claims"]:
+            missing += [(p.name, c["claim"], key) for key in want.get(c["claim"], []) if not _lookup(c, key)]
+    assert missing == []
+
+
+def test_theory_tools_fill_the_param_args():
+    """Each planning tool names an obligation with exactly the args the registry lists for it."""
+    code = "\n".join(p.read_text() for p in SOURCES["theory"])
+    made = re.findall(r'Candidate\(NAME, "(\w+)", \{([^}]*)\}', code)
+    assert {k for k, _ in made} == set(obligations.KINDS)
+    for kind, args in made:
+        assert sorted(re.findall(r'"(\w+)":', args)) == sorted(KINDS[kind]["params"]), kind
 
 
 def test_meaning_theorems_exist_in_lean():

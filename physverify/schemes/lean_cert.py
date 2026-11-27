@@ -402,7 +402,8 @@ def certify(pairs: list[tuple[dict, dict]], timeout: int | None = None, planner=
                 continue
             items += obs
             owner.append((r, [n for n, _, _ in obs], LEAN_CELLS if cell else LEAN))
-    # one file for the whole run; the limit grows with it (about 2.5 s per theorem when warm, more under load)
+    # one file for the whole run; the limit grows with it (about 1 s per theorem when warm, 1.4 s on the first run
+    # after a build, more under load: README, costs of a full pass)
     timeout = timeout or 600 + 10 * len(items)
     results = lean_backend.check_batch(items, preamble="set_option linter.all false\nset_option maxHeartbeats 1000000", timeout=timeout,
                                        module="PhysVerify.Scheme", opens="PhysVerify PhysVerify.Scheme") if items else {}
