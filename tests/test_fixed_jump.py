@@ -157,8 +157,9 @@ def test_no_sufficient_row_verifies_what_the_fixed_jump_refutes(path):
     """A SUFFICIENT row VERIFYING a claim this check REFUTES would be INCONSISTENT: never on any spec here."""
     spec = copy.deepcopy(load(path))
     spec.setdefault("claims", {})
+    results = _exact(spec)                          # the same exact checks for every claim: run them once
     for name in CLAIMS:
-        v = C.judge([name], _exact(spec))[0]
+        v = C.judge([name], copy.deepcopy(results))[0]
         assert v["verdict"] != C.INCONSISTENT, v["detail"]
 
 
