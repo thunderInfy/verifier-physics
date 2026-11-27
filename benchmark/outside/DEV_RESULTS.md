@@ -1,21 +1,33 @@
 # Outside benchmark, dev half: what the checker can state and decide
 
 The 99 dev items (9 sources, split in `FROZEN.md`) were read against the checker as it was on main
-(physverify/schemes, no changes). **Re-scored after three checker additions.** (1) A checker fix (commit 055abd1):
+(physverify/schemes, no changes). **Re-scored after four checker additions; the fourth is tuned on these items.**
+(1) A checker fix (commit 055abd1):
 exact univariate nonnegativity in `positivity` and the linear TVD equivalence `tvd_linear`, both general, closed
 the two gaps on `harten_1982_highres:05`; no reading, spec or expected value changed, and no other verdict moved.
 (2) The `stated_identity` claim kind (a printed formula satisfies its defining identity,
 `physverify/schemes/identity.py`) gave readings to two more items, tecno:04 and tecno:02. (3) The
 `reconstruction_order_p` claim kind (exact order of WENO-type reconstructions, `physverify/reconstruction.py`,
 commit 2feeea8) gave a reading to jiang_shu_1995_weno:05 (with hypotheses, MATCH). jiang_shu_1995_weno:02 stays
-unformalised in both fields, now for a stated reason other than `reconstruction`: §3 has the details. The numbers
-below include all three; the first-round numbers (before any of them) are given where they changed: 9 of 99 items
-stated, 12 of 14 readings decided, 7 / 6 MATCH, 0 WRONG. Readings and reasons are in `dev_readings.json`, following the rules and the gap
+unformalised in both fields, now for a stated reason other than `reconstruction`: §3 has the details. (4)
+Reconstruction v3, **tuned on the dev items**: we surveyed the 48 dev items that list `reconstruction`
+(`notes/reconstruction-survey.md`, commit 1b3ff25, written before any checker change), and built the two
+mechanisms that cover the most of them (commit d184a85; bench specs and expected verdicts first, commit a764f2e):
+`cell_average_max_principle` (`physverify/cellaverage.py`), motivated by zhang_shu_2010_maxprinciple:05 and
+zhang_shu_2011_survey:04 and :13, and `eno_sign_property` / `eno_jump_ratio_at_most` (`physverify/eno.py`),
+motivated by fjordholm_mishra_tadmor_2012_tecno:06, :07 and :08. Because the claim kinds were chosen by their
+coverage of these items, their 6 readings (flagged `tuned_on` in `dev_readings.json`) and the 8 MATCH fields
+resting only on them measure how far the tuning reached, not how the checker does on unseen claims. The same
+survey found a reading for jiang_shu_1995_weno:01 (with hypotheses) that needed no checker change, and moved its
+alone field to `family_unspecified`. The numbers below include all four; the numbers before (4) were 12 of 99
+items stated, 16 of 17 readings decided, 9 / 9 MATCH; the first-round numbers (before any of them) are 9 of 99
+items stated, 12 of 14 readings decided, 7 / 6 MATCH, 0 WRONG. Readings and reasons are in `dev_readings.json`, following the rules and the gap
 taxonomy in `README.md` (committed before any item was classified). `run_dev.py` recomputes every verdict in about
 5 s; `tests/test_outside_dev.py` checks that the stored verdicts and scores are what the checker gives now. No
-heldout item was opened, formalised or run. The eight claim names used (`consistent`, `positive_under_cfl`,
+heldout item was opened, formalised or run. The eleven claim names used (`consistent`, `positive_under_cfl`,
 `von_neumann_stable_under_cfl`, `local_max_principle_under_cfl`, `tvd_under_cfl`, `truncation_order_smooth_data`,
-`stated_identity`, `reconstruction_order_p`)
+`stated_identity`, `reconstruction_order_p`, `cell_average_max_principle`, `eno_sign_property`,
+`eno_jump_ratio_at_most`)
 are checked against the claim-kind registry `physverify/claimkinds.py` by `tests/test_claimkinds.py`, and each is
 used in the registry's reading.
 
@@ -24,34 +36,41 @@ witnesses); none is empirical and none is a Lean proof. Three decisions also res
 reading (the reading's own reasoning, not checked by the code): `fjordholm_mishra_tadmor_2012_tecno:03`, the
 global-to-local maximum principle in `zhang_shu_2010_maxprinciple:04`, and the first reading of
 `harten_1982_highres:05` (TVD iff non-negative coefficients, through `positive_under_cfl`). Its second reading,
-through `tvd_under_cfl`, uses the same equivalence as a row of the claims table (`tvd_linear`) instead.
+through `tvd_under_cfl`, uses the same equivalence as a row of the claims table (`tvd_linear`) instead. A
+fourth bridge is in `fjordholm_mishra_tadmor_2012_tecno:08` (reconstruction v3): the paper's identification (3.20)
+of the scaled ENO reconstruction with plain ENO on the data mu^{i+1}, in the scalar case.
 
 ## 1. Statable fraction
 
-**12 of 99 dev items** have at least one formal reading: 10 for the `alone` field, 10 for `with_hypotheses`
-(first round: 9 of 99, 8 and 7).
+**19 of 99 dev items** have at least one formal reading: 16 for the `alone` field, 17 for `with_hypotheses`
+(before reconstruction v3: 12 of 99, 10 and 10; first round: 9 of 99, 8 and 7). Six of the 19 are stated only
+with the claim kinds tuned on these items (marked *tuned* below).
 
 | property | stated / items | stated items |
 |---|---|---|
-| positivity | 2 / 26 | zhang_shu_2010_maxprinciple:02, :04 |
-| order | 4 / 24 | harten_1982_highres:01, fjordholm_mishra_tadmor_2012_tecno:02 (its entropy clause only), :03, jiang_shu_1995_weno:05 (with hypotheses) |
+| positivity | 5 / 26 | zhang_shu_2010_maxprinciple:02, :04, :05 (*tuned*), zhang_shu_2011_survey:04, :13 (*tuned*) |
+| order | 5 / 24 | harten_1982_highres:01, fjordholm_mishra_tadmor_2012_tecno:02 (its entropy clause only), :03, jiang_shu_1995_weno:01, :05 (with hypotheses) |
 | stability | 3 / 11 | mfa_oslo_notes:03, :04, :05 |
 | entropy | 1 / 11 | fjordholm_mishra_tadmor_2012_tecno:04 |
 | convergence | 1 / 8 | harten_1982_highres:11 (its order clause only) |
-| other | 0 / 8 | |
+| other | 3 / 8 | fjordholm_mishra_tadmor_2012_tecno:06, :07, :08 (*tuned*) |
 | tvd | 1 / 8 | harten_1982_highres:05 |
 | monotone | 0 / 2 | |
 | conservation | 0 / 1 | |
 
-Every one of the 17 readings narrows its sentence: linear advection (a = 1) for a general flux or sign of a, one
+Every one of the 24 readings narrows its sentence: linear advection (a = 1) for a general flux or sign of a, one
 viscosity Q, a scalar instance of a system (Burgers with u^2/2 for the two TeCNO identities), a two-stage SSP method for "SSP high order time discretizations",
 a Courant range [0, 2] standing for "no CFL restriction", or (WENO, jiang_shu_1995_weno:05) one split flux
-component, the order as the truncation error at one point, and eps = 0 for "eps negligible". Each narrowing is recorded in the reading. A narrowed
+component, the order as the truncation error at one point, and eps = 0 for "eps negligible", or (reconstruction
+v3) f(u) = u with the Lax–Friedrichs flux and degrees k <= 3 for the Gauss–Lobatto items, k = 2, 3 for the ENO
+items, read in the weak form of the sign property (the strict form fails on linear data for every k >= 2; see
+`benchmark/reconstruction/eno/README.md`). Each narrowing is recorded in the reading. A narrowed
 VERIFIED verifies the instance only.
 
 ## 2. Decided fraction
 
-**16 of 17 readings are decided** (8 VERIFIED, 8 REFUTED, all exact; first round 12 of 14). The one undecided
+**23 of 24 readings are decided** (15 VERIFIED, 8 REFUTED, all exact; before reconstruction v3 16 of 17; first
+round 12 of 14). All 7 new readings are VERIFIED. The one undecided
 reading is tecno:02's (expected UNSURE): its entropy-conservation clause is VERIFIED by `stated_identity`, but its
 second-order clause has no named claim, so the conjunction is UNKNOWN. Before the checker fix the two readings of
 `harten_1982_highres:05` (Harten's scheme with Q(x) = x^2 + 1/4 on linear advection, TVNI for nu up to
@@ -69,11 +88,14 @@ Scores per field (fields with no reading count as GAP when the expected value is
 
 | field | MATCH | WRONG | GAP | UNSCORED (UNSURE) |
 |---|---|---|---|---|
-| alone | 9 | 0 | 59 | 31 |
-| with hypotheses | 9 | 0 | 58 | 32 |
+| alone | 13 | 0 | 55 | 31 |
+| with hypotheses | 14 | 0 | 53 | 32 |
 
-All 18 matches rest on narrowed readings. Of the 68 alone and 67 with-hypotheses fields that have a TRUE/FALSE
-expectation, the checker decides 9 and 9, about 13% (first round 7 and 6).
+All 27 matches rest on narrowed readings, and 8 of them (zhang_shu_2010_maxprinciple:05, zhang_shu_2011_survey:04,
+:13 and fjordholm_mishra_tadmor_2012_tecno:08, both fields each) rest only on readings made with the checker tuned
+on these items. Of the 68 alone and 67 with-hypotheses fields that have a TRUE/FALSE expectation, the checker
+decides 13 and 14, about 20% (before reconstruction v3 9 and 9; without the tuned readings 9 and 10; first round
+7 and 6).
 
 ## 3. Wrong count
 
@@ -155,6 +177,13 @@ The decided readings, with the witness or certificate each verdict rests on:
 | mfa_oslo_notes:05 | alone | REFUTED | 1 - nu < 0 at a nu in (1, 2] |
 | fjordholm_mishra_tadmor_2012_tecno:03 | with hyp. | REFUTED | with the printed normalization alpha_1 = 1/2, F(u, u) - f(u) = -u^2/4 (witness at u = 1) |
 | jiang_shu_1995_weno:05 | with hyp. | VERIFIED | flux difference with eps = 0 where f' != 0: r = 2 (IS (2.19)) order 3 and r = 3 (IS (3.2)-(3.4)) order 5, the coefficients of dx^0 .. dx^(p-1) zero as polynomials in the Taylor jet; the leading term of every IS_k (both stencils) is (f' dx)^2, positive by form (re-scored) |
+| jiang_shu_1995_weno:01 | with hyp. | VERIFIED | Liu, Osher and Chan's weights (2.18), flux difference, eps = 0 where f' != 0: r = 2 order 3 (p = 3) and r = 3 order 5 (p = 4 asked), as identities in the Taylor jet; no checker change (found by the v3 survey) |
+| zhang_shu_2010_maxprinciple:05 | both | VERIFIED (*tuned*) | f(u) = u, Lax–Friedrichs, k = 1, 2, 3: the new average is u0l/2 + (1/2 - lam) u0r + lam um1r (k = 1) or u0l/6 + 2 u0c/3 + (1/6 - lam) u0r + lam um1r (k = 2, 3), an identity in the polynomial coefficients, weights >= 0 on [0, min w_alpha] (Sturm); the average hypothesis is implied (Simpson, exact for k <= 3) |
+| zhang_shu_2011_survey:04 | both | VERIFIED (*tuned*) | the same three, plus Lax–Friedrichs with alpha = 2 for k = 2 on [0, 1/12]: weights 1/6 - lam/2, 2/3, 1/6 - 3 lam/2, lam/2, 3 lam/2 |
+| zhang_shu_2011_survey:13 | both | VERIFIED (*tuned*) | k = 2, 3, with p(x*) = (ubar - u0l/6 - u0r/6)/(2/3): the new average is (2/3) p(x*) + u0l/6 + (1/6 - lam) u0r + lam um1r |
+| fjordholm_mishra_tadmor_2012_tecno:06 | both (UNSURE) | VERIFIED (*tuned*) | ENO of point values, k = 2, 3, both tie rules: every failing system (D > 0 and J < 0, D = 0 and J != 0, ...) on each of the 14 (k = 2) or 88 (k = 3) non-empty selection branches is infeasible (Fourier–Motzkin, exact) |
+| fjordholm_mishra_tadmor_2012_tecno:07 | both (UNSURE) | VERIFIED (*tuned*) | J / D <= 2 (k = 2) and <= 7/2 (k = 3), both tie rules, the same way; the constants are the exact suprema (C_3 = 7/2 is our computation, not a published value we checked) |
+| fjordholm_mishra_tadmor_2012_tecno:08 | both | VERIFIED (*tuned*) | as tecno:06, through the bridge (3.20): in the scalar case the scaled reconstruction is plain ENO on the data mu^{i+1}, onto all data |
 | fjordholm_mishra_tadmor_2012_tecno:04 | both | REFUTED | identity (3.3) as transcribed, Burgers, D = 1: LHS - RHS = (u_{i+1}^2 - 2 u_i^2 + u_{i-1}^2)/2, which is 1/2 at (u_{i-1}, u_i, u_{i+1}) = (0, 0, 1); with the minus sign of Lemma 3.2 it normalises to 0 |
 
 ## 4. Gap taxonomy
@@ -165,13 +194,13 @@ reading at all, and 4 lack one for a single field):
 | reason | primary (fields entries) | items, any mention | what it would take |
 |---|---|---|---|
 | `scheme-class` | 27 | 27 | theorems about every scheme with a property (monotone ⇒ TVD, conservative ⇔ flux form, Lax–Wendroff, Crandall–Majda, Harten's lemma). A spec is one scheme. This needs statements over parametrised schemes, i.e. Lean proofs with the flux as a variable, not more checks |
-| `reconstruction` | 21 | 48 | WENO/ENO stencil selection and smoothness indicators (the order of one WENO scheme in a stated regime is now `reconstruction_order_p`), polynomial reconstructions with point values (Gauss–Lobatto), DG/FV cell-average schemes and their limiters. The largest roadmap item for this literature |
+| `reconstruction` | 14 | 41 | what is left after reconstruction v3 (`notes/reconstruction-survey.md`): the scaling limiter and its accuracy (3 primary items), WENO at discontinuities (1), ENO accuracy and the no-Gibbs clause (1), FV/DG schemes as a whole with time stepping (5), an l1 identity, nonlinearity, a semi-discrete invariant region (3, not reconstruction claims). Before v3: 21 primary, 48 any |
 | `multi-d` | 15 | 16 | 2D rectangles and triangles (the two maximum-principle sources and TeCNO), plus one d-dimensional WENO theorem |
 | `system` | 9 | 18 | Euler, general systems with entropy variables, constant-coefficient systems with several fields. Counted only where a scalar narrowing would change the truth or lose the point |
 | `claim-kind-missing` | 6 | 22 | listed below |
 | `not-checkable` | 8 | 8 | numerical observations (3), a comparison with the literature (1), vague or existential wording (3), a clause whose reading is a judgment call (1: jiang_shu_1995_weno:02 with hypotheses, "4th order", §3) |
 | *gap in the source* | | | |
-| `family_unspecified` | 2 | 2 | the source fixes eps = 10^-6 but leaves its scaling with dx open, and the truth depends on it (jiang_shu_1995_weno:02 and :05, alone, §3). Fixed by choosing the family where the expected value is owned, not by the checker. Split out of `not-checkable` in reconstruction v2; no score changed |
+| `family_unspecified` | 3 | 3 | the source fixes eps = 10^-6 but leaves its scaling with dx open, and the truth depends on it (jiang_shu_1995_weno:01, :02 and :05, alone, §3; :01 moved here from `reconstruction` in v3). Fixed by choosing the family where the expected value is owned, not by the checker. Split out of `not-checkable` in reconstruction v2; no score changed |
 | `illegible` | 2 | 2 | osher_tadmor_1985_convergence:02, :05 (the displays they depend on are illegible in the scan) |
 | `variable-coefficients` | 1 | 7 | a velocity that changes from cell to cell (vorticity schemes) |
 | `not-expressible` | 1 | 2 | harten_1982_highres:08: Q(nu + gamma) Delta v divides by a state difference for any non-constant Q |
@@ -206,7 +235,7 @@ The two expectations differ on **30 of 99** items: FALSE alone / TRUE with hypot
 UNSURE / TRUE 6, UNSURE / FALSE 1. In almost all of them the dropped hypothesis is a CFL bound, a smoothness or
 point-value condition, or the convergence of the scheme.
 
-Eight of the 30 are stated, and the checker gets every scored field right:
+Nine of the 30 are stated, and the checker gets every scored field right:
 
 | item | alone | with hypotheses | dropped hypothesis |
 |---|---|---|---|
@@ -217,6 +246,7 @@ Eight of the 30 are stated, and the checker gets every scored field right:
 | harten_1982_highres:01 | FALSE: MATCH | TRUE: GAP | "away from u_x = 0" (no named claim for order away from extrema) |
 | harten_1982_highres:11 | FALSE: MATCH | UNSURE: unscored | the same |
 | fjordholm_mishra_tadmor_2012_tecno:03 | UNSURE: unscored | FALSE: MATCH | here the printed hypothesis (the normalization of alpha) is what makes it false |
+| jiang_shu_1995_weno:01 | FALSE: GAP (unformalised, §3) | TRUE: MATCH | the same (Liu, Osher and Chan's weights, r = 2, 3: order r + 1 where f' != 0) |
 | jiang_shu_1995_weno:05 | FALSE: GAP (unformalised, §3) | TRUE: MATCH | f' != 0 and eps negligible; the drop at critical points needs the eps family fixed |
 
 So on dropped CFL bounds the checker is reliable: the with-hypotheses reading verifies on the stated range and the
@@ -250,6 +280,7 @@ the one first proposed:
    sum_k c_k = 1). `tvd_harten` with a general C, D split is still open.
 
 Larger items, in order of how many dev items they would open: claims over classes of schemes (27), reconstruction
-(48 mentions), semi-discrete order and order away from extrema (about 6).
+(41 mentions after reconstruction v3, the scaling limiter first), semi-discrete order and order away from
+extrema (about 6).
 
 Expected-value corrections: one proposed (jiang_shu_1995_weno:02, with hypotheses, §3); see `ERRATA_PROPOSED.md`.

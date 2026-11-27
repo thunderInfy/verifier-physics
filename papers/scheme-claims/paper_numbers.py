@@ -326,6 +326,7 @@ def outside_dev() -> dict:
            "readings": str(s["readings"]), "decided": str(s["decided"]), "wrong": str(len(s["wrong"])),
            "fields differ": str(s["fields_differ"]), "fields differ, stated": str(len(s["fields_differ_stated"])),
            "narrowed matches": str(s["narrowed_matches"]),
+           "tuned readings": str(s["tuned_readings"]), "tuned matches": str(s["tuned_matches"]),
            "instance from justification": ", ".join(
                e["id"] for e in data["items"] for r in e["readings"] if r.get("instance_from_justification"))}
     for k, v in s["verdicts"].items():

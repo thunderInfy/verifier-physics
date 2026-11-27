@@ -1719,6 +1719,44 @@ tables show, is in `benchmark/outside/notes/jiang-shu-tables.md`: the O(h) weigh
 (f''/f') h cancel against the candidate errors at O(h^4), and the tables' sub-fifth orders come from the critical
 points of their data on grids where eps = 10^-6 does not yet dominate the indicators there.
 
+### Cell-average steps and ENO jumps (reconstruction v3)
+
+Two more claim kinds in the same layer. We chose them by how many outside dev items they cover
+(`benchmark/outside/notes/reconstruction-survey.md`), so the dev readings that use them are made with a checker
+tuned on those items. Their bench specs and expected verdicts were committed first
+(`benchmark/reconstruction/cell-average/`, `benchmark/reconstruction/eno/`, each with a README).
+
+`cell_average_max_principle` (`physverify/cellaverage.py`): one step of a cell-average scheme fed by polynomials of
+degree <= k keeps the new average in [m, M] whenever stated linear functionals of the polynomials (point values,
+averages) lie in [m, M], for every lam = dt/dx in a range. If the update and the hypotheses are 1 on constant data,
+this holds iff the update is a convex combination of the hypotheses, and with independent hypotheses the weights
+mu_i(lam) are unique polynomials. VERIFIED means they are >= 0 on the range (exact: square-free part and Sturm
+count). REFUTED comes with polynomials whose hypotheses lie in [0, 1] and whose update does not, checked by
+evaluation. A hypothesis that is a non-negative combination of earlier ones is dropped (the average, as
+Simpson's combination of the Gauss–Lobatto values, for k <= 3); a dependent set otherwise is UNKNOWN (a linear
+programme, not done). Zhang and Shu's Gauss–Lobatto condition comes out exactly. With f(u) = u and the
+Lax–Friedrichs flux the bound is lam <= min w_alpha (1/2 for k = 1, 1/6 for k = 2, 3). It fails for k = 4 with 3
+points, and it fails without the interior point value (their Remark 2.3).
+
+| spec | lam | verdict |
+|---|---|---|
+| k = 1, 2-point GL | [0, 1/2] / [0, 1] | VERIFIED / REFUTED |
+| k = 2, 3, 3-point GL | [0, 1/6] / [0, 1/5], [0, 1/4] | VERIFIED / REFUTED |
+| k = 2, Lax–Friedrichs with a = 2 | [0, 1/9] / [0, 1/6] | VERIFIED / REFUTED |
+| k = 2, p(x*) form (survey (5.1)) | [0, 1/6] / [0, 1/3] | VERIFIED / REFUTED |
+| k = 2, edge values only | [0, 1/6] | REFUTED |
+| k = 4, 3-point GL | [0, 1/12] | REFUTED |
+
+`eno_sign_property`, `eno_jump_ratio_at_most` (`physverify/eno.py`): for ENO interpolation of point values of order
+k, with a tie rule, or a fixed stencil, over all real data: the jump J = w^-_{i+1} - w^+_i has the sign of
+D = w_{i+1} - w_i in the weak sense (J D >= 0, and J = 0 where D = 0; the strict sign fails on linear data for
+k >= 2), and J / D <= c. The selection splits the data space into finitely many polyhedral branches (|A| <= |B|
+is a union of two cones). On each branch, J and D are linear, so a failure is a feasible system of strict and
+non-strict linear inequalities, decided by Fourier–Motzkin elimination over the rationals. A REFUTED witness is
+a rational solution, re-checked by recomputing the ENO choices directly. Results: the sign property holds for
+k = 1, 2, 3 with either tie rule and fails for the linear stencils {i-1, i} and {i-1, i, i+1}. The exact supremum
+of J / D is 1, 2 and 7/2 for k = 1, 2, 3. k >= 4 is UNKNOWN: 4^6 branch pairs, and the elimination takes minutes.
+
 ## Class theorems
 
 The checks above decide a property of one concrete scheme. A theorem about every scheme with a

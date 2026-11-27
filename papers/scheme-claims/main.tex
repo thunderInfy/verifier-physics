@@ -74,10 +74,11 @@ necessary or equivalent, with stated preconditions), so a failed sufficient chec
 a passed necessary check never verifies. We evaluate it twice. On an outside benchmark of verbatim
 sentences from published sources, with expected values fixed before any checker run, only the
 development half has been run so far: the checker can state a formal reading for
-\rn{12}{paper_numbers.py::outside_dev} of its \rn{99}{paper_numbers.py::outside_dev} sentences, every one
-of them narrowed to an instance. It decides \rn{16}{paper_numbers.py::outside_dev} of the
-\rn{17}{paper_numbers.py::outside_dev} readings and gets none wrong (re-scored after three checker
-additions; the first run gave 9, and 12 of 14). Most of these sentences are about
+\rn{19}{paper_numbers.py::outside_dev} of its \rn{99}{paper_numbers.py::outside_dev} sentences, every one
+of them narrowed to an instance. It decides \rn{23}{paper_numbers.py::outside_dev} of the
+\rn{24}{paper_numbers.py::outside_dev} readings and gets none wrong (re-scored after four checker
+additions, the last of them claim kinds chosen by how many of these sentences they cover, so the checker
+is tuned on them; the first run gave 9, and 12 of 14). Most of these sentences are about
 high-order reconstruction, two space dimensions or whole classes of schemes, which the checker cannot
 yet express. Two naive readings that we rejected would have been wrong verdicts; they show that the
 error-prone step is reading the claim, not checking it. On our own benchmark of
@@ -256,11 +257,14 @@ sentences copied from \rn{15}{paper_numbers.py::outside_dev} published papers, r
 notes by collectors who had not looked at the checker, with expected values fixed before any checker
 run (Section~\ref{sec:outside}).
 So far only its development half has been run, and the first result is about coverage: the checker
-can state a formal reading for \rn{12}{paper_numbers.py::outside_dev} of the
-\rn{99}{paper_numbers.py::outside_dev} sentences. Of the \rn{17}{paper_numbers.py::outside_dev}
-readings it decides \rn{16}{paper_numbers.py::outside_dev}, all exactly, and none of them is wrong.
+can state a formal reading for \rn{19}{paper_numbers.py::outside_dev} of the
+\rn{99}{paper_numbers.py::outside_dev} sentences. Of the \rn{24}{paper_numbers.py::outside_dev}
+readings it decides \rn{23}{paper_numbers.py::outside_dev}, all exactly, and none of them is wrong.
 These are re-scored numbers: after the first run (9 sentences; 12 of 14 readings) we fixed two checker
-gaps it exposed and added a claim kind for printed identities, which gave readings to two more sentences.
+gaps it exposed, added a claim kind for printed identities and one for the order of WENO
+reconstructions, and then, choosing by coverage of these very sentences, claim kinds for a Gauss--Lobatto
+cell-average step and for ENO jumps. The last \rn{6}{paper_numbers.py::outside_dev} readings are made with
+a checker tuned on the development half.
 That zero is on easy readings (linear schemes, a CFL range, a rational identity), and the more useful finding is that two
 plausible readings we rejected would have been wrong verdicts. On our own benchmark there are 0 wrong
 verdicts among \rn{44}{paper_numbers.py::bench_counts} readings; since we wrote it, that number shows
@@ -755,7 +759,7 @@ below), fixed in the README before any item was classified. The runner
 the stored verdicts and scores are what the checker gives
 now.\repro{tests/test_outside_dev.py::test_stored_verdicts_and_scores_are_what_the_checker_gives_now}
 
-\paragraph{Re-scored after three checker additions.} The numbers below are from a later scoring of
+\paragraph{Re-scored after four checker additions.} The numbers below are from a later scoring of
 the development half, after three changes made in response to the first run. A checker fix added an
 exact test for non-negativity of a polynomial in one variable (square-free part and Sturm count) to
 the positivity check, and a row for the linear TVD equivalence (a linear update with
@@ -764,32 +768,45 @@ on one sentence of Harten's report, without changing any reading, spec or expect
 \code{stated\_identity} kind (Section~\ref{sec:trust}) gave readings to two sentences that needed a
 claim about a formula the source prints (an entropy flux, an entropy-conservative flux). Last, the
 \code{reconstruction\_order\_p} kind (the exact order of a WENO-type reconstruction in a stated
-regime and $\epsilon$ scaling) gave a reading to one WENO sentence (with its hypotheses). So the
-development half is no longer untouched by checker changes made after seeing it. The first run gave
+regime and $\epsilon$ scaling) gave a reading to one WENO sentence (with its hypotheses). Last, we
+surveyed the 48 sentences that list reconstruction as a gap
+(\code{benchmark/outside/notes/reconstruction-survey.md}) and built the two mechanisms that covered the
+most of them. \code{cell\_average\_max\_principle} decides whether one cell-average step fed by
+polynomials stays in $[m, M]$ when given point values do: the update must be a convex combination
+of the hypotheses, an exact identity with weights non-negative on the CFL range (three sentences from
+Zhang and Shu's maximum-principle paper and their survey). \code{eno\_sign\_property} and
+\code{eno\_jump\_ratio\_at\_most} decide, for ENO interpolation of order 2 and 3 and all data, the sign
+property and a jump bound, by Fourier--Motzkin elimination over the finitely many polyhedral branches of
+the stencil selection (three sentences of the TeCNO paper). The same survey found one more WENO sentence
+the existing kind could already state. These \rn{6}{paper_numbers.py::outside_dev} readings use claim
+kinds chosen because they cover these items: the checker is \emph{tuned on} them, and the
+\rn{8}{paper_numbers.py::outside_dev} matches that rest only on them say how far the tuning reached,
+not how the checker does on unseen claims. So the development half is no longer untouched by checker
+changes made after seeing it. The first run gave
 readings for 9 of the 99 sentences and decided 12 of its 14 readings, with none wrong.
 
 \paragraph{How much can be stated.} The checker can state a formal reading for
-\rn{12}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} of the
-\rn{99}{paper_numbers.py::outside_dev} development sentences (\rn{10}{paper_numbers.py::outside_dev}
-for the field alone, \rn{10}{paper_numbers.py::outside_dev} with hypotheses). By property
+\rn{19}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} of the
+\rn{99}{paper_numbers.py::outside_dev} development sentences (\rn{16}{paper_numbers.py::outside_dev}
+for the field alone, \rn{17}{paper_numbers.py::outside_dev} with hypotheses). By property
 tag:\repro{paper_numbers.py::outside_dev}
 \begin{center}\small
 \begin{tabular}{@{}lrlr@{}}
 \toprule
 property & stated / items & property & stated / items \\ \midrule
-positivity & 2 / 26 & convergence & 1 / 8 \\
-order & 4 / 24 & other & 0 / 8 \\
+positivity & 5 / 26 & convergence & 1 / 8 \\
+order & 5 / 24 & other & 3 / 8 \\
 stability & 3 / 11 & TVD & 1 / 8 \\
 entropy & 1 / 11 & monotone & 0 / 2 \\
  & & conservation & 0 / 1 \\
 \bottomrule
 \end{tabular}
 \end{center}
-All \rn{17}{paper_numbers.py::outside_dev} readings narrow their sentence.
+All \rn{24}{paper_numbers.py::outside_dev} readings narrow their sentence.
 
-\paragraph{How much is decided.} \rn{16}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results}
-of the \rn{17}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} readings are decided:
-\rn{8}{paper_numbers.py::outside_dev} \V{} and \rn{8}{paper_numbers.py::outside_dev} \R, all exact
+\paragraph{How much is decided.} \rn{23}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results}
+of the \rn{24}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} readings are decided:
+\rn{15}{paper_numbers.py::outside_dev} \V{} and \rn{8}{paper_numbers.py::outside_dev} \R, all exact
 (rational arithmetic; none of them has been replayed in Lean). The
 \rn{1}{paper_numbers.py::outside_dev} undecided reading is \code{tecno:02}'s (expected UNSURE):
 \code{stated\_identity} verifies its entropy-conservation clause, but its second-order clause has no
@@ -798,13 +815,16 @@ report \cite{harten1983} (a three-point scheme with viscosity $Q(x) = x^2 + 1/4$
 were \U{} because of checker limits, not hard cases: one coefficient, $(\nu - 1/2)^2/2$, has a double
 root inside the $\nu$-interval, which no Bernstein test certifies unless a cut lands on the root, and
 the TVD check certified Harten's form only with the upwind split. The checker fix above decides both. Counting the fields that have a TRUE or FALSE expectation, the checker decides
-\rn{9}{paper_numbers.py::outside_dev} of \rn{68}{paper_numbers.py::outside_dev} alone and
-\rn{9}{paper_numbers.py::outside_dev} of \rn{67}{paper_numbers.py::outside_dev} with hypotheses; all
-\rn{18}{paper_numbers.py::outside_dev} matches are on narrowed readings.
+\rn{13}{paper_numbers.py::outside_dev} of \rn{68}{paper_numbers.py::outside_dev} alone and
+\rn{14}{paper_numbers.py::outside_dev} of \rn{67}{paper_numbers.py::outside_dev} with hypotheses; all
+\rn{27}{paper_numbers.py::outside_dev} matches are on narrowed readings, and
+\rn{8}{paper_numbers.py::outside_dev} of them rest only on readings made with the checker tuned on these
+items (the first run: 7 and 6; before the tuned claim kinds: 9 and 10).
 
 \paragraph{Wrong verdicts.} \rn{0}{tests/test_outside_dev.py::test_no_wrong_verdict_and_every_gap_reading_is_explained}
 in both fields, and no \IC. This zero says little. The readings that reached the checker are the
-easy kind: linear schemes, a CFL range, one smooth extremum, one rational identity.
+easy kind: linear schemes, a CFL range, one smooth extremum, one rational identity, a convex
+combination, finitely many polyhedral branches.
 
 \paragraph{The gaps.} Each item field without a reading has one entry (covering one field or both)
 that lists its reasons. The table gives, for each reason, the entries for which it is the primary
@@ -814,11 +834,11 @@ reason and the entries that list it at all:\repro{paper_numbers.py::outside_dev}
 \toprule
 reason & primary & any & what it would take \\ \midrule
 class of schemes & 27 & 27 & theorems about every scheme with a property (monotone implies TVD, the Lax--Wendroff theorem); a spec is one scheme \\
-reconstruction & 21 & 48 & WENO/ENO stencil selection, polynomial reconstructions, DG and finite-volume limiters \\
+reconstruction & 14 & 41 & the scaling limiter, discontinuous data, ENO of higher order, DG and finite-volume schemes with time stepping \\
 multi-D & 15 & 16 & 2D rectangles and triangles \\
 system & 9 & 18 & Euler, general systems with entropy variables \\
 claim kind missing & 6 & 22 & semi-discrete order, order away from extrema, energy identities summed over the grid, E-fluxes \\
-not checkable & 10 & 10 & numerical observations, comparisons, existential wording, a choice the text leaves open \\
+not checkable & 11 & 11 & numerical observations, comparisons, existential wording, a choice the text leaves open \\
 illegible & 2 & 2 & the formula is illegible in the scan \\
 variable coefficients & 1 & 7 & a velocity that varies in space \\
 not expressible & 1 & 2 & a formula that divides by a state difference \\
@@ -834,8 +854,8 @@ cannot say any of these today.
 \rn{30}{paper_numbers.py::outside_dev} of the \rn{99}{paper_numbers.py::outside_dev} items (FALSE alone
 and TRUE with hypotheses on \rn{15}{paper_numbers.py::outside_dev}). Almost always the dropped hypothesis
 is a CFL bound, a smoothness condition or convergence of the scheme.
-\rn{8}{paper_numbers.py::outside_dev} of the 30 are stated, and the checker gets every scored field of
-those eight right. On a dropped CFL bound it is reliable: the reading with the hypothesis verifies on
+\rn{9}{paper_numbers.py::outside_dev} of the 30 are stated, and the checker gets every scored field of
+those nine right. On a dropped CFL bound it is reliable: the reading with the hypothesis verifies on
 the stated range and the reading without it is refuted on $[0, 2]$, both exactly. A dropped ``away from
 extrema'' is half covered: the unqualified order claim is refuted at a smooth extremum, but the
 qualified one has no claim kind.\repro{paper_numbers.py::outside_dev}
@@ -891,6 +911,9 @@ item's justification; they are flagged \code{instance\_from\_justification} in
 \code{dev\_readings.json} (two items from Zhang and Shu's maximum-principle paper and one from
 Fjordholm, Mishra and Tadmor). The rule that class theorems are never narrowed, not even to a refuting
 instance, was fixed before classifying, so that this could not turn into choosing FALSE items to refute.
+For the last checker addition the checker itself was chosen by these items, not only the readings: its
+\rn{6}{paper_numbers.py::outside_dev} readings are flagged \code{tuned\_on}, and the survey that chose it
+names the items behind each claim kind.
 The readings of the held-out half will also be written by us, so the same caveat will apply to them.
 
 % ====================================================================================================
