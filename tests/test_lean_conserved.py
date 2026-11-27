@@ -98,10 +98,11 @@ def test_degenerate_lagrangian_cannot_be_refuted():
     unf = "EL, dt, timeDir, Expr.deriv, Expr.dir, Expr.basis, Expr.eval, Fn.eval, Expr.diffOK"
     old = check(f"OldConservedRefuted {t['n']} {t['L']} {t['D']} {t['Q']}",
                 f"refine ⟨{pt}, by norm_num [Expr.eval], ⟨?_, ?_⟩, ?_, ?_, ?_, ?_, ?_⟩\n"
-                f"· simp [{unf}]\n"
-                f"· intro k hk; interval_cases k <;> simp [{unf}]\n"
-                "· simp [Expr.physOK]\n· simp [Expr.diffOK]\n· simp [Expr.physOK]\n"
-                f"· intro k hk; interval_cases k <;> simp [{unf}]\n"
+                f"· simp [{unf}] <;> norm_num\n"
+                f"· intro k hk; interval_cases k <;> simp [{unf}] <;> norm_num\n"
+                "· simp [Expr.physOK, Expr.eval] <;> norm_num\n· simp [Expr.diffOK]\n"
+                "· simp [Expr.physOK]\n"
+                f"· intro k hk; interval_cases k <;> simp [{unf}] <;> norm_num\n"
                 f"· simp [{unf}]",
                 preamble=OLD_DEFS, module=MOD)
     assert old.ok, old.log[-2000:]
