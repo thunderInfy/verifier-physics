@@ -225,7 +225,8 @@ def _stating_lean(pairs: list) -> list:
 
 def bench_lean_labels() -> dict:
     """How many of the benchmark's verdicts would carry a Lean label after the replay, if Lean accepts
-    every theorem the judge states for them (Lean is not run here). A VERIFIED reading carries one if
+    every theorem the judge states for them (Lean is not run here). A named-claim verdict carries one by
+    the rule of `lean_cert.lean_carrier` (one deciding check with its required checks). A VERIFIED reading carries one if
     every component's named-claim verdict does; a REFUTED reading if one of its refuting components does.
     Also: the readings whose decisive named claims all have a meaning theorem in physverify/claimkinds.py."""
     from physverify.claimkinds import KINDS

@@ -64,6 +64,63 @@ def test_relabel_claims_takes_caveats_from_required_checks():
     assert rep["claims"][0]["guarantee"] == C.EXACT
 
 
+def test_one_replayed_refutation_carries_the_label():
+    """(a) TVD REFUTED by tv_increase (replayed) and by tvd_linear (not replayed): either refutes on its
+    own, so the verdict keeps the Lean label of tv_increase (this had regressed once tvd_linear joined)."""
+    rep = _report("tvd_under_cfl", ["tv_increase", "tvd_linear"], {"tv_increase": L.LEAN, "tvd_linear": checks.EXACT})
+    L.relabel_claims(rep)
+    assert rep["claims"][0]["guarantee"] == L.LEAN
+    assert rep["claims"][0]["lean_check"] == "tv_increase"
+    rep = _report("tvd_under_cfl", ["tv_increase", "tvd_linear"], {"tv_increase": checks.EXACT, "tvd_linear": checks.EXACT})
+    L.relabel_claims(rep)
+    assert rep["claims"][0]["guarantee"] == C.EXACT and "lean_check" not in rep["claims"][0]
+
+
+def test_a_premise_not_replayed_keeps_exact_python():
+    """(b) VERIFIED by a SUFFICIENT row whose own check replays but one of its required checks does not."""
+    g = {"tvd_harten": L.LEAN, "conservation": L.LEAN, "consistency": L.LEAN, "flux_lipschitz": L.LEAN,
+         "shock_scope_tvd": checks.EXACT}
+    rep = _report("correct_shock_speed", ["tvd_harten"], g)
+    L.relabel_claims(rep)
+    assert rep["claims"][0]["guarantee"] == C.EXACT
+
+
+def test_one_fully_replayed_sufficient_row_carries_the_label():
+    """(c) VERIFIED by two SUFFICIENT rows; only one of them is Lean with all its premises. The other
+    row's check is Lean too but one of its premises is not, so it cannot carry the label."""
+    g = {"monotonicity": L.LEAN_CELLS, "tvd_harten": L.LEAN, "conservation": L.LEAN, "consistency": L.LEAN,
+         "flux_lipschitz": L.LEAN, "shock_scope_monotone": L.LEAN, "shock_scope_tvd": checks.EXACT}
+    rep = _report("correct_shock_speed", ["monotonicity", "tvd_harten"], g)
+    L.relabel_claims(rep)
+    assert rep["claims"][0]["guarantee"] == L.LEAN_CELLS and rep["claims"][0]["lean_check"] == "monotonicity"
+    g["shock_scope_tvd"] = L.LEAN                       # now both carry one: the whole-statement label wins
+    rep = _report("correct_shock_speed", ["monotonicity", "tvd_harten"], g)
+    L.relabel_claims(rep)
+    assert rep["claims"][0]["guarantee"] == L.LEAN and rep["claims"][0]["lean_check"] == "tvd_harten"
+
+
+def test_tvd_verified_by_a_replayed_harten_row_and_an_exact_linear_row():
+    rep = _report("tvd_under_cfl", ["tvd_harten", "tvd_linear"], {"tvd_harten": L.LEAN, "tvd_linear": checks.EXACT})
+    L.relabel_claims(rep)
+    assert rep["claims"][0]["guarantee"] == L.LEAN and rep["claims"][0]["lean_check"] == "tvd_harten"
+
+
+def test_every_row_decides_alone():
+    """The relabel rule relies on this: in the table each row (with its `requires`) decides a verdict on
+    its own, so a verdict never needs two rows jointly. judge_one with one row's check (and its premises)
+    VERIFIED or REFUTED and nothing else gives that verdict, for every row of every claim."""
+    for name, (_, links) in C.CLAIMS.items():
+        for check, relation, _, *requires in links:
+            if C.GUARANTEE.get(check) != C.EXACT:
+                continue
+            premises = [{"check": c, "status": checks.VERIFIED, "guarantee": checks.EXACT} for c in (requires[0] if requires else ())]
+            for status, want in ((checks.VERIFIED, C.VERIFIED), (checks.REFUTED, C.REFUTED)):
+                if (relation, status) in ((C.NECESSARY, checks.VERIFIED), (C.SUFFICIENT, checks.REFUTED)):
+                    continue
+                v = C.judge_one(name, premises + [{"check": check, "status": status, "guarantee": checks.EXACT}])
+                assert v["verdict"] == want and check in v["decided_by"], (name, check, status, v["verdict"])
+
+
 def test_exact_python_verdict_keeps_the_caveat():
     v = C.judge_one("entropy_stable_tadmor", [{"check": "entropy_stability", "status": checks.REFUTED,
                                                "guarantee": checks.ENTROPY_EXACT}])

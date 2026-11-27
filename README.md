@@ -776,6 +776,11 @@ serializing the update, the numerical flux and the PDE flux node for node as rea
 planner (`lean_planner.py`, untrusted) writes only the tactics, from the check's witness. The
 general theorems live in `lean/PhysVerify/Scheme.lean`, which imports only the Mathlib modules it
 needs; the generated file imports only `PhysVerify.Scheme`.
+A claim verdict gets a Lean guarantee when one of its deciding checks, together with the exact checks
+that check's row requires, carries Lean labels: each such row decides the verdict on its own, so the
+other deciding checks may stay exact Python (a TVD refutation by both `tv_increase`, replayed, and
+`tvd_linear`, not replayed, is `proven (Lean)`). The verdict's `lean_check` names the check that
+carried it; a whole-statement label is preferred to a per-cell one.
 A claim verdict's guarantee carries the caveats of every check it rests on, on both paths: the Roe
 entropy verdicts read `proven (Lean); semi-discrete inequality only, time stepping not certified`
 (or `exact; semi-discrete ...` without Lean), never a bare `proven (Lean)`.

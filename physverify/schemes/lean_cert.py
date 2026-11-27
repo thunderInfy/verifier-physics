@@ -428,13 +428,30 @@ def verdict_label(labels: list[str]) -> str | None:
     return C.with_caveats(LEAN_CELLS if any(x.startswith(LEAN_CELLS) for x in labels) else LEAN, labels)
 
 
+def lean_carrier(claim: str, decided_by: list, guarantee_of) -> tuple[str, str] | None:
+    """(Lean guarantee, deciding check) for a verdict decided exactly, or None. Each deciding row,
+    together with the exact checks it requires, entails the verdict on its own (`claims.judge_one`
+    gives VERIFIED or REFUTED as soon as one such row holds), so one deciding check d whose
+    `rests_on(claim, [d])` all carry Lean labels earns the verdict a Lean label; the others may stay
+    exact Python. Of several such d: the whole-statement label before the per-cell one, then the first
+    in `decided_by`. `guarantee_of(check)` is the check's guarantee ("" if it did not run)."""
+    from . import claims as C
+    best = None
+    for d in decided_by:
+        label = verdict_label([guarantee_of(c) for c in C.rests_on(claim, [d])])
+        if label and (best is None or best[0].startswith(LEAN_CELLS) and not label.startswith(LEAN_CELLS)):
+            best = (label, d)
+    return best
+
+
 def relabel_claims(report: dict) -> None:
-    """A claim decided exactly gets a Lean guarantee when every check it rests on (the deciding checks
-    and the exact checks their rows require) has one."""
+    """A claim decided exactly gets a Lean guarantee when, for one of its deciding checks, that check
+    and the exact checks its row requires all have one (`lean_carrier`); `lean_check` names it."""
     from . import claims as C
     by = {r["check"]: r for r in report["checks"]}
     for v in report["claims"]:
         if not v["guarantee"].startswith(C.EXACT):
             continue
-        need = C.rests_on(v["claim"], v["decided_by"])
-        v["guarantee"] = verdict_label([by.get(c, {}).get("guarantee") or "" for c in need]) or v["guarantee"]
+        got = lean_carrier(v["claim"], v["decided_by"], lambda c: by.get(c, {}).get("guarantee") or "")
+        if got:
+            v["guarantee"], v["lean_check"] = got

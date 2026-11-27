@@ -1169,11 +1169,13 @@ Lean meaning theorem; of the \rn{22}{paper_numbers.py::claim_kinds} kinds used f
 A Lean \emph{label} on a verdict is a different thing: it says that the certificate behind the verdict
 was replayed by the kernel, against a statement the judge wrote from the spec. Of the
 \rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our own benchmark,
-\rn{17}{paper_numbers.py::bench_lean_labels} would carry a Lean label after the replay
-(\rn{7}{paper_numbers.py::bench_lean_labels} \V{} and \rn{10}{paper_numbers.py::bench_lean_labels} \R;
-\rn{4}{paper_numbers.py::bench_lean_labels} of the 17 with the per-cell label). The other
-\rn{17}{paper_numbers.py::bench_lean_labels} rest on at least one check that is not replayed
-(truncation order, von Neumann stability, the linear TVD equivalence, the frozen jump, the Lipschitz and scope checks of the shock
+\rn{18}{paper_numbers.py::bench_lean_labels} would carry a Lean label after the replay
+(\rn{7}{paper_numbers.py::bench_lean_labels} \V{} and \rn{11}{paper_numbers.py::bench_lean_labels} \R;
+\rn{4}{paper_numbers.py::bench_lean_labels} of the 18 with the per-cell label). A verdict carries the label
+if one of its deciding checks, together with the exact checks that check's row requires, is replayed: each
+such row decides the verdict on its own, so the other deciding checks may stay exact Python. The other
+\rn{16}{paper_numbers.py::bench_lean_labels} have no deciding check that is replayed with all its premises
+(truncation order, von Neumann stability, the frozen jump, the Lipschitz and scope checks of the shock
 rows, consistency of a recovered flux, the entropy check's \V{} cells) or are empirical (one \RE), and keep
 their exact-Python or empirical label. We count a \V{} reading if all its components carry a Lean label, and a \R{}
 reading if one of its refuting components does. The count is of the theorems the judge states
