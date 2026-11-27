@@ -7,7 +7,10 @@ A spec (benchmark/reconstruction/*.json) writes the reconstruction over stencil 
 `v0`, `vm1`, `vp1`, `vm2`, ... (v_{-1} is `vm1`): candidate values q_k at x_i + s dx (`point`, s),
 linear weights d_k and, for `"kind": "js"`, smoothness indicators beta_k, with
 alpha_k = d_k / (eps + beta_k)^q and omega_k = alpha_k / sum_j alpha_j; for `"kind": "linear"`,
-omega_k = d_k / sum_j d_j. The data are point values f(x_i + k dx) (`point_values`) or cell
+omega_k = d_k / sum_j d_j; for `"kind": "z"` (WENO-Z, Borges et al.), with `"tau": [i, j]`,
+alpha_k = d_k (1 + (tau / (eps + beta_k))^q), tau = |beta_i - beta_j|; for `"kind": "m"` (WENO-M, Henrick
+et al.), the js weights mapped by g_k(w) = w (d_k + d_k^2 - 3 d_k w + w^2) / (d_k^2 + w (1 - 2 d_k)) and
+renormalised. The data are point values f(x_i + k dx) (`point_values`) or cell
 averages of u over [x_i + (k - 1/2) dx, x_i + (k + 1/2) dx] (`cell_averages`). The target is f
 (or u) at x_i + s dx (`value`), or, for point values, `primitive`: the h of the finite-difference
 flux form, whose sliding cell average is f, so that (h(x + dx/2) - h(x - dx/2)) / dx = f'(x).
@@ -35,8 +38,18 @@ coefficients of N below dx^p (below dx^(p+1) for the difference) are zero polyno
 polynomial that vanishes wherever the pivot is non-zero is zero. No rational functions and no
 sampling are involved. Truncating the jet at f_K is exact for every coefficient below t^(L(K+1)),
 since f_n enters only with t^(nL).
+WENO-M: the map is rational in the weights, so the same clearing applies (A'_k = A_k F_k prod_{j != k} Q_j,
+see _mapped); D'(0) > 0 follows from A_k(0) >= 0 by form, sum d_k = 1 and 0 < d_k < 4/5.
+WENO-Z: |beta_i - beta_j| is not a power series, but for one f it equals sigma (beta_i - beta_j) for all small
+dx, sigma = +1 or -1 the sign of the first non-zero term. The claim is decided in every sign branch (both
+stencils for the difference: four branches), less the branches the leading term excludes by form; VERIFIED
+needs every branch, and no branch is chosen by sampling. tau must be of order at least every eps + beta_k
+(else UNKNOWN), which gives D(0) > 0 on each branch (see _z_weights). An even q needs no split.
 REFUTED: the first non-zero coefficient of order k < p, evaluated at a concrete rational jet in the
-regime where it is non-zero; the witness gives the jet, k and the dx^k coefficient of E.
+regime where it is non-zero; the witness gives the jet, k and the dx^k coefficient of E. For WENO-Z the
+jet must also lie in the branch, checked exactly: beta_i - beta_j has, at that jet, the branch's signs as
+the first non-zero terms of its series (the search for such a jet may sample; the verdict then rests on the
+exact check).
 VERIFIED: the witness states the positivity of the b_k (by form) and the leading order found
 (exact up to p + 1).
 """
@@ -59,6 +72,7 @@ CLAIMS = ("reconstruction_order_p",)
 claimkinds.require("reconstruction", CLAIMS)
 
 FORMS = ("point", "flux_difference")
+KINDS = ("linear", "js", "z", "m")
 DATA = ("point_values", "cell_averages")
 TARGETS = ("value", "primitive")
 MAX_BETA_ORDER = 40  # how far, in powers of dx, to look for the leading term of eps + beta_k
@@ -303,31 +317,47 @@ def parse_reconstruction(r: dict) -> dict:
     if r["target"] == "primitive" and r["data"] != "point_values":
         raise ValueError("the primitive target is for point values (the finite-difference flux form)")
     w = r["weights"]
-    if w["kind"] not in ("js", "linear"):
-        raise ValueError("weights kind must be 'js' or 'linear'")
+    if w["kind"] not in KINDS:
+        raise ValueError(f"weights kind must be one of {KINDS}")
     out = {"data": r["data"], "target": r["target"], "s": Fraction(str(r.get("point", "1/2"))),
            "q": [parse(x) for x in r["candidates"]], "d": [Fraction(str(x)) for x in w["d"]], "kind": w["kind"]}
     if len(out["d"]) != len(out["q"]):
         raise ValueError("one linear weight per candidate")
-    if w["kind"] == "js":
+    if w["kind"] != "linear":
         out["beta"] = [parse(x) for x in w["beta"]]
         out["power"] = w["q"]
         if len(out["beta"]) != len(out["q"]) or not isinstance(w["q"], int) or w["q"] < 1:
             raise ValueError("one beta per candidate, and an integer q >= 1")
+    if w["kind"] == "z":
+        tau = w["tau"]
+        if (not isinstance(tau, list) or len(tau) != 2 or tau[0] == tau[1]
+                or any(not isinstance(i, int) or not 0 <= i < len(out["q"]) for i in tau)):
+            raise ValueError("tau is [i, j], two distinct indicator indices: tau = |beta_i - beta_j|")
+        out["tau"] = tuple(tau)
     return out
 
 
 # ---------------------------------------------------------------- the decision
 
-def _weights(R: dict, jet: Jet, shift: int, n: int, eps, pivot: int, notes: list) -> tuple[list, list]:
-    """(A_k, D) with omega_k = A_k / D, series of length n, D(0) > 0 by form."""
+def nonneg_by_form(a: dict) -> bool:
+    """a >= 0 for every real jet: zero, or every coefficient positive and every exponent even."""
+    return all(c > 0 and all(k % 2 == 0 for k in m) for m, c in a.items())
+
+
+def _sign_at(series: list, x: list) -> int | None:
+    """The eventual sign, as dx -> 0, of a series in t at the jet x (None if every computed term is 0)."""
+    for c in series:
+        v = peval(c, x)
+        if v:
+            return 1 if v > 0 else -1
+    return None
+
+
+def _indicators(R: dict, jet: Jet, shift: int, n: int, eps, pivot: int, notes: list) -> tuple[list, list, list]:
+    """(B, Bt, e): eps + beta_k as full series B_k = t^e_k Bt_k, Bt_k of length n with Bt_k(0) > 0 by form."""
     nv = jet.nv
-    if R["kind"] == "linear":
-        if sum(R["d"]) == 0:
-            raise Unknown("the linear weights sum to 0")
-        return [sconst(d, n, nv) for d in R["d"]], sconst(sum(R["d"]), n, nv)
     B, es = [], []
-    for k, beta in enumerate(R["beta"]):
+    for beta in R["beta"]:
         b = to_series(beta, jet, shift, jet.cap)
         if eps is not None:
             ce, m = eps
@@ -341,7 +371,6 @@ def _weights(R: dict, jet: Jet, shift: int, n: int, eps, pivot: int, notes: list
         es.append(e)
     if max(es) + n > jet.cap:
         raise _NeedCap(max(es) + n)
-    q = R["power"]
     Bt = [b[e:e + n] for b, e in zip(B, es)]
     for k, (b, e) in enumerate(zip(Bt, es)):
         if not positive_by_form(b[0], pivot):
@@ -349,7 +378,23 @@ def _weights(R: dict, jet: Jet, shift: int, n: int, eps, pivot: int, notes: list
                           f"{shift}) is non-zero for every jet in the regime")
         notes.append(f"eps + beta_{k}{'' if shift == 0 else ' (shifted)'} = dx^{Fraction(e, jet.L)} "
                      f"({show(b[0])} + ...), > 0 by form")
+    return B, Bt, es
+
+
+def _weights(R: dict, jet: Jet, shift: int, n: int, eps, pivot: int, notes: list, sigma: int = 1,
+             ctx: dict | None = None) -> tuple[list, list]:
+    """(A_k, D) with omega_k = A_k / D, series of length n, D(0) > 0 for every jet in the regime (for WENO-Z,
+    every jet of the sign branch sigma: see _z_weights)."""
+    nv = jet.nv
+    if R["kind"] == "linear":
+        if sum(R["d"]) == 0:
+            raise Unknown("the linear weights sum to 0")
+        return [sconst(d, n, nv) for d in R["d"]], sconst(sum(R["d"]), n, nv)
+    B, Bt, es = _indicators(R, jet, shift, n, eps, pivot, notes)
+    q = R["power"]
     powers = [spow(b, q, n, nv) for b in Bt]
+    if R["kind"] == "z":
+        return _z_weights(R, jet, shift, n, B, es, powers, sigma, notes, ctx)
     A = []
     for k, d in enumerate(R["d"]):
         a = sconst(d, n, nv)
@@ -362,23 +407,134 @@ def _weights(R: dict, jet: Jet, shift: int, n: int, eps, pivot: int, notes: list
         D = sadd(D, a)
     if not positive_by_form(D[0], pivot):
         raise Unknown(f"cannot show the leading coefficient {show(D[0])} of the weight denominator is non-zero")
+    if R["kind"] == "m":
+        return _mapped(R, A, D, n, notes)
     return A, D
 
 
-def _numerator(R: dict, jet: Jet, shift: int, n: int, eps, pivot: int, notes: list) -> tuple[list, list]:
+def _z_weights(R: dict, jet: Jet, shift: int, n: int, B: list, es: list, powers: list, sigma: int, notes: list,
+               ctx: dict | None) -> tuple[list, list]:
+    """WENO-Z: alpha_k = d_k (1 + (tau / (eps + beta_k))^q), tau = |beta_i - beta_j|. Times the common positive
+    factor prod_j Bt_j^q: A_k = d_k (Bt_k^q + (tau / t^e_k)^q) prod_{j != k} Bt_j^q.
+
+    The absolute value. Delta = beta_i - beta_j is a series in t (eps cancels). For one smooth f, Delta(dx)
+    has the sign of its first non-zero term for all small dx, so there |Delta| = sigma Delta with sigma = +1
+    or -1; if every term is zero, both signs give the same series. The caller decides both branches and
+    picks none of them by sampling. In a branch, tau = sigma Delta is a series with polynomial coefficients.
+    If Delta = O(dx^e) with e at least every e_k, then tau / t^e_k is a power series and
+    D(0) = sum_k d_k (Bt_k(0)^q + [e = e_k] (sigma delta)^q) prod_{j != k} Bt_j(0)^q
+         >= (sum_k d_k) prod_j Bt_j(0)^q > 0
+    for every jet of the branch, delta being the dx^e coefficient of Delta (sigma delta >= 0 on the branch,
+    as either delta = 0 there or its sign is the eventual sign of Delta)."""
+    nv, q = jet.nv, R["power"]
+    i, j = R["tau"]
+    if any(d <= 0 for d in R["d"]):
+        raise Unknown("WENO-Z needs every linear weight d_k > 0")
+    delta = sadd(B[i], B[j], -1)
+    e_d = first_nonzero(delta)
+    if ctx is not None:
+        ctx.setdefault("delta", {})[shift] = delta
+    if e_d is not None and e_d < max(es):
+        raise Unknown(f"tau = |beta_{i} - beta_{j}| = O(dx^{Fraction(e_d, jet.L)}) is not small against every "
+                      f"eps + beta_k (largest order dx^{Fraction(max(es), jet.L)})")
+    tag = "" if shift == 0 else " (shifted)"
+    if e_d is None:
+        notes.append(f"beta_{i} - beta_{j}{tag} has no non-zero term below dx^{Fraction(jet.cap, jet.L)}")
+    else:
+        notes.append(f"beta_{i} - beta_{j}{tag} = dx^{Fraction(e_d, jet.L)} ({show(delta[e_d])} + ...), of order at "
+                     f"least that of every eps + beta_k, so D(0) >= (sum d_k) prod_j Bt_j(0)^q > 0 in each sign branch")
+    tau = [pscale(c, sigma) for c in delta]
+    A = []
+    for k, d in enumerate(R["d"]):
+        a = sadd(powers[k], spow(sshift(tau, -es[k], n), q, n, nv))
+        a = [pscale(c, d) for c in a]
+        for jj, pw in enumerate(powers):
+            if jj != k:
+                a = smul(a, pw, n)
+        A.append(a)
+    D: list = [{} for _ in range(n)]
+    for a in A:
+        D = sadd(D, a)
+    return A, D
+
+
+def _mapped(R: dict, A: list, D: list, n: int, notes: list) -> tuple[list, list]:
+    """WENO-M (Henrick, Aslam and Powers): w_k = A_k / D mapped by
+    g_k(w) = w (d_k + d_k^2 - 3 d_k w + w^2) / (d_k^2 + w (1 - 2 d_k)), then renormalised. With w = A / D,
+    g_k = A_k F_k / (D^2 Q_k), where F_k = d (1 + d) D^2 - 3 d A_k D + A_k^2 and
+    Q_k = d^2 D + (1 - 2d) A_k = d^2 (D - A_k) + (1 - d)^2 A_k, so the mapped weights are A'_k / D' with
+    A'_k = A_k F_k prod_{j != k} Q_j and D' = sum_k A'_k: rational again, cleared the same way.
+    D'(0) > 0 for every jet: each A_k(0) >= 0 by form and sum_k A_k(0) = D(0) > 0; F_k(0) > 0 since the
+    form d (1 + d) X^2 - 3 d X Y + Y^2 is positive definite for 0 < d < 4/5 and D(0) != 0; and
+    Q_k(0) >= min(d^2, (1 - d)^2) D(0) > 0."""
+    d = R["d"]
+    if sum(d) != 1 or any(not 0 < x < Fraction(4, 5) for x in d):
+        raise Unknown("the mapping is decided for linear weights with sum 1 and 0 < d_k < 4/5")
+    if not all(nonneg_by_form(a[0]) for a in A):
+        raise Unknown("cannot show every leading weight numerator A_k(0) >= 0 by form")
+    DD = smul(D, D, n)
+    F, Q = [], []
+    for a, dk in zip(A, d):
+        f = sadd([pscale(c, dk * (1 + dk)) for c in DD], [pscale(c, -3 * dk) for c in smul(a, D, n)])
+        F.append(sadd(f, smul(a, a, n)))
+        Q.append(sadd([pscale(c, dk * dk) for c in sadd(D, a, -1)], [pscale(c, (1 - dk) ** 2) for c in a]))
+    A2 = []
+    for k, a in enumerate(A):
+        x = smul(a, F[k], n)
+        for j, qj in enumerate(Q):
+            if j != k:
+                x = smul(x, qj, n)
+        A2.append(x)
+    D2: list = [{} for _ in range(n)]
+    for a in A2:
+        D2 = sadd(D2, a)
+    notes.append("mapped weights: D'(0) > 0, since every A_k(0) >= 0 by form, sum_k A_k(0) = D(0) > 0, "
+                 "sum d_k = 1 and 0 < d_k < 4/5")
+    return A2, D2
+
+
+def _numerator(R: dict, jet: Jet, shift: int, n: int, eps, pivot: int, notes: list, sigma: int = 1,
+               ctx: dict | None = None) -> tuple[list, list]:
     """(N, D) with R - T = N / D at the stencil shifted by `shift` (evaluation point s + shift)."""
-    A, D = _weights(R, jet, shift, n, eps, pivot, notes)
+    A, D = _weights(R, jet, shift, n, eps, pivot, notes, sigma, ctx)
     N = smul([pscale(x, -1) for x in jet.exact(R["s"] + shift)[:n]], D, n)
     for a, qk in zip(A, R["q"]):
         N = sadd(N, smul(a, to_series(qk, jet, shift, n), n))
     return N, D
 
 
+def _split(R: dict) -> bool:
+    """Only WENO-Z with an odd power needs the sign of beta_i - beta_j (an even power squares it away)."""
+    return R["kind"] == "z" and R["power"] % 2 == 1
+
+
+def _branches(R: dict, jet: Jet, form: str, pivot: int) -> list[tuple]:
+    """The sign branches (sigma at x_{i+1/2}[, sigma at x_{i-1/2}]), less those the leading term of
+    beta_i - beta_j excludes by form (its sign fixed for every jet in the regime)."""
+    shifts = (0,) if form == "point" else (0, -1)
+    if not _split(R):
+        return [(1,) * len(shifts)]
+    i, j = R["tau"]
+    allowed = []
+    for s in shifts:
+        delta = sadd(to_series(R["beta"][i], jet, s, jet.cap), to_series(R["beta"][j], jet, s, jet.cap), -1)
+        e = first_nonzero(delta)
+        signs = [g for g in (1, -1) if e is None or not positive_by_form(pscale(delta[e], -g), pivot)]
+        allowed.append(signs)
+    return [(a,) for a in allowed[0]] if form == "point" else [(a, b) for a in allowed[0] for b in allowed[1]]
+
+
+def _branch_label(R: dict, sig: tuple) -> str:
+    i, j = R["tau"]
+    return ", ".join(f"beta_{i} - beta_{j} {'>' if g > 0 else '<'} 0 at {at}"
+                     for g, at in zip(sig, ("x_{i+1/2}", "x_{i-1/2}")))
+
+
 def decide(R: dict, C: dict) -> dict:
     """The verdict of one claim on one parsed reconstruction (see the module docstring)."""
     p, form, ncp, eps = C["p"], C["form"], C["ncp"], C["eps"]
-    if R["kind"] == "js" and eps == "missing":
-        raise ValueError("a js claim must name its eps scaling ('0' or {c, m})")
+    if R["kind"] != "linear" and eps == "missing":
+        raise ValueError(f"a {R['kind']} claim must name its eps scaling ('0' or {{c, m}})")
     if R["kind"] == "linear":
         eps = None
     L = eps[1].denominator if eps else 1
@@ -388,41 +544,68 @@ def decide(R: dict, C: dict) -> dict:
     while True:
         if cap > (MAX_BETA_ORDER + p + 2) * L:
             return {"verdict": UNKNOWN, "reason": f"eps + beta_k has no non-zero term up to dx^{MAX_BETA_ORDER}"}
-        jet, notes = Jet(R["data"], R["target"], L, ncp, cap), []
+        jet, notes, ctx = Jet(R["data"], R["target"], L, ncp, cap), [], {}
         try:
-            Np, Dp = _numerator(R, jet, 0, n, eps, pivot, notes)
-            if form == "point":
-                N, Ds = Np, [Dp]
-            else:
-                Nm, Dm = _numerator(R, jet, -1, n, eps, pivot, notes)
-                N, Ds = sadd(smul(Np, Dm, n), smul(Nm, Dp, n), -1), [Dp, Dm]
+            branches = []
+            for sig in _branches(R, jet, form, pivot):
+                Np, Dp = _numerator(R, jet, 0, n, eps, pivot, notes, sig[0], ctx)
+                if form == "point":
+                    branches.append((sig, Np, [Dp]))
+                else:
+                    Nm, Dm = _numerator(R, jet, -1, n, eps, pivot, notes, sig[1], ctx)
+                    branches.append((sig, sadd(smul(Np, Dm, n), smul(Nm, Dp, n), -1), [Dp, Dm]))
             break
         except _NeedCap as e:
             cap = max(e.cap, cap + L)
         except Unknown as e:
             return {"verdict": UNKNOWN, "reason": str(e)}
-    j0 = first_nonzero(N)
     shift = 0 if form == "point" else 1  # E = N / D or N / (dx D+ D-)
-    order = None if j0 is None else Fraction(j0, L) - shift
-    out = {"jet_order": jet.K, "assumptions": notes,
-           "leading_order": str(order) if order is not None else f">= {p + 1}"}
-    if order is None or order >= p:
+    orders = []
+    for _, N, _ in branches:
+        j0 = first_nonzero(N)
+        orders.append(None if j0 is None else Fraction(j0, L) - shift)
+    known = [o for o in orders if o is not None]
+    out = {"jet_order": jet.K, "assumptions": list(dict.fromkeys(notes)),
+           "leading_order": str(min(known)) if known else f">= {p + 1}"}
+    if _split(R):
+        out["branch_orders"] = {_branch_label(R, sig): str(o) if o is not None else f">= {p + 1}"
+                                for (sig, _, _), o in zip(branches, orders)}
+    if all(o is None or o >= p for o in orders):
         coeffs = f"dx^0 .. dx^{p - 1}" if p else "none (p = 0)"
+        where = " in every sign branch of tau" if _split(R) else ""
         out.update(verdict=VERIFIED, reason=f"the coefficients of {coeffs} of E vanish identically in the jet "
-                   f"(f_1..f_{ncp} = 0, f_{pivot} != 0, the others free), given the positive leading terms")
+                   f"(f_1..f_{ncp} = 0, f_{pivot} != 0, the others free){where}, given the positive leading terms")
         return out
-    jet_vals, d0 = concrete_jet(N[j0], [D[0] for D in Ds], pivot, jet.nv, ncp)
-    coef = peval(N[j0], jet_vals) / d0
-    used = max([i for mono in N[j0] for i, k in enumerate(mono) if k] + [pivot])
-    out.update(verdict=REFUTED, k=str(order), coefficient=str(coef),
-               jet={f"f^({i})": str(jet_vals[i]) for i in range(used + 1)},
-               reason=f"for this jet the error is {coef} dx^{order} + o(dx^{order}), and {order} < {p}")
+    low = sorted((o, b) for b, o in enumerate(orders) if o is not None and o < p)
+    for o, b in low:
+        sig, N, Ds = branches[b]
+        j0 = first_nonzero(N)
+        accept = None
+        if _split(R):
+            def accept(x, sig=sig):
+                return all(_sign_at(ctx["delta"][s], x) == g for s, g in zip((0, -1), sig))
+        try:
+            jet_vals, d0 = concrete_jet(N[j0], [D[0] for D in Ds], pivot, jet.nv, ncp, accept)
+        except Unknown:
+            continue
+        coef = peval(N[j0], jet_vals) / d0
+        used = max([i for mono in N[j0] for i, k in enumerate(mono) if k] + [pivot])
+        reason = f"for this jet the error is {coef} dx^{o} + o(dx^{o}), and {o} < {p}"
+        if _split(R):  # the branch depends on the whole computed jet: report all of it
+            used = jet.K
+            out["branch"] = _branch_label(R, sig)
+            reason += " (the jet lies in this sign branch: there beta_i - beta_j has these eventual signs)"
+        out.update(verdict=REFUTED, k=str(o), coefficient=str(coef),
+                   jet={f"f^({i})": str(jet_vals[i]) for i in range(used + 1)}, reason=reason)
+        return out
+    out.update(verdict=UNKNOWN, reason=f"order {low[0][0]} < {p} in a sign branch of tau, but no rational jet "
+               "of that branch was found to exhibit it")
     return out
 
 
-def concrete_jet(poly: dict, dens: list, pivot: int, nv: int, ncp: int) -> tuple[list, Fraction]:
-    """A rational jet in the regime where `poly` is non-zero (it is a non-zero polynomial), with
-    the product of the denominators' leading terms (all > 0 by form there)."""
+def concrete_jet(poly: dict, dens: list, pivot: int, nv: int, ncp: int, accept=None) -> tuple[list, Fraction]:
+    """A rational jet in the regime where `poly` is non-zero (it is a non-zero polynomial) and `accept` holds,
+    with the product of the denominators' leading terms (all > 0 there)."""
     first = [Fraction(0)] + [Fraction(0)] * ncp + [Fraction(1)] + [Fraction(1, i) for i in range(2, nv - ncp)]
     tries = [first[:nv]]
     rnd = random.Random(0)
@@ -433,10 +616,12 @@ def concrete_jet(poly: dict, dens: list, pivot: int, nv: int, ncp: int) -> tuple
             x[i] = Fraction(0)
         tries.append(x)
     for x in tries:
-        if peval(poly, x):
+        if peval(poly, x) and (accept is None or accept(x)):
             d0 = Fraction(1)
             for d in dens:
                 d0 *= peval(d, x)
+            if d0 <= 0:
+                raise Unknown(f"a weight denominator is not positive at the jet {x}, against the argument above")
             return x, d0
     raise Unknown("no rational jet found where the leading error coefficient is non-zero")
 
@@ -478,7 +663,7 @@ def direct_error(rec: dict, claim: dict, jet: list, t: Fraction) -> Fraction:
     """E exactly at dx = t^L for the polynomial f(x_i + y) = sum_n jet[n] y^n / n!, by plain
     evaluation of the formulas (no series): the independent check of a witness."""
     R, C = parse_reconstruction(rec), parse_claim(claim)
-    eps = C["eps"] if R["kind"] == "js" else None
+    eps = C["eps"] if R["kind"] != "linear" else None
     L = eps[1].denominator if eps else 1
     dx = Fraction(t) ** L
     epsv = eps[0] * t ** int(eps[1] * L) if eps else Fraction(0)
@@ -493,8 +678,15 @@ def direct_error(rec: dict, claim: dict, jet: list, t: Fraction) -> Fraction:
         qs = [_eval(q, v) for q in R["q"]]
         if R["kind"] == "linear":
             w = list(R["d"])
+        elif R["kind"] == "z":
+            bs = [_eval(b, v) for b in R["beta"]]
+            tau = abs(bs[R["tau"][0]] - bs[R["tau"][1]])
+            w = [d * (1 + (tau / (epsv + b)) ** R["power"]) for d, b in zip(R["d"], bs)]
         else:
             w = [d / (epsv + _eval(b, v)) ** R["power"] for d, b in zip(R["d"], R["beta"])]
+            if R["kind"] == "m":
+                w = [x / sum(w) for x in w]
+                w = [x * (d + d * d - 3 * d * x + x * x) / (d * d + x * (1 - 2 * d)) for x, d in zip(w, R["d"])]
         s = R["s"] + shift
         if R["target"] == "value":
             exact = sum((Fraction(jet[n]) * (s * dx) ** n / factorial(n) for n in range(K + 1)), Fraction(0))

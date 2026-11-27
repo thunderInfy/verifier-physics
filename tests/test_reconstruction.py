@@ -115,9 +115,10 @@ def test_refuted_witness_by_direct_evaluation(name, i):
     jet = [F(v) for v in r["jet"].values()] + [F(1, 3), F(-1, 2), F(2), F(1), F(1, 5), F(-1)]
     k, coef, L = F(r["k"]), F(r["coefficient"]), _L(c)
     assert coef != 0 and k < c["p"]
-    # a fixed eps = 1e-6 needs beta << eps before the asymptotics show, so smaller dx there
+    # a fixed eps = 1e-6 needs beta << eps before the asymptotics show, and WENO-Z at n_cp = 2 (tau and beta
+    # of the same order at the shifted stencil) settles only near dx = 2^-13, so smaller dx there
     fixed_eps = isinstance(c.get("eps"), dict) and F(str(c["eps"]["m"])) == 0
-    exps = (8, 12, 16) if fixed_eps else (5, 8, 11)
+    exps = (8, 12, 16) if fixed_eps or SPECS[name]["reconstruction"]["weights"]["kind"] == "z" else (5, 8, 11)
     gaps = [abs(R.direct_error(rec, c, jet, F(1, 2 ** a)) / F(1, 2 ** a) ** (L * k) - coef) for a in exps]
     assert gaps[0] > gaps[1] > gaps[2] and gaps[2] < abs(coef) / 10, (gaps, coef)
 
@@ -143,9 +144,12 @@ def test_verified_with_eps_0_survives_sampled_jets(name, i):
     rec, c = SPECS[name]["reconstruction"], SPECS[name]["claims"][i]
     rnd = random.Random(f"{name}:{i}")
     p = c["p"]
+    # the mapped and Z weights have pre-asymptotic transients (a sign change of E near dx = 2^-7 for some
+    # jets), so they are sampled further out
+    exps = (7, 9, 11) if SPECS[name]["reconstruction"]["weights"]["kind"] in ("js", "linear") else (11, 13, 15)
     for _ in range(3):
         jet = _jet_in_regime(c, rnd)
-        r = [abs(R.direct_error(rec, c, jet, F(1, 2 ** a))) * 2 ** (a * p) for a in (7, 9, 11)]
+        r = [abs(R.direct_error(rec, c, jet, F(1, 2 ** a))) * 2 ** (a * p) for a in exps]
         assert r[2] <= F(3, 2) * r[1] + F(1, 10 ** 6) and r[1] <= F(3, 2) * r[0] + F(1, 10 ** 6), (jet, r)
 
 
