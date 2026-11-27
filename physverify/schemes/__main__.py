@@ -1,4 +1,8 @@
-"""Usage: python -m physverify.schemes SPEC.json [SPEC.json ...] [--json]
+"""Usage: python -m physverify.schemes SPEC.json [SPEC.json ...] [--json] [--lean]
+
+--lean kernel-checks the exact verdicts in scope (lean_cert.py) in one Lean run for all specs and
+upgrades their guarantee to "proven (Lean)"; without Lean, or if a proof fails, they keep the
+exact-Python label. Lean never changes a verdict.
 
 Exit code 1 if any named claim is refuted (exactly or empirically), suspicious or INCONSISTENT
 (for a spec with no named claims: if any raw check is). Exit code 3 if any claim is INCONSISTENT,
@@ -16,9 +20,11 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     bad = inconsistent = False
-    for p in paths:
-        spec = load(p)
-        report = check(spec)
+    runs = [(spec, check(spec)) for spec in map(load, paths)]
+    if "--lean" in argv:
+        from .lean_cert import certify
+        certify(runs)
+    for spec, report in runs:
         bad |= bool(failed(report))
         inconsistent |= any(v["verdict"] == claims.INCONSISTENT for v in report["claims"])
         print(json.dumps({"scheme": spec["name"], **report}, indent=1)

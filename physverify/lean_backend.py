@@ -42,6 +42,42 @@ def _env() -> dict:
     return env
 
 
+def _theorem(name: str, statement: str, proof: str) -> str:
+    body = "\n".join("  " + line for line in proof.strip().splitlines())
+    return f"theorem {name} : {statement} := by\n{body}\n\n#print axioms {name}\n"
+
+
+def _run(src: str, timeout: int) -> tuple[bool, str]:
+    """(exit ok, log) of `lake env lean` on one generated file."""
+    if MODE == "local" and not (LEAN_DIR / ".lake/packages/mathlib").is_dir():
+        # don't let `lake` start a multi-GB Mathlib download
+        return False, "Mathlib not built: run `lake exe cache get && lake build` in lean/"
+    with tempfile.NamedTemporaryFile("w", suffix=".lean", dir=LEAN_DIR / "build_certs",
+                                     delete=False) as f:
+        f.write(src)
+        path = Path(f.name)
+    cmd = (["lake", "env", "lean", str(path)] if MODE == "local"
+           else [str(ROOT / "tools/vm.sh"), "lean", str(path), str(timeout)])
+    try:
+        r = subprocess.run(cmd, cwd=LEAN_DIR, env=_env(), capture_output=True, text=True,
+                           timeout=timeout + 120)
+        log = r.stdout + r.stderr
+    except subprocess.TimeoutExpired:
+        return False, "timeout"
+    except FileNotFoundError as ex:  # no Lean toolchain: no certificate can be checked
+        return False, f"Lean not available: {ex}"
+    finally:
+        path.unlink(missing_ok=True)
+    return r.returncode == 0 and (MODE == "local" or "EXIT=0" in log), log
+
+
+def _axioms(name: str, log: str) -> set[str] | None:
+    m = re.search(rf"'{re.escape(name)}' depends on axioms: \[([^\]]*)\]", log)
+    if m:
+        return {a.strip() for a in m.group(1).split(",")}
+    return set() if f"'{name}' does not depend on any axioms" in log else None
+
+
 def check(statement: str, proof: str, preamble: str = "", timeout: int = 300,
           module: str = "PhysVerify") -> LeanResult:
     """Compile `theorem physverify_certificate : <statement> := by <proof>`.
@@ -51,41 +87,48 @@ def check(statement: str, proof: str, preamble: str = "", timeout: int = 300,
     """
     if _DENY.search(proof):
         return LeanResult(False, set(), f"certificate rejected by sanitizer: {_DENY.search(proof)[0]!r}")
-    body = "\n".join("  " + line for line in proof.strip().splitlines())
-    src = (
-        f"import {module}\n"
-        "open PhysVerify\n\n"
-        f"{preamble}\n"
-        f"theorem {THM} : {statement} := by\n{body}\n\n"
-        f"#print axioms {THM}\n"
-    )
-    with tempfile.NamedTemporaryFile("w", suffix=".lean", dir=LEAN_DIR / "build_certs",
-                                     delete=False) as f:
-        f.write(src)
-        path = Path(f.name)
-    if MODE == "local" and not (LEAN_DIR / ".lake/packages/mathlib").is_dir():
-        path.unlink(missing_ok=True)  # don't let `lake` start a multi-GB Mathlib download
-        return LeanResult(False, set(), "Mathlib not built: run `lake exe cache get && lake build` in lean/")
-    cmd = (["lake", "env", "lean", str(path)] if MODE == "local"
-           else [str(ROOT / "tools/vm.sh"), "lean", str(path), str(timeout)])
-    try:
-        r = subprocess.run(cmd, cwd=LEAN_DIR, env=_env(), capture_output=True, text=True,
-                           timeout=timeout + 120)
-        log = r.stdout + r.stderr
-    except subprocess.TimeoutExpired:
-        return LeanResult(False, set(), "timeout")
-    except FileNotFoundError as ex:  # no Lean toolchain: no certificate can be checked
-        return LeanResult(False, set(), f"Lean not available: {ex}")
-    finally:
-        path.unlink(missing_ok=True)
-    exit_ok = r.returncode == 0 and (MODE == "local" or "EXIT=0" in log)
+    src = f"import {module}\nopen PhysVerify\n\n{preamble}\n" + _theorem(THM, statement, proof)
+    exit_ok, log = _run(src, timeout)
     if not exit_ok or re.search(r":\d+:\d+: error", log):
         return LeanResult(False, set(), log)
-    m = re.search(rf"'{THM}' depends on axioms: \[([^\]]*)\]", log)
-    axioms = {a.strip() for a in m.group(1).split(",")} if m else set()
-    if not m and f"'{THM}' does not depend on any axioms" not in log:
+    axioms = _axioms(THM, log)
+    if axioms is None:
         return LeanResult(False, set(), "could not read axiom report\n" + log)
     return LeanResult(axioms <= STD_AXIOMS, axioms, log)
+
+
+def check_batch(items: list[tuple[str, str, str]], preamble: str = "", timeout: int = 1800,
+                module: str = "PhysVerify", opens: str = "PhysVerify") -> dict[str, LeanResult]:
+    """Check many judge-written statements with one `lake env lean`, so the import is paid once.
+
+    items: (theorem name, statement, planner proof). Each result is attributed by its own lines:
+    a theorem is accepted only if no error falls inside its declaration and its own `#print axioms`
+    shows nothing beyond the standard axioms. An error outside every declaration (the import, the
+    preamble) or a non-zero exit with no attributable error rejects every theorem in the file.
+    """
+    out, src, spans = {}, f"import {module}\nopen {opens}\n\n{preamble}\n", {}
+    names = [n for n, _, _ in items]
+    if len(set(names)) != len(names) or not all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", n) for n in names):
+        raise ValueError("theorem names must be unique identifiers")
+    for name, statement, proof in items:
+        if _DENY.search(proof):
+            out[name] = LeanResult(False, set(), f"certificate rejected by sanitizer: {_DENY.search(proof)[0]!r}")
+            continue
+        start = src.count("\n") + 1
+        src += _theorem(name, statement, proof) + "\n"
+        spans[name] = (start, src.count("\n"))
+    if not spans:
+        return out
+    exit_ok, log = _run(src, timeout)
+    errors = [int(m.group(1)) for m in re.finditer(r":(\d+):\d+: error", log)]
+    stray = [ln for ln in errors if not any(a <= ln <= b for a, b in spans.values())]
+    for name, (a, b) in spans.items():
+        mine = [ln for ln in errors if a <= ln <= b]
+        axioms = _axioms(name, log)
+        ok = (not mine and not stray and axioms is not None and axioms <= STD_AXIOMS
+              and (exit_ok or bool(errors)))
+        out[name] = LeanResult(ok, axioms or set(), log if not ok else "")
+    return out
 
 
 (LEAN_DIR / "build_certs").mkdir(exist_ok=True)

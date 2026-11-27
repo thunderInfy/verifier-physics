@@ -417,3 +417,79 @@ def test_conserved_judge_rejects_planner_tricks():
     assert judge(bad, [v]).verdict == UNKNOWN
     assert judge(good, [P.propose(bad)[0], ("verified", "sorry"), ("refuted", "simp_all"),
                         ("verified", "decide")]).verdict == UNKNOWN
+
+
+# ---------------------------------------------------------------- scheme certificates (lean_cert.py)
+# Every exact verdict in scope must come back "proven (Lean)" (or the per-cell label), with the same
+# status as without Lean; a wrong multiplier, flux potential or counterexample must fall back.
+
+import glob  # noqa: E402
+import time  # noqa: E402
+import types  # noqa: E402
+
+from physverify import schemes  # noqa: E402
+from physverify.schemes import checks, lean_cert, lean_planner  # noqa: E402
+
+SPECS = sorted(glob.glob(str(ROOT / "schemes/**/*.json"), recursive=True))
+LABELS = (lean_cert.LEAN, lean_cert.LEAN_CELLS)
+
+
+def _in_scope(r):
+    return ((r["check"] in lean_cert.SCOPE and r["status"] in (checks.VERIFIED, checks.REFUTED))
+            or (r["check"] in lean_cert.CELL_SCOPE and r["status"] == checks.VERIFIED)
+            or (r["check"] in lean_cert.REF_SCOPE and r["status"] == checks.REFUTED))
+
+
+@pytest.fixture(scope="module")
+def certified():
+    pairs = [(schemes.load(p), None) for p in SPECS]
+    pairs = [(s, schemes.check(s)) for s, _ in pairs]
+    before = [[(r["check"], r["status"]) for r in rep["checks"]] for _, rep in pairs]
+    t = time.time()
+    results = lean_cert.certify(pairs)
+    print(f"\nscheme certificates: {len(results)} theorems, one Lean run, {time.time() - t:.0f}s")
+    return pairs, before, results
+
+
+def test_every_exact_verdict_in_scope_is_proven(certified):
+    pairs, _, results = certified
+    # a check's own caveat may follow the label (the entropy check's "semi-discrete inequality only")
+    missing = [(s["name"], r["check"], r.get("lean")) for s, rep in pairs for r in rep["checks"]
+               if _in_scope(r) and not r["guarantee"].startswith(LABELS)]
+    assert not missing, missing
+    assert all(v.ok for v in results.values())
+
+
+def test_verdicts_unchanged_and_claims_carry_the_label(certified):
+    pairs, before, _ = certified
+    assert [[(r["check"], r["status"]) for r in rep["checks"]] for _, rep in pairs] == before
+    lean_claims = [v for _, rep in pairs for v in rep["claims"] if v["guarantee"] in LABELS]
+    assert {v["verdict"] for v in lean_claims} == {"VERIFIED", "REFUTED"}
+    assert any(v["claim"] == "monotone_under_cfl" and v["guarantee"] == lean_cert.LEAN_CELLS for v in lean_claims)
+
+
+def test_wrong_certificates_fall_back_to_exact_python():
+    """A corrupted multiplier, flux potential or counterexample is rejected by Lean; the verdict keeps
+    its status and its exact-Python guarantee."""
+    def corrupt(fn, old, new):
+        def g(*a):
+            return fn(*a).replace(old, new, 1)
+        return g
+    planner = types.SimpleNamespace(**{k: getattr(lean_planner, k) for k in dir(lean_planner) if not k.startswith("__")})
+    planner.cell_proof = corrupt(lean_planner.cell_proof, "![(1 : ℝ)]", "![(2 : ℝ)]")        # a Farkas multiplier
+    planner.proof = corrupt(lean_planner.proof, "(-lam * ", "(-2 * lam * ")                     # the flux potential
+    spec = schemes.load(ROOT / "schemes/advection-upwind.json")
+    rep = schemes.check(spec)
+    lean_cert.certify([(spec, rep)], planner=planner)
+    g = {r["check"]: (r["status"], r["guarantee"]) for r in rep["checks"]}
+    assert g["monotonicity"] == (checks.VERIFIED, checks.EXACT)
+    assert g["conservation"] == (checks.VERIFIED, checks.EXACT)
+    # a counterexample nu at which the offending coefficient is not negative
+    planner = types.SimpleNamespace(**vars(planner))
+    planner.proof = lean_planner.proof
+    down = schemes.load(ROOT / "schemes/broken-advection-downwind.json")
+    rep = schemes.check(down)
+    pos = next(r for r in rep["checks"] if r["check"] == "positivity")
+    pos["witness"]["violating_nu"] = "0"     # c_{i+1}(0) = 0, so this is no counterexample
+    lean_cert.certify([(down, rep)], planner=planner)
+    assert (pos["status"], pos["guarantee"]) == (checks.REFUTED, checks.EXACT)

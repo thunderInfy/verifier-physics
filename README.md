@@ -41,6 +41,8 @@ installed, the result is `UNKNOWN` and the theory is not rejected.
 | Obligations: statement, guarantee, assumptions | yes | `physverify/obligations.py` |
 | Judge | yes | `physverify/judge.py` |
 | Lean definitions and theorems | kernel-checked | `lean/PhysVerify/` |
+| Scheme statements for Lean (from the spec) | yes | `physverify/schemes/lean_cert.py` |
+| Scheme proofs for Lean (from the witness) | no | `physverify/schemes/lean_planner.py` |
 | Interval replay checker for trajectories | validated numerics | `physverify/tools/enclosure.py` |
 | Tools and planner that search for proofs | no | `physverify/tools/`, `physverify/planner.py` |
 
@@ -376,12 +378,94 @@ below for how one becomes the other).
 | Truncation order of limited schemes, per branch and on smooth data | exact: the truncation order of the linear scheme on each sign cell (sufficient when all are >= p), or an exact polynomial solution and grid placement whose local truncation error is a lower power of dx (necessary) | the branch table (slopes, order, leading e_j); or U(x), the placement, the cell and tau(dx) |
 | Monotonicity of the fully discrete update on a claimed CFL bound | exact: every partial of H(u_{i-1}, u_i, u_{i+1}) is >= 0 on every sign cell within lam*\|f'(u)\| <= c, or two exact states, one argument raised, with H lower | per cell: H, the three partials, and a certificate (by form, a Farkas identity in w = lam*u, or Bernstein in lam); or the decreasing pair |
 
-The exact checks use `Fraction` arithmetic and never decide on a float. Their verdicts are not
-Lean-checked yet; each returns the witness a Lean certificate would need. The flux recovery is
+The exact checks use `Fraction` arithmetic and never decide on a float. Each returns a witness,
+and with `--lean` most of their verdicts are replayed in the Lean kernel (next section). The flux recovery is
 complete for three-point stencils: if the update is in flux form at all, the flux it finds is
 the only one up to a constant. Square roots (so |u| = sqrt(u^2)) and division by monomials such
 as dt/dx are supported. Anything else (sin, division by a sum) gives `UNKNOWN`, and so does a
 non-zero normal form with no exact counterexample found.
+
+### Lean certificates for the exact scheme checks
+
+```
+uv run python -m physverify.schemes schemes/*.json schemes/*/*.json --lean
+```
+
+runs the checks, then kernel-checks their exact verdicts in one Lean run and upgrades the guarantee
+of each verdict whose theorems are all accepted. Lean never changes a verdict. If Lean is missing or
+a proof fails, the verdict keeps `exact (Python Fraction arithmetic; Lean certificate pending)`.
+The judge (`physverify/schemes/lean_cert.py`, trusted) writes every statement from the spec,
+serializing the update, the numerical flux and the PDE flux node for node as real expressions. The
+planner (`lean_planner.py`, untrusted) writes only the tactics, from the check's witness. The
+general theorems live in `lean/PhysVerify/Scheme.lean`, which imports only the Mathlib modules it
+needs; the generated file imports only `PhysVerify.Scheme`.
+
+| Verdict | Lean statement | Guarantee |
+|---|---|---|
+| conservation VERIFIED / REFUTED | `Conserves D (H - u_i)` on every periodic grid `Fin (n+1)`, n >= 0, every component of a system, cells in the domain D (h > 0 for shallow water), for every lam > 0 and positive parameter; or its negation | proven (Lean) |
+| consistency VERIFIED / REFUTED | `F(q, q, q, q) = f(q)` for every state in the domain, per component; or its negation | proven (Lean) |
+| positivity VERIFIED / REFUTED | `NonnegComb H` (a non-negative combination of the stencil) for every lam > 0 with nu = a lam in [lo, hi]; or its negation | proven (Lean) |
+| monotonicity, tvd_harten, depth_positivity_exact VERIFIED | per sign cell, every fact the check certifies: `p >= 0` on `{a_j >= 0}` | proven (Lean, per cell; cover in exact Python) |
+| tv_increase, max_principle_violation, monotonicity, entropy_stability REFUTED | the negated claim (`TVD`, `LocalMaxPrinciple`, `MonotoneOn3` or `MonotoneVec`, `Q >= 0`) | proven (Lean) |
+| steady_nonentropy_step (both forms) REFUTED | the step identities H(window) = centre value (or equal interface fluxes) for every lam > 0, and uL < uR, f'(uL) < f'(uR) | proven (Lean) |
+
+What carries the weight, proven once in `Scheme.lean`:
+- `conserves_of_telescoping`: if `H(a, b, c, d, e) - c = Phi(b, c, d, e) - Phi(a, b, c, d)` on the
+  domain, the total is conserved on every periodic grid of any length. A certificate supplies Phi
+  (for a declared flux, `-lam F`) and proves the pointwise identity with `ring` or `field_simp`.
+- `NonnegComb.nonneg`, `.step_nonneg`, `.max_principle`: a non-negative combination keeps u >= 0, and
+  with weights summing to 1 it satisfies the local maximum principle. `not_nonnegComb` refutes from
+  one negative weight.
+- `farkas`: atoms `a_j >= 0`, multipliers `mu_j >= 0`, `r >= 0` and the identity `p = r + sum mu_j a_j`
+  give `p >= 0`. Rational multipliers are checked by `norm_num`. For the multipliers `mu_j(nu)` of
+  `tvd_harten`, the proof splits the nu-range into the check's pieces (`le_total`), and on each piece
+  proves `mu_j >= 0` with `nonneg_of_bernstein` (a polynomial with non-negative Bernstein coefficients
+  on [lo, hi] is >= 0 there; the certificate proves the Bernstein identity by `ring`) when the degree
+  is 2 or more, and by `linarith` from the endpoints when it is affine. The nu-cover of [lo, hi] is
+  therefore kernel-checked too.
+- Refutations are concrete: a periodic rational state, a stencil, a pair of states or a point, and
+  `norm_num` evaluates both sides (square roots of rational squares included).
+
+What stays trusted, exact Python:
+- **The cell decomposition and its cover.** For a cell-based check, "proven (Lean, per cell; cover
+  in exact Python)" means that every cell fact is kernel-checked and the case split covering the
+  state space is checked in exact Python. The judge re-derives each cell's polynomial p and its atoms
+  with the check's own code (sign cells, partial derivatives, the scaling w = lam u, Harten's N and
+  Delta), so those derivations are trusted too, as is the argument from cell facts to the claim
+  (piecewise-polynomial H with non-negative partials on closed covering cells is non-decreasing,
+  Harten's lemma, the depth induction step). The pruned lower-dimensional cells are pruned in Python.
+- **Relaxations.** Depth positivity quantifies over `z_j = lam sqrt(g h_j)` with only `z_j >= 0`, and
+  forgets `z_j^2 = lam^2 g h_j`. Its statements are therefore weaker hypotheses over more variables,
+  and so sound.
+- **The step from identities to a claim.** A steady-step refutation proves the identities in Lean;
+  that they make the step a steady state, and that this rules out entropy selection, is the argument
+  in `checks.steady_nonentropy_step`, carried as the claim row's premise.
+- **Statement generation itself** (the serializer `lean_cert.real`, the binders, the domain), as for
+  the derivation checker.
+
+Junk values: Lean has `x/0 = 0` and `sqrt(x) = 0` for `x < 0`. A statement is written only if every
+denominator is a monomial in variables it assumes `> 0` (lam, the positive parameters, the positive
+state components). A division by anything else, a state difference say, makes the verdict keep its
+Python label. Every statement with square roots comes with a second theorem, `<name>_sqrt`, that
+each argument is `>= 0` on the statement's domain (proved by `positivity`). The two together are
+what upgrades the verdict.
+
+Not yet certified (the verdicts keep the exact-Python label): consistency of a flux recovered from an
+update (no spec in the corpus needs it), the cells of the five-point monotonicity check
+(`limiters.monotonicity_wide`, nothing in the corpus is VERIFIED there), the entropy check's
+VERIFIED cells, and the other exact checks (truncation order, von Neumann, hyperbolicity, the
+shock-study scope checks).
+
+Costs of a full pass (`python -m physverify.schemes schemes/*.json schemes/*/*.json --lean`, 30 specs,
+one Lean file) on a 2-CPU, 8 GB machine shared with other jobs, so the numbers are indicative:
+
+| run | load at start | wall | Lean | Python | theorems accepted | theorems/s (Lean) | peak RSS (Lean) |
+|---|---|---|---|---|---|---|---|
+| first after build | 3.2 | 799 s | 745 s | 54 s | 532 / 532 | 0.71 | 3.5 GB |
+| warm repeat | 2.5 | 638 s | 562 s | 76 s | 532 / 532 | 0.95 | 3.7 GB |
+
+Python is the exact checks (49 to 71 s) plus writing the statements and proofs (about 5 s). The
+Python process itself peaks at about 45 MB.
 
 The convergence check runs refinement studies against exact solutions: an advected sine, and
 Burgers before shock formation, solved along characteristics by Newton's method to round-off.
