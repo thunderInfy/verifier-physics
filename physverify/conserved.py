@@ -30,7 +30,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import units
+from . import claimkinds, units
 from .derivation import (REFUTED, UNKNOWN, VERIFIED, Claim, Result, find_witness, lean_terms,
                          load_claim)
 from .expr import E, parse, to_lean, variables
@@ -42,8 +42,12 @@ class ConservedClaim(Claim):
     quantity: E | None = None
 
 
+KIND = "conserved"                     # the claim kind of this layer (physverify/claimkinds.py)
+claimkinds.require("conserved", [KIND])
+
+
 def is_conserved(spec: dict) -> bool:
-    return spec.get("kind") == "conserved"
+    return spec.get("kind") == KIND
 
 
 def load_conserved(spec: dict | str | Path) -> ConservedClaim:

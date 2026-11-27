@@ -30,12 +30,14 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
 
-from . import units
+from . import claimkinds, units
 from .expr import E, parse, to_lean, variables
 from .theory import Malformed
 
 VERIFIED, REFUTED, UNKNOWN = "VERIFIED", "REFUTED", "UNKNOWN"
 _ATOM = re.compile(r"^(.*?)(>|<|!=)(.*)$")
+KIND = "el_equations"     # the claim kind of this layer (physverify/claimkinds.py); files carry no "kind"
+claimkinds.require("derivation", [KIND])
 
 
 @dataclass

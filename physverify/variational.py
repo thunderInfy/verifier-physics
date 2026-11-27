@@ -45,7 +45,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
 
-from . import units
+from . import claimkinds, units
 from .derivation import REFUTED, UNKNOWN, VERIFIED, Result, find_witness, lean_point
 from .expr import E, diff, lit, parse, simplify, substitute, to_lean, var, variables
 from .theory import Malformed
@@ -533,6 +533,7 @@ def judge_order(I: Integrator, c: VClaim) -> Result:
 # Polynomial Φ and J only (division by monomials allowed); anything else is UNKNOWN.
 
 UPDATE_KINDS = ("update_conserves", "update_conserves_order_p")
+claimkinds.require("variational", KINDS + UPDATE_KINDS)
 UPDATE_MODULE = "PhysVerify.Update"
 
 

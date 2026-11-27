@@ -1435,6 +1435,54 @@ domains (positivity of h, Riemann-invariant bounds) take its place. Positivity o
 exactly (above); the Riemann-invariant bounds are not checked yet. The eigenvalues need square roots. We report them, but no check depends on
 them.
 
+## Claim kinds
+
+Every claim name has one reading, shared by every layer that uses it, in
+`physverify/claimkinds.py`. Each layer keeps its own table of which checks decide a claim; only the
+names and their meaning are shared, and each layer checks its names against the registry when it
+is imported. The table below is generated (`uv run python -m physverify.claimkinds --write`), and
+`tests/test_claimkinds.py` fails if it drifts, if a name in a layer or a bench file is missing from
+the registry, if an entry is unused, or if a Lean meaning theorem does not exist.
+
+<!-- claim-kinds:begin -->
+Kinds with a Lean meaning theorem have a proven semantics; the rest have a gloss only (a reading a person chose, checked by review).
+
+| Name | Gloss | Quantifier | Layers | Lean meaning |
+|---|---|---|---|---|
+| `consistent` | the numerical flux is consistent with the PDE flux | for all states u: F(u, ..., u) = f(u), as an identity | schemes | gloss only |
+| `conservative` | the update is in flux form, so the total of u (of each component) is conserved on periodic grids | for every periodic grid of any size and every state in the domain: sum_i (u_i^{n+1} - u_i^n) = 0 | schemes | `conserves_of_telescoping` |
+| `positive_under_cfl` (nu_range) | the linear update is a non-negative combination of its stencil values, so non-negative data stay non-negative | for all nu = a*dt/dx in the claimed range: every stencil weight is >= 0 | schemes | `NonnegComb.step_nonneg` |
+| `entropy_stable_tadmor` (eta, q) | entropy stable in Tadmor's semi-discrete sense for the given entropy pair | for all states uL, uR: Q = -[v](F - F*) >= 0, with v = eta'(u) | schemes | gloss only |
+| `selects_entropy_solution_semidiscrete` | the method-of-lines scheme's limit is the entropy solution | for all admissible data: the dx -> 0 limit of the semi-discrete solution is the entropy solution | schemes | gloss only |
+| `monotone_under_cfl` (c) | the update H is non-decreasing in each stencil value under the claimed CFL bound | for all states with lam*\|f'(u)\| <= c: H is non-decreasing in each argument | schemes | gloss only |
+| `selects_entropy_solution` | the limit of the fully discrete scheme is the entropy solution, not another weak solution | for all admissible data: the dx -> 0 limit at fixed dt/dx is the entropy solution | schemes | gloss only |
+| `consistent_order_p` (p) | the discrete equations are consistent with the continuous ones to order at least p in the step (dx at fixed dt/dx for a linear scheme, h for a variational integrator) | for all smooth solutions: truncation error = O(dx^p) (schemes), (1/h)·DEL + EL = O(h^p) (variational); at least p, so a higher order also verifies | schemes, variational | gloss only |
+| `exact_order_p` (p) | the DEL is consistent with the continuous EL equations to order exactly p | exactly p: at least p and not p + 1 (the h^p coefficient of (1/h)·DEL + EL is not identically 0) | variational | gloss only |
+| `von_neumann_stable_under_cfl` (nu_range) | von Neumann (l2) stable on the claimed CFL range (linear constant-coefficient schemes) | for all nu = a*dt/dx in the claimed range and all theta: \|g(theta)\| <= 1 | schemes | gloss only |
+| `stable_for_small_cfl` | von Neumann stable for every small enough CFL number (linear constant-coefficient schemes) | there is nu0 > 0 such that for all nu in (0, nu0] and all theta: \|g(theta)\| <= 1 | schemes | gloss only |
+| `converges_order_p` (p) | the scheme converges to smooth solutions at order at least p, for each claimed refinement study | for each claimed study (combined, space, time): global error = O(step^p) on smooth data | schemes | gloss only |
+| `correct_shock_speed` | shocks move at the Rankine-Hugoniot speed in the limit dx -> 0 at fixed dt/dx | for Riemann data whose entropy solution is a shock: the limit's shock moves at (f(uL) - f(uR))/(uL - uR) | schemes | gloss only |
+| `limit_is_weak_solution` | every bounded a.e. limit of the scheme as dx -> 0 at fixed dt/dx is a weak solution (conditional on convergence) | for all data and every limit u (bounded, a.e., in L1_loc): u is a weak solution | schemes | gloss only |
+| `tvd_under_cfl` (nu_range) | one step never increases the total variation, on the claimed CFL range | for every periodic state and every nu = a*dt/dx in the claimed range: TV(u^{n+1}) <= TV(u^n) | schemes | gloss only |
+| `local_max_principle_under_cfl` (nu_range) | each new value lies between the smallest and largest values of its stencil, on the claimed CFL range | for every state, every nu = a*dt/dx in the claimed range and every i: min(stencil) <= u_i^{n+1} <= max(stencil) | schemes | gloss only |
+| `truncation_order_smooth_data` (p) | pointwise local truncation order at least p at every grid point of every smooth solution, extrema included | for all smooth u and every grid point: local truncation error = O(dx^p) at fixed dt/dx | schemes | gloss only |
+| `converges_order_p_l1` (p) | the global error in the discrete L1 norm is O(dx^p) at fixed dt/dx, on the spec's smooth test problem | on the spec's test problem: sum_i \|u_i - u(x_i)\| dx = O(dx^p) as dx -> 0 | schemes | gloss only |
+| `converges_order_p_linf` (p) | the global error in the max norm is O(dx^p) at fixed dt/dx, on the spec's smooth test problem | on the spec's test problem: max_i \|u_i - u(x_i)\| = O(dx^p) as dx -> 0 | schemes | gloss only |
+| `hyperbolic` | the system is strictly hyperbolic on the stated domain | for all q in the domain: df/dq has real, distinct eigenvalues | schemes | gloss only |
+| `positive_depth_under_cfl` (c) | the water depth h stays positive under the claimed CFL number (shallow water) | for all positive data and every step at which the CFL condition holds on every stencil: h_i^{n+1} > 0 | schemes | gloss only |
+| `converges_to_riemann_solution` | the scheme converges in L1 to the exact (entropy) Riemann solution | on the spec's Riemann data: \|\|u_dx - u_exact\|\|_L1 -> 0 as dx -> 0 at fixed dt/dx | schemes | gloss only |
+| `del_equations` | the claimed update is the discrete Euler–Lagrange equations of L_d | for every triple (q_k, q_k+1, q_k+2) in D: DEL(L_d) = 0 iff the claimed update holds | variational | `del_verified_meaning` |
+| `discrete_momentum_conserved` | J(q0, q1) is constant, exactly, along every solution of the DEL equations that stays in D (a Noether momentum or any other such J) | for every N and every discrete trajectory q_0..q_N+1 in D solving the DEL: J(q_N, q_N+1) = J(q_0, q_1) | variational | `dmomentum_meaning` |
+| `update_conserves` | the explicit update map z' = Phi(z) conserves J exactly | for all z in D: J(Phi(z)) = J(z); so along every orbit in D, J(z_N) = J(z_0) | variational | `update_conserves_meaning` |
+| `update_conserves_order_p` (p) | the explicit update map conserves J to order at least p: the per-step drift is O(h^{p+1}) | J(Phi(z)) - J(z) = O(h^{p+1}): the coefficients of h^0 .. h^p vanish identically | variational | gloss only |
+| `conserved` | Q is constant along every solution of the Euler–Lagrange equations of L that stays in D | for every trajectory twice differentiable on an open interval, with jet in D and solving the EL equations there: Q is constant on that interval | conserved | `conserved_meaning` |
+| `el_equations` | the claimed equations of motion are the Euler–Lagrange equations of L on D | for every trajectory twice differentiable at t with jet in D: the EL equations of L hold at t iff the claimed equations hold at t | derivation | `verified_meaning_at` |
+| `dim_mismatch` (law) | a law of the theory is not dimensionally homogeneous | the two sides of the law have different dimensions under the theory's symbol dimensions | theory | `Law.dimMismatch_refutes` |
+| `law_vs_evidence` (law, evidence) | a law of the theory fails everywhere in the box of a piece of evidence | for all values inside the evidence's hard bounds: the law does not hold | theory | gloss only |
+| `orbit_excluded` (evidence) | the central force law admits no orbit with a perihelion and an aphelion in the observed boxes | for every angular momentum and every radial trajectory: no local min of r in the perihelion box together with a local max in the aphelion box | theory | `EccentricExcluded.refutes` |
+| `trajectory_vs_evidence` (evidence) | no trajectory of the theory's dynamics from the evidence's initial box is inside the observed box at the observation time | for all initial states and parameters in the evidence box: the state at t_obs is outside the observed box (validated interval arithmetic, not Lean) | theory | gloss only |
+<!-- claim-kinds:end -->
+
 ## Setup
 
 Python 3.11+ and [uv](https://docs.astral.sh/uv/):

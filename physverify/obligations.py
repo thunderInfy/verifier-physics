@@ -9,10 +9,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fractions import Fraction
 
-from . import lean_terms as lt
+from . import claimkinds, lean_terms as lt
 from .core import OUT_OF_REGIME, PROVEN, STATISTICAL, VALIDATED
 from .theory import Evidence, Theory
 from .tools.binding import bind
+
+KINDS = ("dim_mismatch", "law_vs_evidence", "orbit_excluded", "trajectory_vs_evidence")  # `_build`
+claimkinds.require("theory", KINDS)
 
 
 @dataclass

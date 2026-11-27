@@ -24,6 +24,8 @@ a checker, a spec or this table, never a physics result.
 
 from __future__ import annotations
 
+from .. import claimkinds
+
 SUFFICIENT, NECESSARY, EQUIVALENT = "SUFFICIENT", "NECESSARY", "EQUIVALENT"
 EXACT, EMPIRICAL = "exact", "empirical"
 VERIFIED, REFUTED, NOT_REFUTED, REFUTED_EMPIRICALLY = "VERIFIED", "REFUTED", "NOT_REFUTED", "REFUTED_EMPIRICALLY"
@@ -220,6 +222,7 @@ CLAIMS = {
     "converges_to_riemann_solution": ("the scheme converges in L1 to the exact (entropy) Riemann solution",
                                       (("riemann_l1", NECESSARY, "on the spec's Riemann data, grids and dt/dx only"),)),
 }
+claimkinds.require("schemes", CLAIMS)            # one reading per name, shared with the other layers
 
 # (relation, outcome) -> polarity of the evidence for the claim
 _POLARITY = {(SUFFICIENT, "pass"): "verified", (SUFFICIENT, "fail"): "unknown",
