@@ -1,0 +1,51 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Scaling limiter, degree 3, extrema over the 3 Gauss-Lobatto points (2.11)",
+ "source": "Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8)-(2.11), Lemma 2.4, Theorem 2.5",
+ "reconstruction": {
+  "degree": 3,
+  "theta": [
+   "1",
+   "upper",
+   "lower"
+  ],
+  "extrema_over": [
+   "-1/2",
+   "0",
+   "1/2"
+  ],
+  "center": "avg"
+ },
+ "claims": [
+  {
+   "claim": "limiter_keeps_average",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "avg(p~) = ubar + theta (avg(p) - ubar) = ubar for any scalar theta"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": [
+    "-1/2",
+    "0",
+    "1/2"
+   ],
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "as on the cell, at the points where M_x and m_x are taken"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": "cell",
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "between the Gauss-Lobatto points a quadratic can exceed them: p = -(y - y0)^2 with y0 not a point, [m, M] = [min, max] over the points, gives theta = 1 and p(y0) = 0 > M"
+  },
+  {
+   "claim": "limiter_accuracy",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "the average is a positive combination of the point values (exact for degree <= 3), so M_x(points) >= ubar; theta(points) >= theta(cell) and the cell bound applies (the source, p. 10)"
+  }
+ ]
+}

@@ -1,0 +1,35 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Deliberately false: theta without the 1 in the min, degree 2, cell extrema",
+ "source": "a typo of Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8)-(2.11), Lemma 2.4, Theorem 2.5",
+ "reconstruction": {
+  "degree": 2,
+  "theta": [
+   "upper",
+   "lower"
+  ],
+  "extrema_over": "cell",
+  "center": "avg"
+ },
+ "claims": [
+  {
+   "claim": "limiter_keeps_average",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "avg(p~) = ubar + theta (avg(p) - ubar) = ubar for any scalar theta"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": "cell",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "the ratio terms alone already give the bounds"
+  },
+  {
+   "claim": "limiter_accuracy",
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "p = y in [m, M] = [-1, 1] needs no limiting, but theta = 2 and p~ = 2y: |p~ - p| = 1/2 > 0 = C * overshoot"
+  }
+ ]
+}

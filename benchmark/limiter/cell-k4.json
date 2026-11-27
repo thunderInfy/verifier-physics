@@ -1,0 +1,23 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Degree 4, cell extrema: beyond the decided degrees",
+ "source": "Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8)-(2.11), Lemma 2.4, Theorem 2.5",
+ "reconstruction": {
+  "degree": 4,
+  "theta": [
+   "1",
+   "upper",
+   "lower"
+  ],
+  "extrema_over": "cell",
+  "center": "avg"
+ },
+ "claims": [
+  {
+   "claim": "limiter_accuracy",
+   "expect": "UNKNOWN",
+   "confidence": "scope",
+   "why": "degrees above 3 are not decided (k_max = 3)"
+  }
+ ]
+}

@@ -1,0 +1,36 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Deliberately false: scaling about the centre value p(0) instead of the average, degree 2",
+ "source": "a typo of Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8)-(2.11), Lemma 2.4, Theorem 2.5",
+ "reconstruction": {
+  "degree": 2,
+  "theta": [
+   "1",
+   "upper",
+   "lower"
+  ],
+  "extrema_over": "cell",
+  "center": "0"
+ },
+ "claims": [
+  {
+   "claim": "limiter_keeps_average",
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "p = y^2, [m, M] = [-1, 1/8]: theta = 1/2 about p(0) = 0, avg(p~) = 1/24, not 1/12"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": "cell",
+   "expect": "UNKNOWN",
+   "confidence": "scope",
+   "why": "only the average-centred limiter's bounds are decided"
+  },
+  {
+   "claim": "limiter_accuracy",
+   "expect": "UNKNOWN",
+   "confidence": "scope",
+   "why": "only the average-centred limiter's accuracy is decided"
+  }
+ ]
+}

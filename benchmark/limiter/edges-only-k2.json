@@ -1,0 +1,49 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Degree 2, extrema over the two cell ends only (too few points)",
+ "source": "a variant of Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8)-(2.11), Lemma 2.4, Theorem 2.5 (2.11)",
+ "reconstruction": {
+  "degree": 2,
+  "theta": [
+   "1",
+   "upper",
+   "lower"
+  ],
+  "extrema_over": [
+   "-1/2",
+   "1/2"
+  ],
+  "center": "avg"
+ },
+ "claims": [
+  {
+   "claim": "limiter_keeps_average",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "avg(p~) = ubar + theta (avg(p) - ubar) = ubar for any scalar theta"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": [
+    "-1/2",
+    "1/2"
+   ],
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "the bound holds at the points where the extrema are taken, whatever they are"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": "cell",
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "p = -(y - 1/4)^2 with [m, M] = [p(-1/2), p(1/2)]: theta = 1 and p(1/4) = 0 > M"
+  },
+  {
+   "claim": "limiter_accuracy",
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "the average is not a combination of the end values: p = 1/2 - 6y^2 (average 0, both ends -1) lies in [m, M] = [-1, 1/2], but theta = 1/2, so p~ = p/2 != p with no overshoot"
+  }
+ ]
+}

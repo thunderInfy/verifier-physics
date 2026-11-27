@@ -1,0 +1,35 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Deliberately false: theta without the lower term, degree 2, cell extrema",
+ "source": "a typo of Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8)-(2.11), Lemma 2.4, Theorem 2.5",
+ "reconstruction": {
+  "degree": 2,
+  "theta": [
+   "1",
+   "upper"
+  ],
+  "extrema_over": "cell",
+  "center": "avg"
+ },
+ "claims": [
+  {
+   "claim": "limiter_keeps_average",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "avg(p~) = ubar + theta (avg(p) - ubar) = ubar for any scalar theta"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": "cell",
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "p = y, [m, M] = [-1/4, 1]: theta = 1, p~(-1/2) = -1/2 < m"
+  },
+  {
+   "claim": "limiter_accuracy",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "theta is in [0, 1] and only the upper term scales, with the same bound"
+  }
+ ]
+}

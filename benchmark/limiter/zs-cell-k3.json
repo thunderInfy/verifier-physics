@@ -1,0 +1,44 @@
+{
+ "kind": "scaling_limiter",
+ "name": "Scaling limiter, degree 3, extrema over the whole cell (2.9)",
+ "source": "Zhang and Shu, J. Comput. Phys. 229 (2010), (2.8)-(2.11), Lemma 2.4, Theorem 2.5; Zhang and Shu, Proc. R. Soc. A 467 (2011), (2.9)-(2.10), Lemma 1",
+ "reconstruction": {
+  "degree": 3,
+  "theta": [
+   "1",
+   "upper",
+   "lower"
+  ],
+  "extrema_over": "cell",
+  "center": "avg"
+ },
+ "claims": [
+  {
+   "claim": "limiter_keeps_average",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "avg(p~) = ubar + theta (avg(p) - ubar) = ubar for any scalar theta"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": "cell",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "p - ubar lies in [m_x - ubar, M_x - ubar] on the cell; theta <= |M - ubar|/|M_x - ubar| and <= |m - ubar|/|m_x - ubar| with ubar in [m, M], theta >= 0"
+  },
+  {
+   "claim": "limiter_bounds",
+   "on": "cell",
+   "average_in_bounds": false,
+   "expect": "REFUTED",
+   "confidence": "derived",
+   "why": "without ubar in [m, M]: p = 1 + y/4, [m, M] = [-1, 0] gives theta = 1 and p~ = p > M everywhere (the average itself is outside, and p~ keeps it)"
+  },
+  {
+   "claim": "limiter_accuracy",
+   "expect": "VERIFIED",
+   "confidence": "derived",
+   "why": "if theta < 1 by the upper term, |p~ - p| = (M_x - M)|p - ubar|/(M_x - ubar) <= C_k (M_x - M), C_k = sup max|q| / max q over zero-mean q of degree k, finite by compactness (the sources' proof)"
+  }
+ ]
+}
