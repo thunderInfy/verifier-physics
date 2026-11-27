@@ -25,7 +25,7 @@
     {
      "fields": "alone",
      "reasons": [
-      "not-checkable"
+      "family_unspecified"
      ],
      "note": "the truth of the bare sentence depends on how eps scales with dx, and the sentence does not fix it. Jiang and Shu define eps as a fixed positive constant (p. 6, after (2.16): 'we will take eps = 10^-6') but derive the order with eps left out ((2.17), (3.8)-(3.9)), and on p. 7 they explain fixed-eps convergence on fine grids as an artefact of IS_k << eps. FALSE rests on the eps << IS_k family (the justification: 'when eps does not dominate the indicators'). Run once, not stored: with eps = 0 (or eps = dx^4), reconstruction_order_p on the flux difference at n_cp = 1 is REFUTED for p = 5 (leading order 3); with eps = 10^-6 fixed it is VERIFIED at n_cp = 1, and VERIFIED would need every n_cp, so that reading could reach only NOT_REFUTED. A reading in the eps << IS_k family alone would be the family that makes the checker match, and one in the fixed-eps family is an instance whose truth differs from the expected value (README, Readings), so the field is left unformalised (team rule for eps-family choices)"
     },
@@ -132,7 +132,7 @@
     {
      "fields": "alone",
      "reasons": [
-      "not-checkable"
+      "family_unspecified"
      ],
      "note": "the truth of the bare sentence depends on how eps scales with dx, and the sentence does not fix it. Jiang and Shu define eps as a fixed positive constant (p. 6, after (2.16): 'we will take eps = 10^-6') but derive the order with eps left out ((2.17), (3.8)-(3.9)), and on p. 7 they explain fixed-eps convergence on fine grids as an artefact of IS_k << eps. FALSE rests on the eps << IS_k family (the justification: 'when eps does not dominate the indicators'). Run once, not stored: with eps = 0 (or eps = dx^4), reconstruction_order_p on the flux difference at n_cp = 1 is REFUTED for p = 5 (leading order 3) and for r = 2 at p = 3 (leading order 1); with eps = 10^-6 fixed it is VERIFIED at n_cp = 1, and VERIFIED would need every n_cp, so that reading could reach only NOT_REFUTED. A reading in the eps << IS_k family alone would be the family that makes the checker match, and one in the fixed-eps family is an instance whose truth differs from the expected value (README, Readings), so the field is left unformalised (team rule for eps-family choices)"
     }

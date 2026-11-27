@@ -113,7 +113,8 @@ is neither stored nor scored:
   small against IS_k = O(dx^4)). The team's rule for this case was "one reading per eps family". But the fixed-eps
   reading picks an instance whose truth differs from the expected value (forbidden by the README), and the
   eps << IS_k reading alone is the family that makes the checker match. So both alone fields are unformalised
-  (`not-checkable`: the content is not definite until the eps family is).
+  (`family_unspecified`, a gap in the source: the content is not definite until the eps family is; these two
+  entries were `not-checkable` before reconstruction v2).
 - **jiang_shu_1995_weno:02, with hypotheses (TRUE).** The item's hypothesis "eps treated as negligible" does fix
   the family, but the sentence also says the original measurement (2.18)/(2.20) gives "the 4th order", and p. 7
   says it "can only give 4th order accuracy". The checker finds otherwise: with eps -> 0 and f' != 0 the original
@@ -157,7 +158,9 @@ reading at all, and 4 lack one for a single field):
 | `multi-d` | 15 | 16 | 2D rectangles and triangles (the two maximum-principle sources and TeCNO), plus one d-dimensional WENO theorem |
 | `system` | 9 | 18 | Euler, general systems with entropy variables, constant-coefficient systems with several fields. Counted only where a scalar narrowing would change the truth or lose the point |
 | `claim-kind-missing` | 6 | 22 | listed below |
-| `not-checkable` | 10 | 10 | numerical observations (3), a comparison with the literature (1), vague or existential wording (3), content that depends on a choice the text leaves open (3: jiang_shu_1995_weno:02 both fields and :05 alone, §3) |
+| `not-checkable` | 8 | 8 | numerical observations (3), a comparison with the literature (1), vague or existential wording (3), a clause whose reading is a judgment call (1: jiang_shu_1995_weno:02 with hypotheses, "4th order", §3) |
+| *gap in the source* | | | |
+| `family_unspecified` | 2 | 2 | the source fixes eps = 10^-6 but leaves its scaling with dx open, and the truth depends on it (jiang_shu_1995_weno:02 and :05, alone, §3). Fixed by choosing the family where the expected value is owned, not by the checker. Split out of `not-checkable` in reconstruction v2; no score changed |
 | `illegible` | 2 | 2 | osher_tadmor_1985_convergence:02, :05 (the displays they depend on are illegible in the scan) |
 | `variable-coefficients` | 1 | 7 | a velocity that changes from cell to cell (vorticity schemes) |
 | `not-expressible` | 1 | 2 | harten_1982_highres:08: Q(nu + gamma) Delta v divides by a state difference for any non-constant Q |

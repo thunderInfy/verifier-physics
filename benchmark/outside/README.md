@@ -85,6 +85,9 @@ One primary reason per unformalised field, the first that applies in this order,
 
 | reason | meaning |
 |---|---|
+| *gap in the source* | |
+| `family_unspecified` | the source fixes a parameter numerically (e.g. eps = 10^-6) but leaves its asymptotic scaling with dx open, and the sentence's truth depends on that scaling. Added after the first classification (it splits entries that were `not-checkable`); the fix is a choice of family by whoever owns the expected value, not a checker change |
+| *gaps in the checker or the reading* | |
 | `not-checkable` | no definite mathematical content we could check: numerical observations, comparisons with the literature, vague or existential wording ("can be used to construct") |
 | `illegible` | the formula the sentence depends on is illegible in the scan |
 | `scheme-class` | a theorem about every scheme with a property, not about one scheme |

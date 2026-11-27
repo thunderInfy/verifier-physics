@@ -35,8 +35,9 @@ HERE = Path(__file__).resolve().parent
 SPECS = HERE / "specs"
 FIELDS = ("alone", "with_hypotheses")
 EXPECTED = {"TRUE": True, "FALSE": False, "UNSURE": None}
-# the gap taxonomy of README.md, in the order that picks the primary reason
-REASONS = ("not-checkable", "illegible", "scheme-class", "multi-d", "system", "reconstruction", "time-stepping",
+# the gap taxonomy of README.md, in the order that picks the primary reason; `family_unspecified` is a gap in
+# the source (a parameter fixed numerically, its asymptotic scaling left open), the others are the checker's
+REASONS = ("family_unspecified", "not-checkable", "illegible", "scheme-class", "multi-d", "system", "reconstruction", "time-stepping",
            "variable-coefficients", "not-expressible", "claim-kind-missing")
 NEGATE = {C.VERIFIED: C.REFUTED, C.REFUTED: C.VERIFIED, C.REFUTED_EMPIRICALLY: C.NOT_REFUTED,
           C.NOT_REFUTED: C.UNKNOWN}
