@@ -94,7 +94,8 @@ second-order clause has no named claim, so the conjunction is UNKNOWN. Before th
   interval (Sturm count), positive at a sample point.
 - `tvd_under_cfl` was UNKNOWN: `tvd_harten` certifies Harten's form only with the upwind split (D = 0), and this
   centred scheme needs both C and D positive. Now `tvd_linear` decides it: for a linear update with
-  sum_k c_k = 1, TVD for all data iff every c_k >= 0 on the range. `tvd_harten` is still UNKNOWN here.
+  sum_k c_k = 1, TVD for all data iff every c_k >= 0 on the range. Since then `tvd_harten` certifies it too,
+  with general C, D read off the flux (C = (Q - nu)/2, D = (Q + nu)/2); the verdict did not change.
 
 Scores per field (fields with no reading count as GAP when the expected value is TRUE/FALSE):
 
@@ -292,7 +293,7 @@ the one first proposed:
    (`physverify/schemes/univariate.py`: square-free decomposition + Sturm counts, or an exact counterexample).
 2. `tvd_under_cfl` and `local_max_principle_under_cfl` on a linear update: the EQUIVALENT rows `tvd_linear` and
    `max_principle_linear` (TVD, and the local maximum principle, iff every coefficient is non-negative, with
-   sum_k c_k = 1). `tvd_harten` with a general C, D split is still open.
+   sum_k c_k = 1). `tvd_harten` with general C, D (`harten.py`) has since been added.
 
 Larger items, in order of how many dev items they would open: claims over classes of schemes (27), reconstruction
 (38 mentions after reconstruction v3 and the limiter; what is left needs time stepping, discontinuous data or 2D),

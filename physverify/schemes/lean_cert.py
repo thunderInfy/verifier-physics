@@ -32,7 +32,8 @@ from ..expr import E, diff, substitute, var, variables
 from . import checks, poly as P, systems
 
 LEAN = "proven (Lean)"
-SCOPE = ("conservation", "consistency", "positivity")
+PREAMBLE = "set_option linter.all false\nset_option maxHeartbeats 4000000"
+SCOPE =("conservation", "consistency", "positivity")
 SLOTS = {"m2": "qm2", "m1": "qm1", "0": "q0", "p1": "qp1", "p2": "qp2"}
 IFACE = ("LL", "L", "R", "RR")
 
@@ -294,6 +295,37 @@ def _tvd_goals(spec: dict, r: dict) -> list:
 CELL_GOALS = {"monotonicity": _monotone_goals, "depth_positivity_exact": _depth_goals, "tvd_harten": _tvd_goals}
 
 
+# ---------------------------------------------------------------- TVD itself, through Harten's lemma
+
+def _tvd_head(spec: dict) -> str:
+    """`∀ lam, 0 < lam → lo ≤ a lam → a lam ≤ hi →`, the claimed range, as in the tv_increase refutation."""
+    from . import limiters
+    lo, hi = limiters._tvd_range(spec)
+    nu = f"({rat(limiters._advection(spec))} * lam)"
+    return f"∀ lam : ℝ, 0 < lam → {rat(lo)} ≤ {nu} → {nu} ≤ {rat(hi)} → "
+
+
+def harten_obligations(spec: dict, r: dict, tag: str, planner=None) -> list[tuple[str, str, str]]:
+    """For a tvd_harten VERIFIED by Harten's form with general C, D (`harten.certify`): the TVD claim
+    itself, `TVD H` on every periodic grid for every lam with nu in the claimed range (the statement
+    whose negation the tv_increase refutation proves). The planner proves it through
+    `tvd_of_incremental` (so `Harten.harten_tvd_of_form`), supplying C, D and their bounds; the cells
+    are not part of the statement, so the label is the whole-statement one."""
+    if planner is None:
+        from . import lean_planner as planner
+    roots: list = []
+    H = real(checks.update(spec), {"lam": "lam", **{x: f"(w {i})" for i, x in enumerate(checks.STENCIL5)}}, {"lam"}, roots)
+    head = _tvd_head(spec)
+    stmt = f"{head}PhysVerify.Scheme.TVD (fun w : Fin 5 → ℝ => {H})"
+    return [(n, s, planner.sqrt_proof(None, len(dict.fromkeys(roots))) if n.endswith("_sqrt")
+             else planner.harten_proof(spec, r))
+            for n, s in _with_roots(f"{tag}_tvd_harten", stmt, roots, f"{head}∀ w : Fin 5 → ℝ, ")]
+
+
+def _harten_form(r: dict) -> bool:
+    return r["check"] == "tvd_harten" and bool(r["witness"].get("incremental_form", {}).get("verified"))
+
+
 def cell_obligations(spec: dict, r: dict, tag: str, planner=None) -> list[tuple[str, str, str]]:
     if planner is None:
         from . import lean_planner as planner
@@ -387,7 +419,9 @@ def certify(pairs: list[tuple[dict, dict]], timeout: int | None = None, planner=
     for i, (spec, report) in enumerate(pairs):
         for r in report["checks"]:
             cell = r["check"] in CELL_SCOPE and r["status"] == checks.VERIFIED
-            if cell:
+            if cell and _harten_form(r):
+                make, cell = harten_obligations, False
+            elif cell:
                 make = cell_obligations
             elif r["check"] in SCOPE and r["status"] in (checks.VERIFIED, checks.REFUTED):
                 make = obligations
@@ -405,7 +439,9 @@ def certify(pairs: list[tuple[dict, dict]], timeout: int | None = None, planner=
     # one file for the whole run; the limit grows with it (about 1 s per theorem when warm, 1.4 s on the first run
     # after a build, more under load: README, costs of a full pass)
     timeout = timeout or 600 + 10 * len(items)
-    results = lean_backend.check_batch(items, preamble="set_option linter.all false\nset_option maxHeartbeats 1000000", timeout=timeout,
+    # heartbeats count per declaration; a TVD proof through Harten's lemma splits every limiter fact into
+    # its sign cases (superbee: ten facts of nine square roots each), so the cap is 4M rather than 1M
+    results = lean_backend.check_batch(items, preamble=PREAMBLE, timeout=timeout,
                                        module="PhysVerify.Scheme", opens="PhysVerify PhysVerify.Scheme") if items else {}
     for r, names, label in owner:
         if names and all(results[n].ok for n in names):

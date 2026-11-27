@@ -1666,7 +1666,7 @@
        "relation": "same"
       }
      ],
-     "gap_closed": "decided since the linear TVD equivalence (tvd_linear: TVD iff every c_k >= 0, with sum c_k = 1) was added; tvd_harten still certifies Harten's form only with the upwind split (D = 0); this scheme has both C and D positive, so no certificate, and the TV-increase search finds nothing (there is nothing to find)",
+     "gap_closed": "decided since the linear TVD equivalence (tvd_linear: TVD iff every c_k >= 0, with sum c_k = 1) was added; since Harten's form with general C, D (harten.py) was added, tvd_harten certifies it too, with the flux split C = (Q - nu)/2, D = (Q + nu)/2 (both > 0; the upwind split alone gave no certificate); the TV-increase search finds nothing (there is nothing to find)",
      "actual": {
       "verdict": "VERIFIED",
       "components": [

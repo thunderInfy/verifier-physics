@@ -122,7 +122,8 @@ def test_harten_quadratic_viscosity_decides():
     assert list(pos["witness"]["exact_decision"]) == ["up1"]
     assert pos["witness"]["coefficients"]["up1"] and "lean" in pos["witness"]
     assert _raw(rep, "tvd_linear")["status"] == C.VERIFIED
-    assert _raw(rep, "tvd_harten")["status"] == C.UNKNOWN          # the upwind split still does not apply
+    tvd = _raw(rep, "tvd_harten")                                  # the upwind split does not apply; the flux split does
+    assert tvd["status"] == C.VERIFIED and tvd["witness"]["incremental_form"]["form"] == "flux"
 
 
 def test_linear_tvd_lax_friedrichs_and_upwind():

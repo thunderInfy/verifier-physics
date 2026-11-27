@@ -81,10 +81,12 @@ _LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable 
                   "consistency order = claimed order, smooth data) to pass")
 
 _HARTEN = ("Harten's lemma (1983): an update u_i - C_{i-1/2} Delta_{i-1/2} + D_{i+1/2} Delta_{i+1/2} with C, D >= 0 "
-           "and C_{i+1/2} + D_{i+1/2} <= 1 for every state is TVD; here with the upwind split (D = 0 for a > 0), "
-           "certified on sign cells that cover the state space. The form is not unique, so a failure says nothing")
-_HARTEN_MP = ("the Harten certificate (upwind split) shows u_i^{n+1} = (1 - C) u_i + C u_{i-1} (or (1 - D) u_i + D u_{i+1}) "
-              "with C, D in [0, 1] for every state: a convex combination of two stencil values")
+           "and C_{i+1/2} + D_{i+1/2} <= 1 for every state is TVD; certified either with the upwind split (D = 0 for "
+           "a > 0) on sign cells that cover the state space, or with general C, D read off the numerical flux of a "
+           "flux-limited scheme (harten.py). The form is not unique, so a failure says nothing")
+_HARTEN_MP = ("the Harten certificate shows u_i^{n+1} = (1 - C_{i-1/2} - D_{i+1/2}) u_i + C_{i-1/2} u_{i-1} + "
+              "D_{i+1/2} u_{i+1} with C, D >= 0 and C_{i-1/2} + D_{i+1/2} <= 1 for every state (with the upwind split, "
+              "D = 0 and C in [0, 1]): a convex combination of stencil values")
 _LINEAR_TVD = ("linear constant-coefficient schemes u_i' = sum_k c_k(nu) u_{i+k} with sum_k c_k = 1 only: the differences "
                "evolve by the same convolution, whose l1 norm on zero-sum (difference) vectors is sum_k |c_k|, and with "
                "sum_k c_k = 1 that is <= 1 iff every c_k >= 0 (decided exactly on the claimed nu-range, Bernstein or "

@@ -8,6 +8,7 @@ import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.NormNum.RealSqrt
 import Mathlib.Tactic.Positivity
 import Mathlib.Tactic.Ring
+import PhysVerify.Harten
 
 /-!
 # Discrete schemes: the general theorems behind the scheme certificates
@@ -26,6 +27,8 @@ rest once:
   `≥ 0` there (the certificate proves the Bernstein identity by `ring`).
 * `farkas`: atoms `≥ 0`, multipliers `≥ 0` and the identity `p = r + Σ μⱼ aⱼ` give `p ≥ 0`;
   with polynomial multipliers `μⱼ(ν)` their signs come from `nonneg_of_bernstein`.
+* `tvd_of_incremental`: an update in Harten's incremental form with `C, D ≥ 0` and
+  `C_{j+1/2} + D_{j+1/2} ≤ 1` is `TVD`, through `Harten.harten_tvd_of_form`.
 
 States are vectors `Fin m → ℝ` (m = 1 for a scalar law), so systems use the same theorems. A
 stencil is five cells wide (`u_{i-2}, …, u_{i+2}`); a three-point update ignores the outer two.
@@ -83,6 +86,43 @@ def LocalMaxPrinciple (H : (Fin 5 → ℝ) → ℝ) : Prop :=
 
 /-- `H` is non-decreasing in every stencil value (five-point schemes, whose CFL bound is on `lam` only). -/
 def MonotoneVec (H : (Fin 5 → ℝ) → ℝ) : Prop := ∀ w w' : Fin 5 → ℝ, (∀ k, w k ≤ w' k) → H w ≤ H w'
+
+/-- The two cases of `|t| = √(t²)`, the form in which `abs`, `min`, `max` and `minmod` reach the
+statements, for a square root a certificate has named `s` (by `generalize`); it then splits on them
+and argues linearly. -/
+theorem sqrt_sq_cases {t s : ℝ} (e : Real.sqrt (t ^ 2) = s) : (s = t ∧ 0 ≤ t) ∨ (s = -t ∧ t < 0) := by
+  subst e
+  rcases le_or_gt 0 t with h | h
+  · exact Or.inl ⟨Real.sqrt_sq h, h⟩
+  · exact Or.inr ⟨by rw [Real.sqrt_sq_eq_abs, abs_of_neg h], h⟩
+
+/-- **Harten's lemma for a stencil update.** If `H` is in incremental form,
+`H(w) = w₂ + C(w) (w₃ - w₂) - D(w) (w₂ - w₁)`, with `C, D ≥ 0` for every stencil and
+`C_{j+1/2} + D_{j+1/2} ≤ 1`, where `C_{j+1/2}` comes from the stencil of cell `j` and `D_{j+1/2}`
+from that of cell `j + 1` (so the bound reads a six-point window), then `H` is TVD on every
+periodic grid. `C` and `D` are any functions of the stencil (a certificate supplies them); the proof
+is `Harten.harten_tvd_of_form` on `ZMod (k + 1)`, which is `Fin (k + 1)`. -/
+theorem tvd_of_incremental (H : (Fin 5 → ℝ) → ℝ) (C D : ℝ → ℝ → ℝ → ℝ → ℝ → ℝ)
+    (hform : ∀ w : Fin 5 → ℝ, H w = w 2 + C (w 0) (w 1) (w 2) (w 3) (w 4) * (w 3 - w 2)
+      - D (w 0) (w 1) (w 2) (w 3) (w 4) * (w 2 - w 1))
+    (hC : ∀ a b c d e, 0 ≤ C a b c d e) (hD : ∀ a b c d e, 0 ≤ D a b c d e)
+    (hCD : ∀ a b c d e f, C a b c d e + D b c d e f ≤ 1) : TVD H := by
+  intro n _ u
+  obtain ⟨k, rfl⟩ : ∃ k, n = k + 1 := Nat.exists_eq_succ_of_ne_zero (NeZero.ne n)
+  let v : ZMod (k + 1) → ℝ := u
+  let st : (ZMod (k + 1) → ℝ) → ZMod (k + 1) → Fin 5 → ℝ :=
+    fun u i => ![u (i - 1 - 1), u (i - 1), u i, u (i + 1), u (i + 1 + 1)]
+  let Cg : (ZMod (k + 1) → ℝ) → ZMod (k + 1) → ℝ :=
+    fun u j => C (u (j - 1 - 1)) (u (j - 1)) (u j) (u (j + 1)) (u (j + 1 + 1))
+  let Dg : (ZMod (k + 1) → ℝ) → ZMod (k + 1) → ℝ :=
+    fun u j => D (u (j - 1)) (u j) (u (j + 1)) (u (j + 1 + 1)) (u (j + 1 + 1 + 1))
+  have key := Harten.harten_tvd_of_form (N := k + 1) (α := ℝ) (fun u i => H (st u i)) Cg Dg
+    (fun u i => by
+      simp only [Harten.hartenStep, Cg, Dg, sub_add_cancel]
+      rw [hform]
+      simp [st])
+    v (fun j => hC _ _ _ _ _) (fun j => hD _ _ _ _ _) (fun j => hCD _ _ _ _ _ _)
+  exact key
 
 /-- `H(um1, u0, up1)` is non-decreasing in each argument on the states satisfying `C`. -/
 def MonotoneOn3 (C : ℝ → Prop) (H : ℝ → ℝ → ℝ → ℝ) : Prop :=

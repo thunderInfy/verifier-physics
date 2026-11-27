@@ -1211,12 +1211,13 @@ N >= 2w (or the line), which the row states. Lax-Wendroff on [0, 1]: c_1 = (nu^2
 nu = 1/4, and TV goes from 2 to 19/8. Harten's three-point scheme with Q(x) = x^2 + 1/4 (the outside
 benchmark's `harten_1982_highres:05`) has c_{+1} = (nu - 1/2)^2/2, with a double root inside
 [0, 433/500]: Bernstein on the whole interval fails, the exact decision certifies it, and the scheme is
-TVD there, though `tvd_harten` (upwind split, D = 0) has no certificate for this centred scheme.
+TVD there. The cell certificate of `tvd_harten` (upwind split, D = 0) has none for this centred scheme;
+Harten's form with general C, D (below) certifies it with C = (Q - nu)/2, D = (Q + nu)/2.
 
 | Spec | consistent, conservative | `tvd_under_cfl` | Witness |
 |---|---|---|---|
-| `advection-minmod`, nu in [0, 1] | VERIFIED | VERIFIED (Harten) | 18 cells, 18 half-cells certified (18 lower-dimensional halves dropped); the local maximum principle is VERIFIED too |
-| `advection-superbee`, nu in [0, 1] | VERIFIED | VERIFIED (Harten) | 50 cells, 50 half-cells certified |
+| `advection-minmod`, nu in [0, 1] | VERIFIED | VERIFIED (Harten) | 18 cells, 18 half-cells certified (18 lower-dimensional halves dropped); also in Harten's form with general C, D (upwind split, phi and phi/r in [0, 1]); the local maximum principle is VERIFIED too |
+| `advection-superbee`, nu in [0, 1] | VERIFIED | VERIFIED (Harten) | 50 cells, 50 half-cells certified; also in Harten's form with general C, D (phi and phi/r in [0, 2]) |
 | `broken-advection-lw-flux-form-tvd` (L = Delta_{i+1/2}: unlimited Lax-Wendroff), [0, 1] | VERIFIED | REFUTED | periodic u = (0, 0, 0, 0, 0, 1) at nu = 1/4: TV goes from 2 to 33/16. At nu = 1/2, u_4^{n+1} = -1/8 < 0 breaks the maximum principle |
 | `broken-advection-superbee-wide-cfl`, [0, 3/2] | not claimed | REFUTED | the same state at nu = 3/2: TV goes from 2 to 4 (u^{n+1} = (3/2, 0, 0, 0, 0, -1/2)). Harten fails on 58 conditions, which alone would give only `UNKNOWN` |
 
@@ -1224,6 +1225,26 @@ The exact checks agree with the literature range (Sweby 1984; LeVeque 2002, ch. 
 are TVD for 0 <= nu <= 1, and superbee is not TVD on [0, 3/2] (a test also finds a TV increase at
 nu = 9/8). The range is not hard-coded anywhere: the certificate was searched for on the claimed
 interval, and the refutation came from the search.
+
+**Harten's form with general C, D** (`physverify/schemes/harten.py`). `tvd_harten` also tries a second
+certificate and is VERIFIED if either holds. It covers linear advection with a > 0 and a numerical flux
+on the three-point window of its interface, `F = a uL + alpha(lam) (uR - uL) + beta(lam) L(uLL, uL, uR)`
+with one lam-free slope L (the class is read off the flux's sign cells and checked exactly: translation
+invariance, homogeneity of degree 1, rank one over the powers of lam; L may be rational, as van Leer's
+is). With A = lam alpha, B = lam beta (polynomials in nu), phi = L/Delta_own a function of r and
+xi = L/Delta_up a function of 1/r, the exact ranges of phi and xi come from the cells (rational functions
+on intervals: ends, limits, rational critical points, and a Sturm count that there is no other). Two splits:
+upwind (C = 0, `D = nu + B (xi - phi)`, needs alpha = 0) and flux (`C = -(A + B phi)`, `D = nu - A - B phi`,
+the split of `Harten.fluxC`/`fluxD`). Each condition is affine in the independent range values, so it is
+decided exactly at the corners, by the square-free/Sturm decision in nu. Where a difference is 0 the form
+needs the numerator to vanish: L(p, 0) = 0, and L(0, q) = 0 for the upwind split, checked as identities.
+The flux split also certifies C_i + D_{i-1} <= 1, which the maximum-principle row needs.
+
+| Scheme | split | verdict of the general-C, D certificate |
+|---|---|---|
+| minmod, superbee, van Leer (Sweby form), nu in [0, 1] | upwind | VERIFIED (van Leer: tests only; its update divides by \|Delta_-\| + \|Delta_+\|) |
+| Harten's Q(x) = x^2 + 1/4 scheme (`harten_1982_highres:05`), [0, 433/500] | flux, C, D > 0 | VERIFIED (it was UNKNOWN for `tvd_harten`; the claim was already VERIFIED by `tvd_linear`) |
+| superbee on [0, 3/2]; Lax-Wendroff in flux form; minmod(q, 3p) (phi > 2r near 0) | none | not verified (the last is not TVD: u = (6, 0, 0, 1, 6, 6) at nu = 9/10 has TV 12, then 1207/100) |
 
 **Truncation order per branch.** On each cell the update is a linear scheme, so the exact truncation
 expansion of `linear.py` applies to each branch. Minmod has nine distinct branches over its 18 cells.

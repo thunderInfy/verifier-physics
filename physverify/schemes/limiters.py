@@ -471,6 +471,8 @@ def farkas_in_nu(p: P.Poly, atoms: list, lo: Fraction, hi: Fraction) -> dict | N
 HARTEN = ("Harten's lemma (1983): if u_i^{n+1} = u_i - C_{i-1/2} Delta_{i-1/2} + D_{i+1/2} Delta_{i+1/2} with "
           "C, D >= 0 and C_{i+1/2} + D_{i+1/2} <= 1 for every state, then TV(u^{n+1}) <= TV(u^n) "
           "(Delta_{i+1/2} = u_{i+1} - u_i)")
+# The one-letter names C, D follow Harten's paper in _tvd_cells and Lean's convention in harten.py, where
+# C_i multiplies Delta_{i+1/2} and D_{i-1} multiplies Delta_{i-1/2}.
 
 
 def _tvd_range(spec: dict):
@@ -484,6 +486,47 @@ def tvd_claim(r) -> str:
 
 
 def tvd_harten(spec: dict) -> dict:
+    """Harten's lemma, by two certificates; VERIFIED if either holds, else UNKNOWN (Harten's form is
+    not unique, so a failure is not a refutation).
+
+    1. On the sign cells of the update with the upwind split (`_tvd_cells`).
+    2. With general C, D >= 0, C + D <= 1 read off the numerical flux, for flux-limited schemes of
+       linear advection with a > 0 (`harten.certify`: the upwind split, or the flux split that centred
+       schemes need). Its result is the witness's `incremental_form`; the Lean replay states the TVD
+       claim itself and proves it through `Harten.harten_tvd_of_form` when this certificate holds.
+    Both also give the convex combination u_i^{n+1} = (1 - C_i - D_{i-1}) u_i + C_i u_{i+1} + D_{i-1} u_{i-1}
+    with C_i + D_{i-1} <= 1, which the maximum-principle row of claims.py rests on."""
+    r = _tvd_range(spec)
+    if r is None:
+        return result("tvd_harten", NOT_APPLICABLE, "TVD", "no CFL range claimed (claims.tvd_cfl)")
+    from . import harten
+    out = _tvd_cells(spec, *r)
+    try:
+        inc = harten.certify(spec, *r)
+    except (checks.NonlinearFlux, P.Undecided) as ex:
+        inc = {"verified": False, "reason": str(ex)}
+    if inc["verified"]:
+        how = (f"Harten's form with general C, D read off the flux ({inc['form']} split, A(nu) = {inc['A(nu) = lam*alpha']}, "
+               f"B(nu) = {inc['B(nu) = lam*beta']}): every condition decided exactly on [{r[0]}, {r[1]}]")
+        if out["status"] == VERIFIED:
+            out["detail"] += f"; also {how}"
+        else:
+            out = result("tvd_harten", VERIFIED, out["claim"], how[0].upper() + how[1:],
+                         {"cells (upwind split)": out["detail"]},
+                         [harten_assumption(), f"nu = a*dt/dx in [{r[0]}, {r[1]}]"])
+    elif out["status"] != VERIFIED:
+        out["detail"] += f"; Harten's form with general C, D: {inc['reason']}"
+    out["witness"]["incremental_form"] = inc
+    return out
+
+
+def harten_assumption() -> str:
+    return ("Harten's lemma (1983) with general coefficients: u_i^{n+1} = u_i + C_{i+1/2} Delta_{i+1/2} - "
+            "D_{i-1/2} Delta_{i-1/2} with C, D >= 0 and C_{i+1/2} + D_{i+1/2} <= 1 for every state gives "
+            "TV(u^{n+1}) <= TV(u^n); C, D read off the numerical flux, exact in nu (harten.py)")
+
+
+def _tvd_cells(spec: dict, lo: Fraction, hi: Fraction) -> dict:
     """Harten's incremental form with the upwind split, certified exactly on every sign cell.
 
     For a > 0 take D = 0 and C_{i-1/2} = -N/Delta, where N = H - u_i and Delta = u_i - u_{i-1}
@@ -493,14 +536,8 @@ def tvd_harten(spec: dict) -> dict:
         -s*N >= 0            (C >= 0, that is C*Delta^2 = -N*Delta >= 0)
         s*(N + Delta) >= 0   (C <= 1, that is (1 - C)*Delta^2 = Delta^2 + N*Delta >= 0).
     No division by Delta occurs. For a < 0 the mirror split (C = 0, D_{i+1/2} = N/(u_{i+1} - u_i))
-    is used. Harten's form is not unique, so a failure here is not a refutation: UNKNOWN.
-
-    TODO: general C, D >= 0 with C + D <= 1 (centred schemes need both; for linear schemes
-    `linear.tvd_linear` decides TVD exactly instead). We plan a separate Lean statement of Harten's lemma."""
-    r = _tvd_range(spec)
-    if r is None:
-        return result("tvd_harten", NOT_APPLICABLE, "TVD", "no CFL range claimed (claims.tvd_cfl)")
-    lo, hi = r
+    is used. (Here C, D are named as in Harten's paper; harten.py uses the Lean convention.)"""
+    r = (lo, hi)
     claim = tvd_claim(r)
     try:
         a = _advection(spec)

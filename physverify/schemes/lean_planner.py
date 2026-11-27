@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from ..expr import E, lit, parse, substitute, var, variables
+from ..expr import E, lit, parse, substitute, to_str, var, variables
 from . import checks, poly as P, univariate
 from .lean_cert import poly_lean, rat, real
 
@@ -197,6 +197,351 @@ def cell_proof(p, atoms: list, hint) -> str:
             hyps.append(f"h{shown.index(a)}")
         return head + "exact " + _farkas_term(rat(Fraction(hint["remainder"])), pairs, ["(by norm_num)"] * len(pairs), hyps, names)
     return head + "positivity"
+
+
+# ---------------------------------------------------------------- TVD through Harten's lemma
+
+def _sqrt_terms(e: E, names: dict) -> tuple[list, E]:
+    """For each distinct sqrt(t^2) in e, innermost first: (the Lean text of t with the square roots
+    inside it already named s0, s1, ..., which `_pw` generalizes them to; t as a polynomial in the
+    flux arguments uLL, uL, uR and _s0, _s1, ...). Also e itself with its square roots so named."""
+    ids: dict = {}
+    out: list = []
+
+    def named(x: E) -> E:
+        if x.kind == "sqrt":
+            return var(f"_s{ids[to_str(x)]}")
+        return x if not x.args else E(x.kind, tuple(named(y) for y in x.args), name=x.name, q=x.q)
+
+    def walk(x: E) -> None:
+        for y in x.args:
+            walk(y)
+        if x.kind == "sqrt" and to_str(x) not in ids:
+            if x.args[0].kind != "powi" or x.args[0].q != 2:
+                raise ValueError("a square root of something other than a square")
+            t = named(x.args[0].args[0])
+            out.append((real(t, {**names, **{f"_s{k}": f"s{k}" for k in range(len(ids))}}, set(), []), P.from_expr(t)))
+            ids[to_str(x)] = len(ids)
+    walk(e)
+    return out, named(e)
+
+
+def _cone_point(cons: list, line: str | None) -> bool:
+    """Is there (p, q) with every (c_p, c_q, kind) holding, kind ">=" (c.(p, q) >= 0), "<" or ">"
+    (strict)? Exact: the constraints are half-planes through 0, so a non-empty intersection contains 0,
+    a boundary ray, a ray perpendicular to one, or the sum of two angularly consecutive boundary rays.
+    `line` restricts to q = 0 ("p") or p = 0 ("q")."""
+    def holds(c, pt):
+        v = c[0] * pt[0] + c[1] * pt[1]
+        return v >= 0 if c[2] == ">=" else v < 0 if c[2] == "<" else v > 0
+    ok = lambda pt: all(holds(c, pt) for c in cons)
+    if line:
+        e = (1, 0) if line == "p" else (0, 1)
+        return any(ok((t * e[0], t * e[1])) for t in (-1, 0, 1))
+    rays = {(-cq, cp) for cp, cq, _ in cons if (cp, cq) != (0, 0)} | {(cq, -cp) for cp, cq, _ in cons if (cp, cq) != (0, 0)}
+    rays |= {(1, 0), (0, 1), (-1, 0), (0, -1)}
+    half = lambda r: 0 if r[1] > 0 or (r[1] == 0 and r[0] > 0) else 1
+    import functools
+    cmp = lambda r, s: (half(r) - half(s)) or (-1 if r[0] * s[1] - r[1] * s[0] > 0 else 1 if r[0] * s[1] - r[1] * s[0] < 0 else 0)
+    order = sorted(rays, key=functools.cmp_to_key(cmp))
+    cands = [(0, 0)] + order + [(-r[1], r[0]) for r in order]
+    cands += [(r[0] + s[0], r[1] + s[1]) for r, s in zip(order, order[1:] + order[:1])]
+    return any(ok(pt) for pt in cands)
+
+
+def _combination(hyps: list, target: P.Poly, strict: bool) -> str | None:
+    """`linear_combination` text: coefficients c (>= 0 on inequalities) with target = sum_i c_i delta_i
+    + kappa, kappa >= 0 a constant (for `strict`: target 0, and the strict hypotheses' coefficients sum
+    to 1, which proves 0 < 0). hyps: (name, delta = rhs - lhs, "eq" | "le" | "lt"). Exact simplex
+    (`limiters.feasible`), and the identity is replayed; None if there is no such combination."""
+    from . import limiters
+    names = sorted(set(P.variables(target)).union(*(P.variables(d) for _, d, _ in hyps)))
+    zero = Fraction(0)
+
+    def vec(p):
+        lin = checks._linear(p, names)
+        if lin is None:
+            raise ValueError("a hypothesis is not affine")
+        return [lin[1].get(x, zero) for x in names] + [lin[0]]
+    cols, labels = [], []
+    for name, d, kind in hyps:
+        v = vec(d) + ([Fraction(int(kind == "lt"))] if strict else [])
+        cols.append(v)
+        labels.append((name, 1))
+        if kind == "eq":
+            cols.append([-x for x in v])
+            labels.append((name, -1))
+    cols.append([zero] * len(names) + [Fraction(1)] + ([zero] if strict else []))
+    labels.append((None, 1))
+    mu = limiters.feasible(cols, vec(target) + ([Fraction(1)] if strict else []))
+    if mu is None:
+        return None
+    coef: dict = {}
+    for (name, sgn), m in zip(labels, mu):
+        if name is not None and m:
+            coef[name] = coef.get(name, zero) + sgn * m
+    rest = target
+    for name, d, _ in hyps:
+        rest = P.add(rest, P.scale(d, coef.get(name, 0)), -1)
+    if set(rest) - {()} or rest.get((), zero) < 0:
+        return None
+    terms = [n if c == 1 else f"{rat(c)} * {n}" for n, c in coef.items() if c]
+    return "linear_combination " + (" + ".join(terms) or "0")
+
+
+def _pw(ts: list, goal: tuple, hyp: tuple | None, line: str | None = None) -> str:
+    """Tactic text for a goal that is linear once every sqrt(t^2) is t or -t: name each square root
+    (innermost first, so the outer ones are then written with those names), split on the sign of each
+    t (`sqrt_sq_cases`), and close every branch by one `linear_combination` computed here: a branch
+    whose signs contradict (decided exactly, in the differences p = uL - uLL, q = uR - uL) by 0 < 0,
+    a leaf by the goal. goal = (kind, lhs, rhs) as polynomials in the flux arguments and _s0, ...,
+    kind "le" or "eq"; `hyp` is h : 0 < difference or difference < 0, as (c_p, c_q, kind)."""
+    sub0 = {"uLL": P.add(P.var("uL"), P.var("_p"), -1), "uR": P.add(P.var("uL"), P.var("_q"))}
+    same = {}
+    if line == "p":
+        sub0["uR"] = same["uR"] = P.var("uL")
+    elif line == "q":
+        sub0["uLL"] = same["uLL"] = P.var("uL")
+    on = lambda p: P.subst(p, same) if same else p           # the atoms Lean has (uR is uL on the line q = 0)
+    lines = [f"generalize e{k} : Real.sqrt (({t}) ^ 2) = s{k}" for k, (t, _) in enumerate(ts)]
+    base = []
+    if hyp:
+        d = P.add(P.scale(P.var("uL"), hyp[0] - hyp[1]), P.add(P.scale(P.var("uR"), hyp[1]), P.scale(P.var("uLL"), -hyp[0])))
+        base.append(("h", d if hyp[2] == ">" else P.scale(d, -1), "lt"))
+    kind, lhs, rhs = goal
+    only = lambda hs: f"linarith only [{', '.join(n for n, _, _ in hs)}]"
+
+    def form(poly, sig):
+        env = {**sub0, **{f"_s{j}": x for j, x in enumerate(sig)}}
+        got = checks._linear(P.subst(poly, env), ["_p", "_q"])
+        if got is None or got[0]:
+            raise ValueError("a square-root argument is not a linear form in the differences")
+        return got[1].get("_p", Fraction(0)), got[1].get("_q", Fraction(0))
+
+    def tree(k, sig, cons, hs):
+        if k == len(ts):
+            use = [x for x in hs if x[2] == "eq"] if kind == "eq" else hs
+            return [_combination(use, on(P.add(rhs, lhs, -1)), False) or only(hs)]
+        t = form(ts[k][1], sig)
+        T = on(ts[k][1])
+        out = [f"rcases sqrt_sq_cases e{k} with ⟨a{k}, b{k}⟩ | ⟨a{k}, b{k}⟩"]
+        for s, kd in ((1, ">="), (-1, "<")):
+            c = cons + [(t[0], t[1], kd)]
+            h2 = hs + [(f"a{k}", P.add(P.scale(T, s), P.var(f"_s{k}"), -1), "eq"),
+                       (f"b{k}", P.scale(T, s), "le" if s == 1 else "lt")]
+            if _cone_point(c, line):
+                sub = tree(k + 1, sig + [P.add(P.scale(P.var("_p"), s * t[0]), P.scale(P.var("_q"), s * t[1]))], c, h2)
+            else:
+                lc = _combination(h2, {}, True)
+                sub = [f"exact absurd (show (0 : ℝ) < 0 by {lc}) (lt_irrefl 0)" if lc else f"exfalso; {only(h2)}"]
+            out += ["· " + sub[0]] + ["  " + x for x in sub[1:]]
+        return out
+    return "\n".join(lines + tree(0, [], [hyp] if hyp else [], base))
+
+
+def _nu_poly(c: list, nu: str) -> str:
+    terms = [f"{rat(v)} * {nu} ^ {j}" if j else rat(v) for j, v in enumerate(c) if v]
+    return "(" + (" + ".join(terms) or "0") + ")"
+
+
+def _nu_nonneg(c: list, nu: str, lo: Fraction, hi: Fraction) -> str:
+    """Tactic text for `0 ≤ c(nu)` from hlo : lo ≤ nu, hhi : nu ≤ hi: the products the positivity proof
+    uses (the CFL box, the square part of the square-free decomposition), then Bernstein on [lo, hi]."""
+    box = "mul_nonneg (sub_nonneg.2 hlo) (sub_nonneg.2 hhi)"
+    hints = [box, "sub_nonneg.2 hlo", "sub_nonneg.2 hhi"]
+    c = univariate.trim(c)
+    if univariate.deg(c) > 0:
+        _, factors = univariate.squarefree(c)
+        h = [Fraction(1)]
+        for i, f in factors:
+            h = univariate.mul(h, univariate.power(f, i // 2))
+        for f in [h] + [f for _, f in factors if f != h]:
+            if univariate.deg(f) > 0:
+                t = _nu_poly(f, nu)
+                hints += [f"sq_nonneg {t}", f"mul_nonneg ({box}) (sq_nonneg {t})",
+                          f"mul_nonneg (sub_nonneg.2 hlo) (sq_nonneg {t})", f"mul_nonneg (sub_nonneg.2 hhi) (sq_nonneg {t})"]
+    alts = ["positivity", "linarith", f"nlinarith [{', '.join(hints)}]"]
+    b = checks.bernstein(list(c) or [Fraction(0)], lo, hi)
+    if lo < hi and min(b) >= 0:
+        alts.append(f"exact nonneg_of_bernstein (x := {nu}) (lo := {rat(lo)}) (hi := {rat(hi)}) [{', '.join(rat(v) for v in b)}] "
+                    "(by norm_num) (by norm_num) hlo hhi (by simp [bernsteinSum, Fin.sum_univ_succ] <;> ring1)")
+    return "first | " + " | ".join(f"({x})" for x in alts)
+
+
+class _Harten:
+    """The pieces of the proof of `TVD H` from a `harten.certify` certificate, as Lean text."""
+
+    def __init__(self, spec: dict, inc: dict):
+        from . import harten, limiters
+        self.a = Fraction(inc["a"])
+        self.lo, self.hi = limiters._tvd_range(spec)
+        self.nu = f"({rat(self.a)} * lam)"
+        alpha = {int(m): Fraction(v) for m, v in inc["alpha"].items()}
+        beta = {int(m): Fraction(v) for m, v in inc["beta"].items()}
+        self.A, self.B = harten.in_nu(alpha, self.a), harten.in_nu(beta, self.a)
+        self.form = inc["form"]
+        self.rg = {f: tuple(None if x is None else Fraction(x) for x in v) for f, v in inc["ranges"].items()}
+        self.L = None
+        if beta:                     # L = (F(lam1) - a uL - alpha(lam1) (uR - uL)) / beta(lam1), free of lam
+            lam1 = Fraction(inc["lam1"])
+            at = lambda co: sum((c * lam1 ** m for m, c in co.items()), Fraction(0))
+            F = substitute(checks.numerical_flux(spec), {"lam": lit(lam1)})
+            G = E("sub", (E("sub", (F, E("mul", (lit(self.a), var("uL"))))),
+                          E("mul", (lit(at(alpha)), E("sub", (var("uR"), var("uL")))))))
+            self.L = E("mul", (lit(1 / at(beta)), G))
+        self.haves: dict = {}            # name -> (statement, proof), in order of first use
+
+    def P(self, c: list) -> str:
+        return _nu_poly(c, self.nu)
+
+    def Ll(self, x: str, y: str, z: str) -> str:
+        return real(self.L, {"uLL": x, "uL": y, "uR": z}, set(), [])
+
+    def pw(self, x: str, y: str, z: str, goal, hyp=None, line=None) -> str:
+        """`_pw` for a goal about L(x, y, z); goal(L) gives (kind, lhs, rhs) as polynomials, L with its
+        square roots named."""
+        ts, named = _sqrt_terms(self.L, {"uLL": x, "uL": y, "uR": z})
+        return _pw(ts, goal(P.from_expr(named)), hyp, line)
+
+    def have(self, name: str, stmt: str, proof: str) -> str:
+        self.haves.setdefault(name, (stmt, proof))
+        return name
+
+    def nonneg(self, c: list) -> str:
+        """The name of a `have` 0 ≤ c(nu)."""
+        key = "hn_" + "_".join(str(v).replace("/", "d").replace("-", "m") for v in univariate.trim(c)) if univariate.trim(c) else "hn_0"
+        return self.have(key, f"0 ≤ {self.P(c)}", _nu_nonneg(c, self.nu, self.lo, self.hi))
+
+    def fact(self, fam: str, s: str, end: str) -> str:
+        """`hf_*`: ∀ x y z, (the family's difference has sign s) → the bound of L/difference at `end`."""
+        v = self.rg[fam + s][0 if end == "lo" else 1]
+        d = "z - y" if fam == "phi" else "y - x"
+        hyp = f"0 < {d}" if s == "+" else f"{d} < 0"
+        L, vd = self.Ll("x", "y", "z"), f"{rat(v)} * ({d})"
+        lower = (s == "+") == (end == "lo")
+        small, big = (vd, L) if lower else (L, vd)
+        cone = ((0, 1) if fam == "phi" else (1, 0)) + ((">",) if s == "+" else ("<",))
+        dp = P.scale(P.add(P.var("uR"), P.var("uL"), -1) if fam == "phi" else P.add(P.var("uL"), P.var("uLL"), -1), v)
+        goal = lambda Ln: ("le", dp, Ln) if lower else ("le", Ln, dp)
+        return self.have(f"hf_{fam}{'p' if s == '+' else 'm'}_{end}", f"∀ x y z : ℝ, {hyp} → {small} ≤ {big}",
+                         "intro x y z h\n" + self.pw("x", "y", "z", goal, cone))
+
+    def sign_goal(self, e0: list, terms: list, d: str) -> str:
+        """`(0 < d → 0 ≤ Y) ∧ (d < 0 → Y ≤ 0)`-shaped goals (as left by `div_nonneg_of_sign` and
+        `div_le_one_of_sign`), for Y = e0(nu) d + sum_k e_k(nu) L(args_k), each L(args_k) of family phi
+        (difference z - y) or xi (y - x) with that difference equal to d: the two bullets."""
+        out = []
+        for s in "+-":
+            hints, corner = [], list(e0)
+            for ek, fam, args in terms:
+                ek = univariate.trim(ek)
+                if not ek:
+                    continue
+                pos = univariate.nonneg_on(ek, self.lo, self.hi)["nonneg"]
+                if not pos and not univariate.nonneg_on(univariate.add([], ek, -1), self.lo, self.hi)["nonneg"]:
+                    return "· fail\n· fail"           # a coefficient changes sign on the range: not replayed
+                end = "lo" if pos else "hi"
+                v = self.rg[fam + s][0 if end == "lo" else 1]
+                if v is None:
+                    return "· fail\n· fail"
+                h = self.nonneg(ek if pos else univariate.add([], ek, -1))
+                hints.append(f"mul_nonneg {h} (sub_nonneg.2 ({self.fact(fam, s, end)} {' '.join(args)} hd))")
+                corner = univariate.add(corner, [x * v for x in ek])
+            hc = self.nonneg(corner)
+            hints.append(f"mul_nonneg {hc} hd.le" if s == "+" else f"mul_nonneg {hc} (neg_nonneg.2 hd.le)")
+            out.append(f"· intro hd\n  linarith [{', '.join(hints)}]")
+        return "\n".join(out)
+
+
+def harten_proof(spec: dict, r: dict) -> str:
+    """Proof of `TVD H` (lean_cert.harten_obligations) from the incremental-form certificate: instantiate
+    `tvd_of_incremental` with the certificate's C and D, as functions of the stencil x0..x4 written with
+    the limited slope L. The form identity: H - u_i = C Delta_+ - D Delta_- by ring, after
+    `Harten.div_mul_of_zero` with the difference-zero identities L(x, y, y) = 0 (and L(y, y, z) = 0
+    for the upwind split). The bounds: `div_nonneg_of_sign` / `div_le_one_of_sign`, then on each sign
+    of the difference a linear combination of facts proven once (L/difference in the certificate's
+    range, by splitting every |.| and linarith; the signs of the nu-coefficients and the corner
+    polynomials, by nlinarith or Bernstein)."""
+    h = _Harten(spec, r["witness"]["incremental_form"])
+    P, nu, A, B = h.P, h.nu, h.A, h.B
+    neg = lambda c: univariate.add([], c, -1)
+    one, nuc = [Fraction(1)], [Fraction(0), Fraction(1)]
+    Bt = univariate.trim(B)
+    Lt = (lambda *x: h.Ll(*x)) if Bt else None
+
+    def num(parts: list) -> str:
+        """sum of (coefficient text, factor text)"""
+        return "(" + " + ".join(f"{c} * {f}" for c, f in parts) + ")"
+
+    def Cnum(x):
+        if h.form == "upwind":
+            return None
+        parts = [(P(neg(A)), f"({x[3]} - {x[2]})")] + ([(P(neg(B)), Lt(x[1], x[2], x[3]))] if Bt else [])
+        return num(parts)
+
+    def Dnum(x):
+        if h.form == "upwind":
+            parts = [(nu, f"({x[2]} - {x[1]})")]
+            if Bt:
+                parts += [(P(B), Lt(x[1], x[2], x[3])), (P(neg(B)), Lt(x[0], x[1], x[2]))]
+            return num(parts)
+        parts = [(P(univariate.add(nuc, A, -1)), f"({x[2]} - {x[1]})")] + ([(P(neg(B)), Lt(x[0], x[1], x[2]))] if Bt else [])
+        return num(parts)
+
+    xs = [f"x{k}" for k in range(5)]
+    Cb = "0" if h.form == "upwind" else f"{Cnum(xs)} / (x3 - x2)"
+    Db = f"{Dnum(xs)} / (x2 - x1)"
+    if Bt:
+        h.have("z1", f"∀ x y : ℝ, {h.Ll('x', 'y', 'y')} = 0", "intro x y\n" + h.pw("x", "y", "y", lambda Ln: ("eq", Ln, {}), line="p"))
+        if h.form == "upwind":
+            h.have("z2", f"∀ y z : ℝ, {h.Ll('y', 'y', 'z')} = 0", "intro y z\n" + h.pw("y", "y", "z", lambda Ln: ("eq", Ln, {}), line="q"))
+    # the form identity
+    w = [f"(w {k})" for k in range(5)]
+    form = ["· intro w", "  try beta_reduce"]
+    rws = []
+    if h.form != "upwind":
+        zs = " z1 (w 1) (w 2)," if Bt else ""
+        form.append(f"  have hc : {Cnum(w)} / ((w 3) - (w 2)) * ((w 3) - (w 2)) = {Cnum(w)} := Harten.div_mul_of_zero "
+                    f"(fun h => by\n      have e : w 3 = w 2 := by linarith\n      rw [e,{zs.rstrip(',')}]\n      ring)"
+                    if Bt else f"  have hc : {Cnum(w)} / ((w 3) - (w 2)) * ((w 3) - (w 2)) = {Cnum(w)} := "
+                    "Harten.div_mul_of_zero (fun h => by\n      have e : w 3 = w 2 := by linarith\n      rw [e]\n      ring)")
+        rws.append("hc")
+    zd = (" z1 (w 0) (w 1), z2 (w 1) (w 3)" if h.form == "upwind" else " z1 (w 0) (w 1)") if Bt else ""
+    form.append(f"  have hd : {Dnum(w)} / ((w 2) - (w 1)) * ((w 2) - (w 1)) = {Dnum(w)} := Harten.div_mul_of_zero "
+                f"(fun h => by\n      have e : w 2 = w 1 := by linarith\n      rw [e{',' if zd else ''}{zd}]\n      ring)")
+    rws.append("hd")
+    form.append(f"  rw [{', '.join(rws)}]")
+    form.append("  " + RING)
+    # the bounds
+    if h.form == "upwind":
+        hC = ["· intro x0 x1 x2 x3 x4", "  exact le_refl 0"]
+        terms = ([(B, "xi", ["x1", "x2", "x3"]), (neg(B), "phi", ["x0", "x1", "x2"])] if Bt else [])
+        hD = ["· intro x0 x1 x2 x3 x4", "  try beta_reduce", "  apply Harten.div_nonneg_of_sign",
+              _indent(h.sign_goal(nuc, terms, "x2 - x1"))]
+        # 0 + D(x1..x5) <= 1: 1 - D = ((1 - nu) d - B L_xi + B L_phi) / d, d = x3 - x2
+        terms = ([(neg(B), "xi", ["x2", "x3", "x4"]), (B, "phi", ["x1", "x2", "x3"])] if Bt else [])
+        hCD = ["· intro x0 x1 x2 x3 x4 x5", "  try beta_reduce", "  rw [zero_add]", "  apply Harten.div_le_one_of_sign",
+               _indent(h.sign_goal(univariate.add(one, nuc, -1), terms, "x3 - x2"))]
+    else:
+        tC = [(neg(B), "phi", ["x1", "x2", "x3"])] if Bt else []
+        hC = ["· intro x0 x1 x2 x3 x4", "  try beta_reduce", "  apply Harten.div_nonneg_of_sign",
+              _indent(h.sign_goal(neg(A), tC, "x3 - x2"))]
+        tD = [(neg(B), "phi", ["x0", "x1", "x2"])] if Bt else []
+        hD = ["· intro x0 x1 x2 x3 x4", "  try beta_reduce", "  apply Harten.div_nonneg_of_sign",
+              _indent(h.sign_goal(univariate.add(nuc, A, -1), tD, "x2 - x1"))]
+        # C(x0..x4) + D(x1..x5) = ((nu - 2A) d - 2B L(x1, x2, x3)) / d, d = x3 - x2; 1 minus it:
+        tCD = [(univariate.add([], B, 2), "phi", ["x1", "x2", "x3"])] if Bt else []
+        hCD = ["· intro x0 x1 x2 x3 x4 x5", "  try beta_reduce", "  rw [← add_div]", "  apply Harten.div_le_one_of_sign",
+               _indent(h.sign_goal(univariate.add(univariate.add(one, nuc, -1), A, 2), tCD, "x3 - x2"))]
+    head = ["intro lam hlam hlo hhi", "have hlam' := hlam.ne'"]
+    for name, (stmt, proof) in h.haves.items():
+        head.append(f"have {name} : {stmt} := by\n" + _indent(proof))
+    head.append(f"refine tvd_of_incremental _ (fun x0 x1 x2 x3 x4 => {Cb}) (fun x0 x1 x2 x3 x4 => {Db}) ?_ ?_ ?_ ?_")
+    return "\n".join(head + form + hC + hD + hCD)
+
+
+def _indent(s: str, k: int = 2) -> str:
+    return "\n".join(" " * k + line for line in s.splitlines())
 
 
 # ---------------------------------------------------------------- exact rational refutations
