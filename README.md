@@ -332,6 +332,132 @@ The difference between the first two rows is why no module imports all of Mathli
 (`Expr`, `Deriv`, `Interval`, `Orbit` and `WellPosed` import only the modules they use),
 and why certificates import a single module.
 
+### Variational integrators
+
+A discrete Lagrangian `L_d(q0, q1; h)` approximates the action over one step, and its discrete
+Euler–Lagrange equations `DEL = D2 L_d(q_{k-1}, q_k) + D1 L_d(q_k, q_{k+1}) = 0` define the
+integrator (Marsden and West, Acta Numerica 2001). A claim file (`benchmark/variational/*.json`,
+`"kind": "variational"`, format in `physverify/variational.py`) gives one integrator: the
+coordinates, `L_d` over levels `x_0, x_1`, the continuous `L` in the jet names of the
+derivation checker (`x`, `x_dot`), a domain `D` over levels `x_0, x_1, x_2`, `h` and the
+parameters (`h > 0` is always added to `D`), and claims of three kinds:
+
+* `del_equations`: the claimed update (`lhs = rhs` per coordinate) is the DEL of `L_d`.
+* `discrete_momentum_conserved`: `J(q0, q1)` is constant along DEL solutions, exactly.
+* `consistent_order_p`: the DEL is consistent with the continuous EL of `L` with exact order `p`.
+
+Run: `uv run python -m physverify.variational benchmark/variational/`.
+
+What is proven in Lean (`lean/PhysVerify/Discrete.lean`, on top of `Expr`, `Deriv` and
+`EulerLagrange`; no `sorry`, `native_decide` or new axioms: the meaning theorems use only
+`propext`, `Classical.choice`, `Quot.sound`):
+
+* `DEL_bridge`: where `L_d` is differentiable at `(q_k, q_{k+1})` and `(q_{k+1}, q_{k+2})`
+  (`StepOK`), the symbolic `DEL` equals `realDEL`, built from Mathlib derivatives of the
+  function `L_d` along a discrete trajectory.
+* `del_equations`, `VERIFIED` (`DELVerified`, certificate `DEL = C · (lhs − rhs)` with
+  `det C ≠ 0`, as for EOM claims): `del_verified_meaning`, at every step whose triple is in `D`
+  the real DEL equations hold iff the claimed update holds. `REFUTED` (`DELRefuted`):
+  `del_refuted_meaning`, a rational triple in `D` where one holds and the other does not.
+* `discrete_momentum_conserved`, `VERIFIED` (`DMomentumVerified`): on `D`,
+  `J(q1, q2) − J(q0, q1) = Σ_k μ_k · DEL_k` as an identity, with the multipliers `μ_k`
+  existentially quantified (the planner's are `−ξ(q1)` for a symmetry generator `ξ`, or a
+  synthetic division in `q2` for a quadratic invariant of a linear step). `dmomentum_meaning`
+  (discrete Noether, certificate form): along every discrete trajectory `q_0 … q_{N+1}` whose
+  triples all lie in `D` and satisfy the real DEL equations, `J(q_N, q_{N+1}) = J(q_0, q_1)`
+  for every `N`, with no `O(h^p)` error. **`D` is chosen by the claim's author**, and the
+  theorem covers only trajectories that stay in `D`; `h > 0` is always part of `D`.
+  `L_d`, `J` and every `μ_k` must be junk-free (`physOK`) on all of `D`, and `D` must have a
+  rational point.
+* `discrete_momentum_conserved`, `REFUTED` (`DMomentumRefuted`): `dmomentum_refuted_meaning`, a
+  rational triple `(q0, q1, q2)` in `D` satisfying the real DEL equations, with `RegularStep`
+  (`∂DEL/∂q2` is a real derivative with non-zero determinant there, checked exactly), on which
+  `J(q1, q2) ≠ J(q0, q1)`.
+
+What is exact Python (labelled `exact (Python)`): the order check. With the sign convention
+`DEL ≈ −h·EL` (`EL = d/dt ∂L/∂q̇ − ∂L/∂q`; derived in the module docstring), it substitutes
+`q_j = q(t + (j − 1)h)`, a Taylor polynomial in `h` with jet coefficients, centred on the middle
+level, and expands `(1/h)·DEL + EL` exactly in rationals. `VERIFIED` needs the coefficients of
+`h^0 … h^{p−1}` to vanish identically and the `h^p` coefficient not to (exact order `p`); the
+verdict reports that coefficient. `REFUTED` reports the first nonzero coefficient below `h^p`
+with a rational point where it is nonzero, or that every coefficient up to `h^p` vanishes.
+Only polynomial `L_d` and `L` (division by monomials allowed) are in v1; `sqrt` gives `UNKNOWN`.
+
+What is assumed, not proven:
+
+* `RegularStep` says `q2` is the step taken from `(q0, q1)`. That `q2` is then locally unique
+  is the implicit function theorem, which is **not formalised** here. A `REFUTED` momentum is a
+  statement about one regular three-level trajectory.
+* The order argument: for polynomial `L_d` and `L`, the Taylor expansion of a smooth trajectory
+  to the needed degree gives the coefficients of `h^0 … h^p` exactly, and the remainder is
+  `O(h^{p+1})`. We compute those coefficients exactly but have not proven this Taylor step in
+  Lean (a Lean replay of the coefficient identities is future work).
+* The domain `D` is the author's choice (see above), and, as for EOM claims, the claim file is
+  serialized literally.
+
+Not in scope: energy. `L_d` has no time-translation symmetry, so energy conservation is not a
+Noether claim here. The midpoint oscillator's quadratic form is `VERIFIED` only because the
+linear step has determinant 1 (division multiplier, not Noether); the same claim for the
+nonlinear trapezoidal quartic oscillator is `REFUTED`.
+
+Bench (`benchmark/variational/`, 9 integrators, 23 claims). The traps: an explicit-Euler update
+claimed as the DEL of the rectangle rule (refuted at a rational point); the wrong-sign cross
+product and linear momentum under a central potential (refuted on regular steps); a rotation
+invariant `L` with an `L_d` that breaks the symmetry (mixed quadrature: angular momentum
+refuted); order 1 claimed for the Störmer–Verlet DEL of the rectangle rule (exact order 2:
+the `h^1` coefficient vanishes identically, so the claim is refuted); order 2 claimed for the
+rectangle rule with a position-dependent mass (the `h^1` coefficient is nonzero). The
+rectangle rule for a constant-mass oscillator is *not* a first-order trap: its two-step DEL is
+Störmer–Verlet, centred and second order.
+
+```
+$ uv run python -m physverify.variational benchmark/variational/
+| integrator | claim | expected | verdict | guarantee |
+|---|---|---|---|---|
+| anharmonic-trapezoid | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
+| anharmonic-trapezoid | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| central-quartic-trapezoid | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
+| central-quartic-trapezoid | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
+| central-quartic-trapezoid | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
+| central-quartic-trapezoid | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| free-particle-2d | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
+| free-particle-2d | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
+| free-particle-2d | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| isotropic-oscillator-mixed-quadrature | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
+| isotropic-oscillator-mixed-quadrature | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| kepler-trapezoid | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
+| kepler-trapezoid | consistent_order_p 2 | UNKNOWN | UNKNOWN | none |
+| oscillator-midpoint | del_equations | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-midpoint | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| oscillator-midpoint | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-rectangle-rule | del_equations | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-rectangle-rule | del_equations | REFUTED | REFUTED | proven (Lean) |
+| oscillator-rectangle-rule | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| oscillator-rectangle-rule | consistent_order_p 1 | REFUTED | REFUTED | exact (Python) |
+| position-dependent-mass-midpoint | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
+| position-dependent-mass-rectangle | consistent_order_p 2 | REFUTED | REFUTED | exact (Python) |
+| position-dependent-mass-rectangle | consistent_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
+
+23 claims: 15 VERIFIED, 7 REFUTED, 1 UNKNOWN, 0 not as expected; 156s
+```
+
+Tests: `tests/test_variational.py` (no Lean: loader, layout, Python DEL against finite
+differences, the sign convention, exact orders by hand, refutation points regular, a corrupted
+multiplier breaking the identity). In `tests/test_lean.py`: the bench, `dmomentum_meaning`
+applied to a generated statement, a corrupted multiplier and a junk `1/(m − m)` multiplier
+rejected, a Kepler-like `L_d` with `1/sqrt` at the origin or `sqrt` of a negative left in `D`
+not `VERIFIED`, and planner tricks rejected.
+
+Timings on the same 2-CPU VM, a fresh worktree:
+
+| Step | Time |
+|---|---|
+| `lake exe cache get` (fresh clone of Mathlib and its cache) | 7 min 16 s |
+| full `lake build` right after it, cold (our modules from scratch; `Discrete` alone 9.4 s) | 3 min 58 s |
+| `lake build PhysVerify.Discrete`, warm, nothing to rebuild | 57 s |
+| variational bench (23 claims, 12 Lean certificates in one batch per integrator), warm | 2 min 36 s |
+| `pytest tests/test_lean.py -k "variational or discrete or Discrete or dmomentum"` (15 tests), warm | about 4 min 20 s |
+
 ## Discrete schemes
 
 A numerical scheme is a theory of a discrete universe, so claims about it can be checked the

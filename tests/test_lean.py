@@ -559,7 +559,7 @@ def test_dmomentum_statement_gives_exact_conservation():
 
 
 @needs_lean
-def test_corrupted_multiplier_rejected():
+def test_discrete_corrupted_multiplier_rejected():
     """A wrong μ (the planner's μ_0 plus 1) breaks the identity: Lean rejects, UNKNOWN."""
     from physverify.expr import E, lit
     from physverify.tools import variational as P
@@ -573,7 +573,7 @@ def test_corrupted_multiplier_rejected():
 
 
 @needs_lean
-def test_junk_multiplier_rejected():
+def test_discrete_junk_multiplier_rejected():
     """μ_0 + 1/(m - m) is junk everywhere (Lean's x/0 = 0): the identity still holds in Lean,
     but the statement requires physOK of every μ on D, so the certificate gives UNKNOWN."""
     from physverify.expr import E, parse, to_lean
