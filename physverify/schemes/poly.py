@@ -72,10 +72,7 @@ def var(name: str) -> Poly:
 
 def add(p: Poly, q: Poly, sign: int = 1) -> Poly:
     out = dict(p)
-    for m, c in q.items():
-        out[m] = out.get(m, 0) + sign * c
-        if not out[m]:
-            del out[m]
+    _add_into(out, q, sign)
     return out
 
 
@@ -96,11 +93,19 @@ def _mono_mul(m1: tuple, m2: tuple) -> Poly:
     return rest if out == {(): Fraction(1)} else mul(out, rest)
 
 
+def _add_into(out: Poly, q: Poly, sign: int = 1) -> None:
+    """`add(out, q, sign)` in place: the same entries in the same order, without copying out."""
+    for m, c in q.items():
+        out[m] = out.get(m, 0) + sign * c
+        if not out[m]:
+            del out[m]
+
+
 def mul(p: Poly, q: Poly) -> Poly:
     out: Poly = {}
     for m1, c1 in p.items():
         for m2, c2 in q.items():
-            out = add(out, scale(_mono_mul(m1, m2), c1 * c2))
+            _add_into(out, scale(_mono_mul(m1, m2), c1 * c2))
     return out
 
 
@@ -191,7 +196,7 @@ def subst(p: Poly, env: dict[str, Poly], _cache: dict | None = None) -> Poly:
                 if a not in cache:
                     cache[a] = sqrt(subst(dict(a[1]), env, cache), nonneg=True)
                 term = mul(term, power(cache[a], k))
-        out = add(out, term)
+        _add_into(out, term)
     return out
 
 
