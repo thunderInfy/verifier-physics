@@ -117,14 +117,25 @@ is neither stored nor scored:
   entries were `not-checkable` before reconstruction v2).
 - **jiang_shu_1995_weno:02, with hypotheses (TRUE).** The item's hypothesis "eps treated as negligible" does fix
   the family, but the sentence also says the original measurement (2.18)/(2.20) gives "the 4th order", and p. 7
-  says it "can only give 4th order accuracy". The checker finds otherwise: with eps -> 0 and f' != 0 the original
-  measurement is fifth order too, for one reconstruction and for the flux difference (VERIFIED for p = 5, leading
-  order 5). Direct exact evaluation of the formulas confirms it (error/dx^4 -> 0 at rational dx = 2^-6 .. 2^-12;
-  `tests/test_reconstruction.py`). The O(h) terms of (2.23)-(2.25) are -2, 0, +2 times f''h/f', linear in k, and
-  weight errors of that form cancel against the candidate errors (1/4, -1/12, 1/12) f''' h^3 at O(h^4). The
-  source's argument uses only the sufficient condition (2.14). Read as "4th and not 5th" the sentence is false; read
-  as "at least 4th" it is true. The text does not decide, so the field is unformalised (`not-checkable`) and
-  `ERRATA_PROPOSED.md` lists it for the team.
+  says it "can only give 4th order accuracy". The eps -> 0 reading of p. 7 is REFUTED by `reconstruction_order_p`:
+  with eps -> 0 and f' != 0 the original measurement is fifth order too, for one reconstruction (the face value at
+  x_{i+1/2}) and for the flux difference (at x_i), VERIFIED for p = 5 with leading order 5 in both forms, as
+  identities in the Taylor jet at a grid point. Direct exact evaluation of the formulas confirms it (error/dx^4 -> 0
+  at rational dx = 2^-6 .. 2^-12; `tests/test_reconstruction.py`). The mechanism, checked exactly in
+  `tests/test_reconstruction_zm.py`: (2.20) gives IS_k = (f'h)^2 + 2(k-1) f'f'' h^3 + O(h^4), so the weights are
+  omega_k = d_k + d_k (4/5 - 4(k-1)) (f''/f') h + O(h^2) = d_k + (12/25, 12/25, -24/25) (f''/f') h + O(h^2): only
+  O(h), not the O(h^2) of the sufficient condition (2.14). The candidate errors are q_k - h_{i+1/2} =
+  (-1/4, 1/12, -1/12) f''' h^3 + O(h^4), and the O(h^4) term of the face error,
+  sum_k (omega_k - d_k)(q_k - h), has coefficient (12/25)(-1/4) + (12/25)(1/12) + (-24/25)(-1/12) = 0 (because
+  sum_k d_k A_k = 0 and sum_k k d_k A_k = 0). The face error is then C(x_i) h^5 with C smooth where f' != 0, so the
+  difference is O(h^5) too. The report's numerical Tables 3-4 (the tables p. 7 cites) are consistent with this:
+  our replica of their run reproduces the printed WENO-RF-4 errors to 2-3 digits, and the reconstruction alone
+  (mpmath, N up to 5120) shows that their sub-fifth orders come from the critical points of sin and sin^4 (L_inf 3
+  and L1 4 for the difference within O(dx) of f' = 0), on grids where eps = 10^-6 does not yet dominate IS_k near
+  those points; away from them the order is 5, and with eps = 10^-6 every order rises to 5 and above from N = 320
+  (`notes/jiang-shu-tables.md`). Read as "4th and not 5th" the sentence is false; read as "at least 4th" it is
+  true. The text does not decide, so the field is unformalised (`not-checkable`: the reading of a clause, not the
+  eps family) and `ERRATA_PROPOSED.md` lists it for the team.
 
 The decided readings, with the witness or certificate each verdict rests on:
 
