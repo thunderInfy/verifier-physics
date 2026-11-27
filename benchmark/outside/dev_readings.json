@@ -1,0 +1,2107 @@
+{
+ "about": "Formal readings of the dev half of the outside benchmark (items.jsonl, split in FROZEN.md). One entry per dev item, in items.jsonl order. Each expected field (alone, with_hypotheses) is covered either by readings (a spec in specs/ plus named claims of physverify/schemes/claims.py) or by one `unformalized` entry with reasons from the taxonomy in README.md. Expected values are read from items.jsonl, never copied here. Run: uv run python benchmark/outside/run_dev.py [--write]; field meanings are in its docstring.",
+ "items": [
+  {
+   "id": "jiang_shu_1995_weno:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "order of WENO schemes (nonlinear weights, smoothness indicators); no spec holds a WENO reconstruction"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "jiang_shu_1995_weno:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "order of WENO5 with the new smoothness indicators, including at critical points"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "jiang_shu_1995_weno:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "convergence of every WENO scheme with Runge-Kutta time stepping"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "jiang_shu_1995_weno:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "time-stepping",
+      "multi-d",
+      "claim-kind-missing"
+     ],
+     "note": "pointwise convergence theorem for WENO with RK of order n >= max(r, 3), d dimensions"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "jiang_shu_1995_weno:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "(2r-1)th order of WENO in smooth regions"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "jiang_shu_1995_weno:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "accuracy of WENO at discontinuities"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "high-order FV/DG schemes with the scaling limiter; the alone counterexample (degree 0, lambda = 2) would remove the limiter, which the sentence is about"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:02",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "the two-stage SSP Runge-Kutta method (SSP coefficient 1) of the first-order Lax-Friedrichs step for u_t + u_x = 0 keeps every cell average in [m, M] for every nu = dt/dx in [0, 1], the CFL bound of the Euler step times the SSP coefficient",
+     "narrowing": "f(u) = u (so h(u, v) = u, upwind); degree-0 polynomials (the limiter does nothing); the two-stage SSP Runge-Kutta method instead of the source's three-stage (2.12), because three stages of a two-point scheme need u_{i-3}, outside the five-point stencil",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "ssp-rk2-upwind-advection.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "bridge": "for a linear update u_i^{n+1} = sum_k c_k u_{i+k} with sum_k c_k = 1, 'u^n in [m, M] for all j implies u^{n+1} in [m, M]' for every data and every m <= M holds iff every c_k >= 0 (if c_k < 0, put m where c_k < 0 and M elsewhere)"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
+    },
+    {
+     "field": "alone",
+     "reading": "the same method keeps the maximum principle with no time step restriction; necessary for it: for every nu in [0, 2]",
+     "narrowing": "as for the with-hypotheses reading; the Courant range [0, 2] stands for 'no restriction'",
+     "instance_from_justification": true,
+     "formalization": [
+      {
+       "spec": "ssp-rk2-upwind-advection.json",
+       "override": {
+        "claims": {
+         "positive_cfl": [
+          "0",
+          "2"
+         ]
+        }
+       },
+       "claim": "positive_under_cfl",
+       "relation": "necessary",
+       "bridge": "as above; the unrestricted claim implies the claim on [0, 2]"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "components": [
+       {
+        "named": "REFUTED",
+        "reading": "REFUTED"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [],
+   "score": {
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction",
+      "variable-coefficients"
+     ],
+     "note": "DG/FV for 2D incompressible Euler in vorticity form and passive convection"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:04",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "the first-order Lax-Friedrichs scheme (2.3) maps data in [m, M] into [m, M] for every lambda a in [0, 1]",
+     "narrowing": "f(u) = u, so a = max|f'| = 1 and the flux is h(u, v) = u (upwind)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "lax-friedrichs-global-advection.json",
+       "claim": "local_max_principle_under_cfl",
+       "relation": "same",
+       "bridge": "for a three-point scheme the global bound (u^n in [m, M] for all j implies u^{n+1} in [m, M], for all data and m <= M) is equivalent to the local one (u_i^{n+1} between the min and max of its stencil): local implies global directly; for the converse fill the rest of the grid with values of the stencil, so its range is [m, M]"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
+    },
+    {
+     "field": "alone",
+     "reading": "the same with no CFL condition; necessary for it: for every lambda a in [0, 2]",
+     "narrowing": "f(u) = u as above; the range [0, 2] stands for 'no restriction'",
+     "instance_from_justification": true,
+     "formalization": [
+      {
+       "spec": "lax-friedrichs-global-advection.json",
+       "override": {
+        "claims": {
+         "tvd_cfl": [
+          "0",
+          "2"
+         ]
+        }
+       },
+       "claim": "local_max_principle_under_cfl",
+       "relation": "necessary",
+       "bridge": "as above; the unrestricted claim implies the claim on [0, 2]"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "components": [
+       {
+        "named": "REFUTED",
+        "reading": "REFUTED"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [],
+   "score": {
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "cell-average scheme with degree-k polynomials and Gauss-Lobatto point values"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "accuracy of the scaling limiter on polynomials"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "order and maximum principle of the revised high-order scheme"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "variable-coefficients"
+     ],
+     "note": "the velocity u_j changes from cell to cell (the factor 1/2 in the CFL bound comes from that); specs have constant parameters only"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction",
+      "variable-coefficients"
+     ],
+     "note": "2D DG decomposition bounds (4.14)-(4.15)"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction",
+      "variable-coefficients"
+     ],
+     "note": "2D DG vorticity scheme (4.7)"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "arbitrarily high order maximum-principle-satisfying schemes"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "the point-value condition and the limiter are the subject; a degree-0 instance (as used for item 02) would make both vacuous"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:13",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "time-stepping",
+      "multi-d"
+     ],
+     "note": "DG/ENO/WENO with the limiter"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction",
+      "variable-coefficients"
+     ],
+     "note": "2D incompressible Euler, DG or FV"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "variable-coefficients",
+      "reconstruction"
+     ],
+     "note": "passive convection with a divergence-free velocity in 2D"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:16",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable"
+     ],
+     "note": "a report of numerical observations"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:17",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "'genuine high order accuracy' observed numerically with SSP multistep"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2010_maxprinciple:18",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "'may degenerate', a numerical observation"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "genuinely high order FV/DG schemes with a maximum principle"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction",
+      "multi-d"
+     ],
+     "note": "'main advantages ... easiness for generalization'"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "positivity for Euler, shallow water and Vlasov-Boltzmann; existential wording"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "Gauss-Lobatto point values of degree-k polynomials, any monotone flux"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "accuracy of the scaling limiter"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "an l1-distance identity for the limited scheme; no named claim for sum_j |u_j - m|"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction"
+     ],
+     "note": "rectangular meshes"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction"
+     ],
+     "note": "triangular meshes"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "reconstruction"
+     ],
+     "note": "1D Euler, positivity of density and pressure"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "system",
+      "reconstruction"
+     ],
+     "note": "2D Euler on rectangles"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "system",
+      "reconstruction"
+     ],
+     "note": "2D Euler on triangles"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "variable-coefficients",
+      "reconstruction"
+     ],
+     "note": "vorticity DG on triangles"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:13",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "polynomial point value p_j(x*_j) and endpoint values"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction"
+     ],
+     "note": "rectangles"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "zhang_shu_2011_survey:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction"
+     ],
+     "note": "triangles"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "tadmor_1987_viscosity:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "second order of a semi-discrete scheme: every order claim we have is for a fully discrete scheme at fixed dt/dx; nor is there a claim for 'is a mass-lumped piecewise linear finite element method'. A scalar narrowing (Burgers, entropy u^2/2, flux (uL^2 + uL uR + uR^2)/6) would be allowed, so 'system' does not block"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "tadmor_1987_viscosity:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "entropy stable iff more viscosity than the entropy conservative scheme, for every conservative scheme"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "tadmor_1987_viscosity:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "viscous form iff essentially three-point, for every consistent conservative scheme"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "tadmor_1987_viscosity:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "every scheme with more viscosity than the entropy conservative one"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "tadmor_1987_viscosity:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "every entropy stable three-point scheme"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "tadmor_1987_viscosity:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "comparison of any two schemes in viscosity form"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "heoc_1986_eno3:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "ENO hierarchy of arbitrary order"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "heoc_1986_eno3:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "ENO interpolation accuracy and no Gibbs phenomenon"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "heoc_1986_eno3:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "adaptive stencils make the scheme nonlinear; no named claim for 'the update is nonlinear'"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "osher_tadmor_1985_convergence:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "every scheme with a cell entropy inequality for all entropies is an E-scheme, hence first order"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "osher_tadmor_1985_convergence:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "illegible",
+      "claim-kind-missing"
+     ],
+     "note": "the SOR-TVD scheme's displays (8.9)-(8.13) are illegible in the scan; convergence via one entropy inequality has no named claim"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "osher_tadmor_1985_convergence:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "illegible"
+     ],
+     "note": "the CFL-like condition (4.15) and (4.14) are illegible in the scan"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "osher_tadmor_1985_convergence:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "every semi-discrete flux satisfying all entropy inequalities is an E-flux; no named claim for E-fluxes. Alone FALSE reads as 'every consistent flux', which a single counterexample (central flux, Burgers) would refute, but class theorems are not narrowed to instances (README)"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "harten_1982_highres:01",
+   "readings": [
+    {
+     "field": "alone",
+     "reading": "the schemes of the class are second order accurate at every point of every smooth solution; necessary for it: one member, the scheme (3.8d) with g from (3.11) on the base viscosity Q(x) = 1 for u_t + u_x = 0, has local truncation error O(dx^2) at every grid point of every smooth solution, extrema included",
+     "narrowing": "one member of the class: f(u) = u, Q(x) = 1 (Lax-Friedrichs viscosity, mu = 1)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "harten-second-order-q1-advection.json",
+       "claim": "truncation_order_smooth_data",
+       "relation": "necessary",
+       "bridge": "Harten's 'second order' is a local truncation error of O(dx^3) per step, i.e. tau = (u(t + dt) - H)/dt = O(dx^2); the source itself says it may degenerate where u_x = 0"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "components": [
+       {
+        "named": "REFUTED",
+        "reading": "REFUTED"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": [
+      "with_hypotheses"
+     ],
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "second order in the sense of the flux condition (3.6), away from points where u_x = 0: no named claim for order away from extrema or for a flux condition"
+    }
+   ],
+   "score": {
+    "alone": "MATCH",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "harten_1982_highres:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every monotone scheme is TVNI"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "harten_1982_highres:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "every TVNI scheme is monotonicity preserving"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "harten_1982_highres:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "Harten's lemma for any coefficients C satisfying (2.10)"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "harten_1982_highres:05",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the three-point scheme (3.1a) with Q(x) = x^2 + 1/4, which satisfies (3.2) with mu = sqrt(3)/2, is TVNI for u_t + u_x = 0 for every lambda a in [0, 433/500]",
+     "narrowing": "f(u) = u (so a-bar = 1 and nu = lambda); Q(x) = x^2 + 1/4, the source's own example with mu < 1 (p. 32); the rational sub-range [0, 433/500] of [0, sqrt(3)/2]",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "harten-q-quadratic-advection.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "bridge": "for a linear update u_i^{n+1} = sum_k c_k u_{i+k} with sum_k c_k = 1, TVD iff every c_k >= 0: the differences evolve with the same c_k, and the l1 norm of that convolution is sum_k |c_k| (as in benchmark/scheme-claims C02)"
+      }
+     ],
+     "gap": "positivity's Bernstein test is not subdivided: the coefficient of u_{i+1} is (nu - 1/2)^2/2, non-negative with a double root at nu = 1/2, and its Bernstein coefficients on the whole interval are not all >= 0, so the check gives UNKNOWN",
+     "actual": {
+      "verdict": "UNKNOWN",
+      "components": [
+       {
+        "named": "UNKNOWN",
+        "reading": "UNKNOWN"
+       }
+      ]
+     }
+    },
+    {
+     "field": "both",
+     "reading": "the same, through the TVD claim itself",
+     "narrowing": "as above",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "harten-q-quadratic-advection.json",
+       "claim": "tvd_under_cfl",
+       "relation": "same"
+      }
+     ],
+     "gap": "tvd_harten certifies Harten's form only with the upwind split (D = 0); this scheme has both C and D positive, so no certificate, and the TV-increase search finds nothing (there is nothing to find)",
+     "actual": {
+      "verdict": "UNKNOWN",
+      "components": [
+       {
+        "named": "UNKNOWN",
+        "reading": "UNKNOWN"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "harten_1982_highres:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "any g satisfying (3.9) gives the flux condition (3.6); no named claim for a flux condition"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "harten_1982_highres:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-expressible"
+     ],
+     "note": "the open case is mu < 1, e.g. Q(x) = x^2 + 1/4; there Q(nu + gamma) Delta v = (nu Delta v + Delta g)^2 / Delta v + Delta v / 4 divides by a state difference, outside the spec language. The case Q = 1 (mu = 1) is expressible, but the justification says the proof closes there, so that instance would be TRUE where the sentence is UNSURE"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "harten_1982_highres:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "not-expressible"
+     ],
+     "note": "constant-coefficient system; its scalar fields are item 08's scheme"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "harten_1982_highres:11",
+   "readings": [
+    {
+     "field": "alone",
+     "reading": "the scheme is convergent for BV data and second order accurate at every point of every smooth solution; for one field (m = 1, A = 1) and Q(x) = 1",
+     "narrowing": "a single field (the scalar scheme for u_t + u_x = 0); Q(x) = 1",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "unformalized": "convergent under (4.13) for all BV data: no named claim for convergence of a limited scheme"
+      },
+      {
+       "spec": "harten-second-order-q1-advection.json",
+       "claim": "truncation_order_smooth_data",
+       "relation": "same",
+       "bridge": "'second order accurate' read as local truncation error tau = O(dx^2) at every point, as in item 01"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "components": [
+       {
+        "named": "UNFORMALIZED",
+        "reading": "UNFORMALIZED"
+       },
+       {
+        "named": "REFUTED",
+        "reading": "REFUTED"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": [
+      "with_hypotheses"
+     ],
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "convergence from the TV bound of Lemma 4.2 for systems, and second order in the formal sense (3.6) away from u_x = 0"
+    }
+   ],
+   "score": {
+    "alone": "MATCH",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "harten_1982_highres:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "the monotonicity property of Section 2 (no new local extrema; local minima non-decreasing, maxima non-increasing) has no named claim; and the limiter checks need f = a u, so the nonlinear upstream scheme would be out of reach anyway"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "an exact energy identity for the central scheme; no named claim for an energy identity"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "'the energy grows at every time step' (strictly, for every data); von_neumann_stable_under_cfl is refuted for the central scheme, but that is a different statement (true where this one is false)"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:03",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "the upwind scheme with periodic boundaries satisfies E^{n+1} <= E^n for every data when |a| dt/dx <= 1",
+     "narrowing": "a = 1; periodic boundaries (not zero boundaries)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "upwind-advection.json",
+       "claim": "von_neumann_stable_under_cfl",
+       "relation": "same",
+       "bridge": "on a periodic grid of N cells the Fourier modes diagonalise the update, so E^{n+1} <= E^n for all data iff |g(2 pi j/N)| <= 1 for all j; over all N this is |g(theta)| <= 1 for all theta (the grid frequencies are dense and g is continuous)"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
+    },
+    {
+     "field": "alone",
+     "reading": "the same with no CFL condition; necessary for it: for every nu in [0, 2]",
+     "narrowing": "as above; [0, 2] stands for 'no restriction'",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "upwind-advection.json",
+       "override": {
+        "claims": {
+         "von_neumann_cfl": [
+          "0",
+          "2"
+         ]
+        }
+       },
+       "claim": "von_neumann_stable_under_cfl",
+       "relation": "necessary",
+       "bridge": "as above"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "components": [
+       {
+        "named": "REFUTED",
+        "reading": "REFUTED"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [],
+   "score": {
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:04",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the upwind scheme is energy stable under the CFL condition nu <= 1 and not for every nu",
+     "narrowing": "a = 1; periodic boundaries; 'not for every nu' shown on [0, 2]",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "upwind-advection.json",
+       "claim": "von_neumann_stable_under_cfl",
+       "relation": "same",
+       "bridge": "energy stability on periodic grids is von Neumann stability (see mfa_oslo_notes:03)"
+      },
+      {
+       "spec": "upwind-advection.json",
+       "override": {
+        "claims": {
+         "von_neumann_cfl": [
+          "0",
+          "2"
+         ]
+        }
+       },
+       "claim": "von_neumann_stable_under_cfl",
+       "relation": "necessary",
+       "negated": true,
+       "bridge": "unconditional stability implies stability on [0, 2], so a refutation on [0, 2] shows the scheme is not unconditionally stable"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       },
+       {
+        "named": "REFUTED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [],
+   "score": {
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:05",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "under |a| dt/dx <= 1 the upwind scheme does not increase the L1 or the L-infinity norm of any data",
+     "narrowing": "a = 1",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "upwind-advection.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "bridge": "for a linear translation-invariant update with sum_k c_k = 1 the operator norm in l1 and in l-infinity is sum_k |c_k|, which is <= 1 iff every c_k >= 0"
+      }
+     ],
+     "actual": {
+      "verdict": "VERIFIED",
+      "components": [
+       {
+        "named": "VERIFIED",
+        "reading": "VERIFIED"
+       }
+      ]
+     }
+    },
+    {
+     "field": "alone",
+     "reading": "the same with no CFL condition; necessary for it: for every nu in [0, 2]",
+     "narrowing": "a = 1; [0, 2] stands for 'no restriction'",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "upwind-advection.json",
+       "override": {
+        "claims": {
+         "positive_cfl": [
+          "0",
+          "2"
+         ]
+        }
+       },
+       "claim": "positive_under_cfl",
+       "relation": "necessary",
+       "bridge": "as above"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "components": [
+       {
+        "named": "REFUTED",
+        "reading": "REFUTED"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [],
+   "score": {
+    "alone": "MATCH",
+    "with_hypotheses": "MATCH"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "conservative iff flux form, for every (2p+1)-point scheme"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "monotone iff (4.44)-(4.45), for every two-point flux"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every consistent monotone three-point scheme has a local maximum principle"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "the same, iterated in time"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "the Crandall-Majda discrete entropy inequality for every monotone scheme"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "L1 stability of every monotone scheme"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "Harten's lemma for any coefficients"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:13",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "L-infinity stability for any coefficients satisfying (4.59)"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every monotone three-point scheme is TVD"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "time continuity (4.60) for every monotone scheme; no named claim for it. FALSE by a counterexample (Lax-Friedrichs with f = 0), which a class theorem is not narrowed to (README)"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:16",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "the Lax-Wendroff theorem for every conservative consistent scheme (limit_is_weak_solution expresses it for one scheme)"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:17",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every scheme with the discrete entropy inequality has an entropy limit"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:18",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "Crandall-Majda convergence for every monotone scheme"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:19",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every consistent conservative three-point scheme with C2 update is first order"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "mfa_oslo_notes:20",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "SSP RK2 is TVD whenever forward Euler is, for every operator L"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "reconstruction"
+     ],
+     "note": "TeCNO schemes for systems"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "every entropy conservative flux of a system; no named claim for entropy conservation (equality) or for semi-discrete order"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:03",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "with the coefficients as printed (2 sum_r r alpha_r = 1), the flux ~F^{2p} gives a 2p-th order accurate flux difference; necessary for it, for p = 1 and Burgers' equation: the flux (1/2) ~F(uL, uR) is consistent",
+     "narrowing": "scalar Burgers' equation with the entropy u^2/2 (its two-point entropy conservative flux is unique); p = 1, where the printed normalization forces alpha_1 = 1/2",
+     "instance_from_justification": true,
+     "formalization": [
+      {
+       "spec": "half-entropy-conservative-burgers.json",
+       "claim": "consistent",
+       "relation": "necessary",
+       "bridge": "if (1/dx)(F(u_i, u_{i+1}) - F(u_{i-1}, u_i)) = d/dx f(u_i) + O(dx^2) for every smooth u, then expanding about x_i gives d/dx F(u, u) = d/dx f(u) along every smooth u, so F(u, u) - f(u) is constant; here F(u, u) - f(u) = -u^2/4 is not constant. So the conjunct implies consistency up to a constant, and this flux is not consistent up to any constant (the check's witness, F(1, 1) - f(1) = -1/4, together with F(0, 0) - f(0) = 0)"
+      }
+     ],
+     "actual": {
+      "verdict": "REFUTED",
+      "components": [
+       {
+        "named": "REFUTED",
+        "reading": "REFUTED"
+       }
+      ]
+     }
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": [
+      "alone"
+     ],
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "with the coefficients of (2.22)-(2.23): 2p-th order of a semi-discrete flux difference; no named claim for semi-discrete order (a scalar narrowing, as in the with-hypotheses reading, would be allowed)"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "MATCH"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "an identity for a printed numerical entropy flux (with a sign misprint; the justification's counterexample is scalar, so 'system' does not block); entropy_stable_tadmor checks Tadmor's inequality, which does not involve the printed ^Q: on Burgers with D = 1 it gives VERIFIED, so the reading 'the scheme (3.2) is entropy stable' would be WRONG on a sentence that is FALSE as printed"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "system"
+     ],
+     "note": "high-order flux with reconstructed entropy variables"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "ENO sign property"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "ENO jump bound"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "sign property of the scaled ENO reconstruction"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "system"
+     ],
+     "note": "TeCNO order and entropy stability"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "weak L2 convergence of TeCNO for linear systems"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction"
+     ],
+     "note": "L-infinity bound for scalar TeCNO with a log entropy"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "reconstruction",
+      "system"
+     ],
+     "note": "2D TeCNO"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:13",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction",
+      "system"
+     ],
+     "note": "'essentially nonoscillatory near discontinuities' has no definition; 'no tuning parameters'"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "entropy stability implies Lp bounds, for every entropy stable scheme"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "system"
+     ],
+     "note": "entropy stability from the ENO sign property"
+    }
+   ],
+   "score": {
+    "alone": "GAP",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:16",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "TeCNO convergence for linear symmetrizable systems"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "GAP"
+   }
+  },
+  {
+   "id": "fjordholm_mishra_tadmor_2012_tecno:17",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable"
+     ],
+     "note": "a comparison with the literature"
+    }
+   ],
+   "score": {
+    "alone": "UNSCORED",
+    "with_hypotheses": "UNSCORED"
+   }
+  }
+ ]
+}

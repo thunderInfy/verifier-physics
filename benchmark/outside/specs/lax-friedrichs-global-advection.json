@@ -1,0 +1,8 @@
+{
+ "name": "First-order Lax-Friedrichs, h(u, v) = (f(u) + f(v) - a (v - u))/2 with a = max|f'(u)|, linear advection f(u) = u (so a = 1)",
+ "pde": {"flux": "a*u"},
+ "params": {"a": "1"},
+ "scheme": {"numerical_flux": "(a*uL + a*uR)/2 - a*(uR - uL)/2"},
+ "named_claims": ["local_max_principle_under_cfl"],
+ "claims": {"tvd_cfl": ["0", "1"]}
+}

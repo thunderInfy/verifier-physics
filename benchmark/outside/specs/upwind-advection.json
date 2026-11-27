@@ -1,0 +1,8 @@
+{
+ "name": "Upwind scheme (2.16)/(2.17), U_j^{n+1} = U_j - nu a+ (U_j - U_{j-1}) - nu a- (U_{j+1} - U_j), linear advection a = 1",
+ "pde": {"flux": "a*u"},
+ "params": {"a": "1"},
+ "scheme": {"numerical_flux": "a*uL"},
+ "named_claims": ["von_neumann_stable_under_cfl", "positive_under_cfl"],
+ "claims": {"von_neumann_cfl": ["0", "1"], "positive_cfl": ["0", "1"]}
+}

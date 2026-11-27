@@ -1,0 +1,7 @@
+{
+ "name": "The flux ~F^{2p} of (2.20) for p = 1 with alpha_1 = 1/2 (the printed normalization 2 sum_r r alpha_r = 1), built on the two-point entropy conservative flux of Burgers' equation for the entropy u^2/2, ~F(uL, uR) = (uL^2 + uL uR + uR^2)/6",
+ "pde": {"flux": "u^2/2"},
+ "scheme": {"numerical_flux": "(uL^2 + uL*uR + uR^2)/12"},
+ "named_claims": ["consistent"],
+ "claims": {}
+}

@@ -1,0 +1,8 @@
+{
+ "name": "Two-stage SSP Runge-Kutta (U* = U + dt L(U), U** = U* + dt L(U*), U^{n+1} = (U + U**)/2) of the first-order Lax-Friedrichs flux h(u, v) = (f(u) + f(v) - (v - u))/2 = u, linear advection f(u) = u (degree-0 polynomials, so the limiter does nothing)",
+ "pde": {"flux": "a*u"},
+ "params": {"a": "1"},
+ "scheme": {"update": "(u0 + ((u0 - a*lam*(u0 - um1)) - a*lam*((u0 - a*lam*(u0 - um1)) - (um1 - a*lam*(um1 - um2)))))/2"},
+ "named_claims": ["positive_under_cfl"],
+ "claims": {"positive_cfl": ["0", "1"]}
+}

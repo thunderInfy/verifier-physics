@@ -1,0 +1,8 @@
+{
+ "name": "Three-point scheme (1.4) with flux (3.1a), f_{j+1/2} = (f(v_j) + f(v_{j+1}) - Q(lam a) Delta v / lam)/2, viscosity Q(x) = x^2 + 1/4 (satisfies (3.2) with mu = sqrt(3)/2), linear advection a = 1",
+ "pde": {"flux": "a*u"},
+ "params": {"a": "1"},
+ "scheme": {"numerical_flux": "a*(uL + uR)/2 - ((a*lam)^2 + 1/4)/(2*lam)*(uR - uL)"},
+ "named_claims": ["positive_under_cfl", "tvd_under_cfl"],
+ "claims": {"positive_cfl": ["0", "433/500"], "tvd_cfl": ["0", "433/500"]}
+}

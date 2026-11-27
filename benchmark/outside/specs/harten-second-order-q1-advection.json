@@ -1,0 +1,8 @@
+{
+ "name": "Five-point scheme (1.4) with the modified flux (3.8d), f~_{j+1/2} = (f(v_j) + f(v_{j+1}) + (g_j + g_{j+1} - Q(nu + gamma) Delta v)/lam)/2, g_i = minmod(g~_{i+1/2}, g~_{i-1/2}) (3.11), g~_{i+1/2} = (Q(nu) - nu^2) Delta_{i+1/2} v / 2, on the base viscosity Q(x) = 1 (satisfies (3.2) with mu = 1), linear advection a = 1. Since Q is constant, Q(nu + gamma) = 1, and minmod(k x, k y) = k minmod(x, y) for k = (1 - nu^2)/2 >= 0 (nu <= 1)",
+ "pde": {"flux": "a*u"},
+ "params": {"a": "1"},
+ "scheme": {"numerical_flux": "a*(uL + uR)/2 + ((1 - (a*lam)^2)/2*minmod(uR - uL, uL - uLL) + (1 - (a*lam)^2)/2*minmod(uRR - uR, uR - uL) - (uR - uL))/(2*lam)"},
+ "named_claims": ["truncation_order_smooth_data"],
+ "claims": {"smooth_truncation": {"order": 2}}
+}
