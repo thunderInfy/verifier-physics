@@ -1,4 +1,5 @@
 """End-to-end tests through the Lean kernel (slow: ~10 s per certificate)."""
+import json
 from pathlib import Path
 
 import pytest
@@ -885,3 +886,120 @@ def test_harten_builds_and_instances_use_standard_axioms():
                                    opens="PhysVerify")
     for name, res in out.items():
         assert res.ok, (name, res.axioms, res.log[-2000:])
+
+
+# ---------------------------------------------------------------- update_conserves_order_p
+# Lean replay of the exact-Python order verdicts (PhysVerify.UpdateOrder), both forms.
+
+ORD_MOD = "PhysVerify.UpdateOrder"
+ORD_BENCH = [p for p in VAR_BENCH + KER_BENCH
+             if any(c["claim"] == "update_conserves_order_p" for c in json.loads(p.read_text())["claims"])]
+
+
+def _ord_id(p):
+    return f"{p.parent.name}/{p.stem}"
+
+
+@needs_lean
+@pytest.mark.parametrize("path", ORD_BENCH, ids=[_ord_id(p) for p in ORD_BENCH])
+def test_update_order_bench_replays(path):
+    """Every decided order claim of the bench keeps its exact verdict and is replayed in Lean
+    ("proven (Lean)", the order meaning theorem, standard axioms only)."""
+    from physverify.variational import guarantee, judge_file, load
+    I = load(path)
+    for c, r in zip(I.claims, judge_file(I)):
+        if c.kind != "update_conserves_order_p":
+            continue
+        assert r.verdict == c.expect, (r.claim, r.detail)
+        if r.verdict == "UNKNOWN":
+            continue
+        assert guarantee(c, r) == "proven (Lean)", (r.claim, r.attempts, r.detail)
+        assert "order" in r.detail and "; axioms: " in r.detail and "sorryAx" not in r.detail
+
+
+def _order_claim(path, verdict):
+    from physverify.variational import judge_update_order, load
+    I = load(ROOT / path)
+    return I, next(c for c in I.claims if c.kind == "update_conserves_order_p"
+                   and judge_update_order(I, c).verdict == verdict)
+
+
+@needs_lean
+@pytest.mark.parametrize("path", ["benchmark/variational/oscillator-symplectic-euler-map.json",
+                                  "benchmark/kernels/oscillator-symplectic-euler.json"])
+def test_update_order_wrong_R_rejected(path, monkeypatch):
+    """The judge's R in the statement, replaced by R + h^2 (or with p raised by one, so that
+    R would have to be the true one divided by h): the planner's proof no longer checks."""
+    from physverify import variational as V
+    from physverify.tools import variational as P
+    from physverify.variational import judge_prefix, statement
+    from physverify.derivation import find_witness
+    I, c = _order_claim(path, "VERIFIED")
+    (kind, proof), = P.propose(I, c)
+    pre = judge_prefix(kind, I, c, find_witness(I))
+    good = statement(kind, I, c)
+    assert lean_backend.check(good, pre + proof, module=ORD_MOD).ok
+    hi = I.index()["h"]
+    right = V.order_remainder_lean(I, c)
+    monkeypatch.setattr(V, "order_remainder_lean",
+                        lambda U, cc: f"(.add {right} (.powi (.var {hi}) (2)))")
+    if path.startswith("benchmark/kernels"):
+        import physverify.kernel as K
+        monkeypatch.setattr(K, "order_remainder_lean", V.order_remainder_lean)
+    bad = statement(kind, I, c)
+    assert bad != good
+    assert not lean_backend.check(bad, pre + proof, module=ORD_MOD).ok
+
+
+@needs_lean
+@pytest.mark.parametrize("path", ["benchmark/variational/central-quartic-explicit-euler.json",
+                                  "benchmark/kernels/central-quartic-explicit-euler.json"])
+def test_update_order_refuted_certificate_replays(path):
+    """A REFUTED certificate replays and gives the meaning theorem: at some point, in D for all
+    small h > 0, the drift is not O(h^(p+1)). A certificate claiming the lowest power is p + 1
+    (k > p), or with a wrong S, is rejected."""
+    import re
+
+    from physverify.tools import variational as P
+    from physverify.variational import judge, statement, update_terms
+    I, c = _order_claim(path, "REFUTED")
+    (kind, proof), = P.propose(I, c)
+    assert kind == "refuted"
+    r = judge(I, c, [(kind, proof)])
+    assert r.verdict == "REFUTED" and r.attempts == ["refuted: ok"] and "order_refuted_meaning" in r.detail
+    kernel = path.startswith("benchmark/kernels")
+    t, hi = update_terms(I, c), I.index()["h"]
+    step = f"exec {I.lean_prog()}" if kernel else f"updateStep {t['Phi']}"
+    thm = "kernel_order_refuted_meaning" if kernel else "update_order_refuted_meaning"
+    out = lean_backend.check(
+        f"({statement(kind, I, c)}) → ∃ env : ℕ → ℝ, ¬ ∃ C : ℝ, ∀ᶠ t in nhdsWithin (0 : ℝ) (Set.Ioi 0), "
+        f"|Expr.eval ({step} (Function.update env {hi} t)) {t['J']} - "
+        f"Expr.eval (Function.update env {hi} t) {t['J']}| ≤ C * t ^ ({c.p} + 1)",
+        f"intro h\nobtain ⟨env, -, hne⟩ := {thm} h\nexact ⟨env, hne⟩", module=ORD_MOD)
+    assert out.ok, out.log[-2000:]
+    m = re.search(r", (\d+), 1, by decide, by decide", proof)
+    assert m and int(m.group(1)) <= c.p
+    too_high = proof[:m.start()] + f", {c.p + 1}, 1, by decide, by decide" + proof[m.end():]
+    assert judge(I, c, [(kind, too_high)]).attempts == ["refuted: failed"]
+    wrong_S = proof.replace("(.lit (", "(.lit (1 + ", 1)
+    assert wrong_S != proof
+    assert judge(I, c, [(kind, wrong_S)]).attempts == ["refuted: failed"]
+
+
+@needs_lean
+def test_update_order_verified_statement_gives_the_per_step_bound():
+    """A VERIFIED statement gives `update_order_meaning` (bound with M) and, R being a polynomial,
+    `order_drift_compact` (some M on every compact set)."""
+    from physverify.variational import order_remainder_lean, statement, update_terms
+    I, c = _order_claim("benchmark/variational/central-quartic-explicit-euler.json", "VERIFIED")
+    t, R, hi = update_terms(I, c), order_remainder_lean(I, c), I.index()["h"]
+    r = lean_backend.check(
+        f"({statement('verified', I, c)}) → (∀ (S : Set (ℕ → ℝ)) (M : ℝ), "
+        f"(∀ env ∈ S, {t['D']} env → |Expr.eval env {R}| ≤ M) → ∀ env ∈ S, {t['D']} env → "
+        f"|Expr.eval (updateStep {t['Phi']} env) {t['J']} - Expr.eval env {t['J']}| ≤ M * |env {hi}| ^ ({c.p} + 1)) ∧ "
+        f"∀ K : Set (ℕ → ℝ), IsCompact K → ∃ M, ∀ env ∈ K, {t['D']} env → "
+        f"|drift (updateStep {t['Phi']}) {t['J']} env| ≤ M * |env {hi}| ^ ({c.p} + 1)",
+        "rintro ⟨-, -, -, hpoly, hcert⟩\n"
+        "exact ⟨fun S M hM => update_order_meaning hcert hM, fun K hK => order_drift_compact hcert hpoly hK⟩",
+        module=ORD_MOD)
+    assert r.ok, r.log[-2000:]

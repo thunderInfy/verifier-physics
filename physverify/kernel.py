@@ -21,8 +21,9 @@ order of first assignment.
 What changes against `update_map`: Lean sees the program, node for node, and its meaning is
 `exec` (sequential assignment), so the composition of sub-steps is no longer trusted Python.
 `compose` (the old substitution) is kept for two things only: the exact order claims
-(`update_conserves_order_p`, exact Python on the composed map, as before) and a cross-check
-against `exec` in the tests.
+(`update_conserves_order_p`, decided in exact Python on the composed map, which also gives the
+remainder R; the Lean replay then checks J(exec prog z) − J(z) = h^{p+1}·R against `exec`
+itself) and a cross-check against `exec` in the tests.
 """
 
 from __future__ import annotations
@@ -36,7 +37,8 @@ from typing import ClassVar
 from . import units
 from .expr import E, parse, substitute, to_lean, var, variables
 from .theory import Malformed
-from .variational import (UPDATE_KINDS, UpdateMap, VClaim, _check_domain, _parse_domain, update_terms)
+from .variational import (UPDATE_KINDS, UpdateMap, VClaim, _check_domain, _parse_domain,
+                          order_remainder_lean, update_terms)
 
 KERNEL_MODULE = "PhysVerify.Kernel"
 
@@ -61,6 +63,14 @@ class Kernel(UpdateMap):
     def lean_statement(self, kind: str, c: VClaim) -> str:
         t = update_terms(self, c)
         P = self.lean_prog()
+        if c.kind == "update_conserves_order_p":
+            hi, p = self.index()["h"], c.p
+            if kind == "verified":
+                R = order_remainder_lean(self, c)
+                return (f"(Expr.dimOf {t['ctx']} {t['J']}).isSome = true ∧ ProgDims {t['ctx']} {P} = true ∧ "
+                        f"Expr.isPoly {R} = true ∧ KernelOrderVerified {P} {t['D']} {t['J']} {R} {hi} {p}")
+            if kind == "refuted":
+                return f"KernelOrderRefuted {P} {t['D']} {t['J']} {hi} {p}"
         if kind == "verified":
             return (f"(Expr.dimOf {t['ctx']} {t['J']}).isSome = true ∧ ProgDims {t['ctx']} {P} = true ∧ "
                     f"KernelVerified {P} {t['D']} {t['J']}")
@@ -68,8 +78,9 @@ class Kernel(UpdateMap):
             return f"KernelRefuted {P} {t['D']} {t['J']}"
         raise KeyError((kind, c.kind))
 
-    def verified_prefix(self, point: str) -> str:
-        return (f"refine ⟨by decide, by decide, ⟨{point}, ?_⟩, ?_⟩\n"
+    def verified_prefix(self, point: str, order: bool = False) -> str:
+        extra = "by decide, " if order else ""     # `Expr.isPoly R = true`
+        return (f"refine ⟨by decide, by decide, {extra}⟨{point}, ?_⟩, ?_⟩\n"
                 "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
 
     def dims_check(self, c: VClaim) -> str:
@@ -95,6 +106,16 @@ class Kernel(UpdateMap):
         ("update_conserves", "REFUTED"): (
             "PhysVerify.kernel_refuted_meaning: a rational point z_0 in the domain whose orbit under "
             "exec prog has J(z_1) ≠ J(z_0), with no junk value in any assignment of the first step"),
+        ("update_conserves_order_p", "VERIFIED"): (
+            "PhysVerify.kernel_order_meaning: per step, J(exec prog z) − J(z) = h^(p+1)·R(z, h) on "
+            "the domain for the polynomial R in the statement, so |J(exec prog z) − J(z)| ≤ "
+            "M·h^(p+1) on every set where |R| ≤ M, and some M works on every compact set "
+            "(order_drift_compact); the domain is non-empty, every assignment is junk-free where it "
+            "runs, and J and R are junk-free. Nothing is claimed about orbits over a time T"),
+        ("update_conserves_order_p", "REFUTED"): (
+            "PhysVerify.kernel_order_refuted_meaning: a rational point z (state and parameters), in "
+            "the domain for every small h > 0, at which J(exec prog z) − J(z) is not O(h^(p+1)) as "
+            "h → 0⁺ (it is h^k·S(h) with k ≤ p and S(0) ≠ 0)"),
     }
 
 

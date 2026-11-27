@@ -192,12 +192,13 @@ def test_dimension_mismatch_reported():
 
 
 def test_meaning_theorems_exist_in_lean():
-    """The kernel's MEANING strings name theorems of Kernel.lean; its claim names are registered."""
+    """The kernel's MEANING strings name theorems of Kernel.lean (UpdateOrder.lean for the order
+    claim); its claim names are registered."""
     import re
 
     from physverify import claimkinds
     from physverify.kernel import Kernel
-    lean = (ROOT / "lean/PhysVerify/Kernel.lean").read_text()
+    lean = "".join((ROOT / f"lean/PhysVerify/{m}.lean").read_text() for m in ("Kernel", "UpdateOrder"))
     for (kind, _), m in Kernel.MEANING.items():
         assert re.search(rf"^theorem {m.split(':', 1)[0].removeprefix('PhysVerify.')}\s", lean, re.M)
         assert "variational" in claimkinds.KINDS[kind]["layers"]

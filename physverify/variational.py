@@ -260,8 +260,8 @@ def judge_prefix(kind: str, I: Integrator, c: VClaim, witness) -> str:
     """The conjuncts the judge proves itself; the planner proves the rest."""
     if kind != "verified":
         return ""
-    if c.kind == "update_conserves":
-        return I.verified_prefix(lean_point(I, witness))
+    if c.kind in UPDATE_KINDS:
+        return I.verified_prefix(lean_point(I, witness), order=c.kind == "update_conserves_order_p")
     if c.kind == "del_equations":
         return (f"refine ⟨by decide, by decide, ⟨{lean_point(I, witness)}, ?_⟩, ?_⟩\n"
                 "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
@@ -294,12 +294,27 @@ MEANING = {
     ("update_conserves", REFUTED): (
         "PhysVerify.update_refuted_meaning: a rational point z_0 in the domain whose orbit "
         "under the explicit map has J(z_1) ≠ J(z_0) (no regularity condition: Φ is explicit)"),
+    ("update_conserves_order_p", VERIFIED): (
+        "PhysVerify.update_order_meaning: per step, J(Φ(z)) − J(z) = h^(p+1)·R(z, h) on the "
+        "domain for the polynomial R in the statement, so |J(Φ(z)) − J(z)| ≤ M·h^(p+1) on every "
+        "set where |R| ≤ M, and some M works on every compact set (order_drift_compact); the "
+        "domain is non-empty and Φ, J and R take no junk values on it. Nothing is claimed about "
+        "orbits over a time T"),
+    ("update_conserves_order_p", REFUTED): (
+        "PhysVerify.update_order_refuted_meaning: a rational point z (state and parameters), in "
+        "the domain for every small h > 0, at which J(Φ(z)) − J(z) is not O(h^(p+1)) as h → 0⁺ "
+        "(it is h^k·S(h) with k ≤ p and S(0) ≠ 0)"),
 }
 MODULE = "PhysVerify.Discrete"
+ORDER_MODULE = "PhysVerify.UpdateOrder"     # imports Update and Kernel
 
 
-def module_of(I) -> str:
-    return I.MODULE if isinstance(I, UpdateMap) else MODULE
+def module_of(I, c: VClaim | None = None) -> str:
+    """The Lean module a certificate imports: for an update map's order claim (`c`),
+    `PhysVerify.UpdateOrder`, which imports the map's own module."""
+    if not isinstance(I, UpdateMap):
+        return MODULE
+    return ORDER_MODULE if c is not None and c.kind == "update_conserves_order_p" else I.MODULE
 
 
 def meaning(I, kind: str, verdict: str) -> str:
@@ -532,9 +547,16 @@ def judge_order(I: Integrator, c: VClaim) -> Result:
 # q2 must be the step the implicit DEL takes). The exact decision behind the planner's
 # routing is `update_defect`: J(Φ(z)) − J(z) as a rational function, numerator ≡ 0 or not.
 #
-# `update_conserves_order_p` (exact Python): J(Φ(z)) − J(z) = O(h^{p+1}), i.e. the
-# coefficients of h^0 … h^p vanish identically: order at least p, as for `consistent_order_p`.
-# Polynomial Φ and J only (division by monomials allowed); anything else is UNKNOWN.
+# `update_conserves_order_p`: J(Φ(z)) − J(z) = O(h^{p+1}), i.e. the coefficients of h^0 … h^p
+# vanish identically: order at least p, as for `consistent_order_p`. Polynomial Φ and J only
+# (division by monomials allowed); anything else is UNKNOWN. The verdict is decided in exact
+# Python (`judge_update_order`) and then replayed in Lean (`PhysVerify/UpdateOrder.lean`,
+# `replay_order`): VERIFIED with R = drift / h^{p+1} (`update_order_remainder`, exact) in the
+# statement, J(Φ(z)) − J(z) = h^{p+1}·R as an identity on D, a per-step bound; REFUTED with a
+# rational point where the drift is h^k·S(h), k ≤ p, S(0) ≠ 0. A replay never changes the
+# verdict; it changes the label from "exact (Python)" to "proven (Lean)". Not replayed: R with a
+# negative power of a variable (the statement needs `Expr.isPoly R`), and REFUTED when a domain
+# atom other than h > 0 mentions h.
 
 UPDATE_KINDS = ("update_conserves", "update_conserves_order_p")
 claimkinds.require("variational", KINDS + UPDATE_KINDS)
@@ -578,8 +600,9 @@ class UpdateMap:
     def lean_statement(self, kind: str, c: VClaim) -> str:
         return update_statement(kind, self, c)
 
-    def verified_prefix(self, point: str) -> str:
-        return (f"refine ⟨rfl, by decide, by decide, ⟨{point}, ?_⟩, ?_⟩\n"
+    def verified_prefix(self, point: str, order: bool = False) -> str:
+        extra = "by decide, " if order else ""     # `Expr.isPoly R = true`
+        return (f"refine ⟨rfl, by decide, by decide, {extra}⟨{point}, ?_⟩, ?_⟩\n"
                 "· first | trivial | (simp [Expr.eval, Fn.eval] <;> norm_num)\n")
 
     def dims_check(self, c: VClaim) -> str:
@@ -724,6 +747,41 @@ def judge_update_order(U: UpdateMap, c: VClaim) -> Result:
     return res
 
 
+def poly_expr(a: Poly) -> E:
+    """A polynomial (Laurent in its variables) as an expression: Σ c·Π v^e, exact literals."""
+    terms = []
+    for m, coef in sorted(a.items()):
+        t = lit(coef)
+        for v, e in m:
+            t = E("mul", (t, var(v) if e == 1 else E("powi", (var(v),), q=e)))
+        terms.append(t)
+    out = terms[0] if terms else lit(0)
+    for t in terms[1:]:
+        out = E("add", (out, t))
+    return out
+
+
+def update_order_remainder(U: UpdateMap, c: VClaim) -> Poly:
+    """R with J(Φ(z)) − J(z) = h^{p+1}·R exactly: the drift's h^e terms (e ≥ p + 1) divided by
+    h^{p+1}. Raises `ValueError` if a coefficient of h^0 … h^p is non-zero (no such R)."""
+    top, R = c.p + 1, {}
+    for e, (q,) in update_order_coeffs(U, c).items():
+        if not q:
+            continue
+        if e < top:
+            raise ValueError(f"the h^{e} coefficient of J(Φ(z)) − J(z) is not zero")
+        R = p_add(R, p_mul(q, {(("h", e - top),): Fraction(1)}) if e > top else q)
+    return R
+
+
+def is_polynomial(a: Poly) -> bool:
+    return all(x >= 0 for m in a for _, x in m)
+
+
+def order_remainder_lean(U: UpdateMap, c: VClaim) -> str:
+    return to_lean(poly_expr(update_order_remainder(U, c)), U.index())
+
+
 def update_terms(U: UpdateMap, c: VClaim) -> dict[str, str]:
     idx = U.index()
     atoms = []
@@ -739,6 +797,15 @@ def update_terms(U: UpdateMap, c: VClaim) -> dict[str, str]:
 
 def update_statement(kind: str, U: UpdateMap, c: VClaim) -> str:
     t = update_terms(U, c)
+    if c.kind == "update_conserves_order_p":
+        hi, p = U.index()["h"], c.p
+        if kind == "verified":
+            R = order_remainder_lean(U, c)
+            return (f"List.length {t['Phi']} = {t['n']} ∧ (Expr.dimOf {t['ctx']} {t['J']}).isSome = true ∧ "
+                    f"UpdDims {t['ctx']} {t['Phi']} 0 = true ∧ Expr.isPoly {R} = true ∧ "
+                    f"UpdateOrderVerified {t['Phi']} {t['D']} {t['J']} {R} {hi} {p}")
+        if kind == "refuted":
+            return f"UpdateOrderRefuted {t['Phi']} {t['D']} {t['J']} {hi} {p}"
     if kind == "verified":
         return (f"List.length {t['Phi']} = {t['n']} ∧ (Expr.dimOf {t['ctx']} {t['J']}).isSome = true ∧ "
                 f"UpdDims {t['ctx']} {t['Phi']} 0 = true ∧ UpdateVerified {t['Phi']} {t['D']} {t['J']}")
@@ -784,7 +851,8 @@ def judge(I: Integrator, c: VClaim, candidates: list[tuple[str, str]], check=Non
     The order claim is decided in exact Python and takes no candidates. Without an accepted
     certificate the verdict is UNKNOWN, never REFUTED."""
     if c.kind in ORDER_KINDS:
-        return judge_order(I, c)
+        res = judge_order(I, c)
+        return replay_order(I, c, res, candidates, check) if c.kind == "update_conserves_order_p" else res
     from . import lean_backend
     check = check or lean_backend.check
     res = Result(claim_name(I, c), UNKNOWN, dims_ok(I, c))
@@ -806,6 +874,42 @@ def judge(I: Integrator, c: VClaim, candidates: list[tuple[str, str]], check=Non
     return res
 
 
+def _want(verdict: str) -> str | None:
+    return {VERIFIED: "verified", REFUTED: "refuted"}.get(verdict)
+
+
+def replay_order(U: UpdateMap, c: VClaim, res: Result, candidates: list[tuple[str, str]],
+                 check=None) -> Result:
+    """Lean replay of the exact-Python verdict `res` of an `update_conserves_order_p` claim. The
+    verdict never changes; when Lean accepts a certificate of the same polarity, the detail
+    becomes the meaning theorem and the label "proven (Lean)" (`guarantee`)."""
+    want = _want(res.verdict)
+    if want is None or not candidates:
+        return res
+    from . import lean_backend
+    check = check or lean_backend.check
+    t0 = time.monotonic()
+    witness = find_witness(U)
+    for kind, proof in candidates:
+        if kind != want:
+            res.attempts.append(f"{kind}: not tried (the exact verdict is {res.verdict})")
+            continue
+        if kind == "verified" and witness is None:
+            res.attempts.append("verified: no witness point in the domain")
+            continue
+        r = check(statement(kind, U, c), judge_prefix(kind, U, c, witness) + proof, module=module_of(U, c))
+        res.attempts.append(f"{kind}: {'ok' if r.ok else 'failed'}")
+        if r.ok:
+            res.detail = meaning(U, c.kind, res.verdict) + "; axioms: " + ", ".join(sorted(r.axioms))
+            break
+    res.seconds += time.monotonic() - t0
+    return res
+
+
+def lean_replayed(r: Result) -> bool:
+    return any(a.endswith(": ok") for a in r.attempts)
+
+
 def judge_file(I: Integrator, propose=None, batch: bool = True) -> list[Result]:
     """Judge every claim about one integrator. With `batch`, the first candidate of every Lean
     claim is checked in one `lake env lean` (`lean_backend.check_batch`); claims whose first
@@ -819,21 +923,38 @@ def judge_file(I: Integrator, propose=None, batch: bool = True) -> list[Result]:
     for i, c in enumerate(I.claims):
         if c.kind in ORDER_KINDS:
             out[i] = judge_order(I, c)
-            continue
-        cands = propose(I, c)
-        if not batch or not cands or (cands[0][0] == "verified" and witness is None):
-            out[i] = judge(I, c, cands)
-            continue
+            if c.kind != "update_conserves_order_p":
+                continue
+            cands = propose(I, c)
+            if not batch or not cands or cands[0][0] != _want(out[i].verdict) or \
+                    (cands[0][0] == "verified" and witness is None):
+                out[i] = replay_order(I, c, out[i], cands)
+                continue
+        else:
+            cands = propose(I, c)
+            if not batch or not cands or (cands[0][0] == "verified" and witness is None):
+                out[i] = judge(I, c, cands)
+                continue
         kind, proof = cands[0]
         name = f"cert_{i}"
         items.append((name, statement(kind, I, c), judge_prefix(kind, I, c, witness) + proof))
         pending[name] = (i, kind, cands)
     if items:
         t0 = time.monotonic()
-        rs = lean_backend.check_batch(items, module=module_of(I))
+        order = [I.claims[i] for i, _, _ in pending.values() if I.claims[i].kind == "update_conserves_order_p"]
+        rs = lean_backend.check_batch(items, module=module_of(I, order[0] if order else None))
         dt = (time.monotonic() - t0) / len(items)
         for name, (i, kind, cands) in pending.items():
             c, r = I.claims[i], rs[name]
+            if c.kind == "update_conserves_order_p":     # the exact verdict stands either way
+                res = out[i]
+                res.attempts.append(f"{kind}: {'ok' if r.ok else 'failed'}")
+                res.seconds += dt
+                if r.ok:
+                    res.detail = meaning(I, c.kind, res.verdict) + "; axioms: " + ", ".join(sorted(r.axioms))
+                else:
+                    replay_order(I, c, res, cands[1:])
+                continue
             if r.ok:
                 v = VERIFIED if kind == "verified" else REFUTED
                 out[i] = Result(claim_name(I, c), v, dims_ok(I, c),
@@ -851,7 +972,7 @@ def judge_file(I: Integrator, propose=None, batch: bool = True) -> list[Result]:
 def guarantee(c: VClaim, r: Result) -> str:
     if r.verdict == UNKNOWN:
         return "none"
-    return EXACT_PY if c.kind in ORDER_KINDS else "proven (Lean)"
+    return EXACT_PY if c.kind in ORDER_KINDS and not lean_replayed(r) else "proven (Lean)"
 
 
 def main(argv=None) -> int:

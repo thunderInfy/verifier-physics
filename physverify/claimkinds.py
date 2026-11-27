@@ -168,6 +168,8 @@ KINDS: dict[str, dict] = {
                    "let": {"schemes": "claims.stated_identity.let?"},
                    "domain": {"schemes": "claims.stated_identity.domain?"}}},
     # variational integrators and explicit update maps (physverify/variational.py)
+    # TODO: `consistent_order_p`, `exact_order_p` and the scheme orders stay gloss only; a Lean
+    # meaning needs Taylor expansion with remainder over smooth solutions.
     "del_equations": {
         "gloss": "the claimed update is the discrete Euler–Lagrange equations of L_d",
         "quantifier": "for every triple (q_k, q_k+1, q_k+2) in D: DEL(L_d) = 0 iff the claimed update holds",
@@ -184,9 +186,11 @@ KINDS: dict[str, dict] = {
         "quantifier": "for all z in D: J(Phi(z)) = J(z); so along every orbit in D, J(z_N) = J(z_0)",
         "layers": ["variational"], "meaning": "update_conserves_meaning", "params": {}},
     "update_conserves_order_p": {
-        "gloss": "the explicit update map conserves J to order at least p: the per-step drift is O(h^{p+1})",
-        "quantifier": "J(Phi(z)) - J(z) = O(h^{p+1}): the coefficients of h^0 .. h^p vanish identically",
-        "layers": ["variational"], "meaning": None,
+        "gloss": "the explicit update map (or kernel) conserves J to order at least p, per step: the drift of one "
+                 "step is O(h^{p+1}); nothing is claimed about orbits over a time T",
+        "quantifier": "for all z in D: J(Phi(z)) - J(z) = h^{p+1} R(z, h) with R a polynomial, so |J(Phi(z)) - J(z)| "
+                      "<= M h^{p+1} wherever |R| <= M (on every compact set some M works)",
+        "layers": ["variational"], "meaning": "update_order_meaning",
         "params": {"p": {"variational": "claims[].p"}}},
     # continuous conserved quantities (physverify/conserved.py)
     "conserved": {

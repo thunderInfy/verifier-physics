@@ -418,8 +418,8 @@ code does), a domain `D` over the state, `h` and the parameters (`h > 0` always 
 claims of two kinds:
 
 * `update_conserves`: `J(Φ(z)) = J(z)` on `D`. No variational structure is assumed.
-* `update_conserves_order_p`: `J(Φ(z)) − J(z) = O(h^{p+1})`, i.e. the coefficients of
-  `h^0 … h^p` vanish identically (order at least `p`, as for `consistent_order_p`).
+* `update_conserves_order_p`: `J(Φ(z)) − J(z) = O(h^{p+1})` per step, i.e. the coefficients
+  of `h^0 … h^p` vanish identically (order at least `p`, as for `consistent_order_p`).
 
 What is proven in Lean (`lean/PhysVerify/Update.lean`, imports only `PhysVerify.Deriv` and
 five tactic modules; no `sorry`, `native_decide` or new axioms):
@@ -437,11 +437,35 @@ five tactic modules; no `sorry`, `native_decide` or new axioms):
   Because `Φ` is explicit, every point starts an orbit, so unlike a `REFUTED` discrete
   momentum this needs no regularity condition and no implicit function theorem.
 
+The order claim (`lean/PhysVerify/UpdateOrder.lean`, also free of `sorry`,
+`native_decide` and new axioms) is decided in exact
+Python first: the `h`-coefficients of the polynomial `J(Φ(z)) − J(z)` (a map that divides by a
+non-monomial, like the midpoint map below, gives `UNKNOWN`). Lean then replays the verdict; a
+replay changes the label from `exact (Python)` to `proven (Lean)`, never the verdict.
+
+* `VERIFIED` (`UpdateOrderVerified`, plus the dimension checks and `Expr.isPoly R`, by
+  `decide`): the judge divides the drift by `h^{p+1}` exactly and puts the quotient `R(z, h)`,
+  a polynomial, in the statement; Lean proves `J(Φ(z)) − J(z) = h^{p+1}·R` as an identity on
+  `D` (`simp` then `ring1`), with `Φ`, `J` and `R` junk-free and a witness point in `D`. A wrong
+  `R` does not check. `update_order_meaning` (per step): on every set where `|R| ≤ M`,
+  `|J(Φ(z)) − J(z)| ≤ M·|h|^{p+1}`; `order_drift_compact`: `R` is continuous, so some `M` works
+  on every compact set.
+* `REFUTED` (`UpdateOrderRefuted`): a rational state and parameters `z`, a `k ≤ p` and a
+  polynomial `S(t)` with `S(0) ≠ 0`, such that for every `t ∈ (0, 1)`, `z` with `h := t` is in
+  `D`, junk-free, and `J(Φ(z)) − J(z) = t^k·S(t)` (`ring1` on rationals). `S(0)` is the
+  `h^k` coefficient at `z`. `update_order_refuted_meaning`: at that `z` the drift is not
+  `O(h^{p+1})` as `h → 0⁺` (`order_refuted_lower` gives `|drift| ≥ c·h^k` with `c > 0` for
+  small `h`).
+
+Nothing is proven about orbits. A drift bound after `N = T/h` steps would need the whole orbit
+to stay in a set where `R` is bounded, which Lean does not know for these maps, so the theorem
+is per step only. Not replayed (label stays `exact (Python)`): an `R` with a negative power of a
+variable (from a map dividing by a state variable; `Expr.isPoly` fails) and a `REFUTED` claim
+whose domain has an atom other than `h > 0` that mentions `h`. No bench row is in either case.
+
 What is exact Python: the routing (the planner computes `J(Φ(z)) − J(z)` as an exact rational
 function and checks whether its numerator is the zero polynomial; outside the rational
-fragment it tries both certificates) and the whole order claim (`h`-coefficients of the
-polynomial `J(Φ(z)) − J(z)`; a map that divides by a non-monomial, like the midpoint map below,
-gives `UNKNOWN`). What is assumed: the judge composes the steps into one simultaneous `Φ` by
+fragment it tries both certificates) and the order decision itself, which Lean replays as above. What is assumed: the judge composes the steps into one simultaneous `Φ` by
 substitution in Python, and Lean sees only `Φ`, so that composition is trusted, like the
 literal serialization of the claim file (`tests/test_update_conserves.py` checks it against
 running the steps one by one on rational numbers). `D` is the author's choice, as above. The
@@ -478,8 +502,8 @@ $ uv run python -m physverify.variational benchmark/variational/
 | anharmonic-trapezoid | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
 | anharmonic-trapezoid | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
 | central-quartic-explicit-euler | update_conserves | REFUTED | REFUTED | proven (Lean) |
-| central-quartic-explicit-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
-| central-quartic-explicit-euler | update_conserves_order_p 2 | REFUTED | REFUTED | exact (Python) |
+| central-quartic-explicit-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | proven (Lean) |
+| central-quartic-explicit-euler | update_conserves_order_p 2 | REFUTED | REFUTED | proven (Lean) |
 | central-quartic-symplectic-euler | update_conserves | VERIFIED | VERIFIED | proven (Lean) |
 | central-quartic-symplectic-euler | update_conserves | REFUTED | REFUTED | proven (Lean) |
 | central-quartic-trapezoid | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
@@ -487,7 +511,7 @@ $ uv run python -m physverify.variational benchmark/variational/
 | central-quartic-trapezoid | discrete_momentum_conserved | REFUTED | REFUTED | proven (Lean) |
 | central-quartic-trapezoid | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
 | central-quartic-verlet | update_conserves | VERIFIED | VERIFIED | proven (Lean) |
-| central-quartic-verlet | update_conserves_order_p 5 | VERIFIED | VERIFIED | exact (Python) |
+| central-quartic-verlet | update_conserves_order_p 5 | VERIFIED | VERIFIED | proven (Lean) |
 | free-particle-2d | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
 | free-particle-2d | discrete_momentum_conserved | VERIFIED | VERIFIED | proven (Lean) |
 | free-particle-2d | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
@@ -508,8 +532,8 @@ $ uv run python -m physverify.variational benchmark/variational/
 | oscillator-rectangle-rule | consistent_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
 | oscillator-symplectic-euler-map | update_conserves | REFUTED | REFUTED | proven (Lean) |
 | oscillator-symplectic-euler-map | update_conserves | VERIFIED | VERIFIED | proven (Lean) |
-| oscillator-symplectic-euler-map | update_conserves_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
-| oscillator-symplectic-euler-map | update_conserves_order_p 2 | REFUTED | REFUTED | exact (Python) |
+| oscillator-symplectic-euler-map | update_conserves_order_p 1 | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-symplectic-euler-map | update_conserves_order_p 2 | REFUTED | REFUTED | proven (Lean) |
 | position-dependent-mass-midpoint | consistent_order_p 2 | VERIFIED | VERIFIED | exact (Python) |
 | position-dependent-mass-rectangle | consistent_order_p 2 | REFUTED | REFUTED | exact (Python) |
 | position-dependent-mass-rectangle | consistent_order_p 1 | VERIFIED | VERIFIED | exact (Python) |
@@ -534,6 +558,13 @@ replayed rational point (and the true claim's certificate rejected for it), a ju
 `J = H + 1/(w − w)` not `VERIFIED` although the identity holds in Lean, and planner tricks
 rejected.
 
+Order claims: `tests/test_update_order.py` (no Lean: `R` exact, drift = `h^{p+1}·R` as polynomials
+and against exact runs of every bench item in both forms, kernels run assignment by assignment;
+the `REFUTED` point's `h^k` coefficient non-zero and the drift there `t^k·S(t)`; a replay moves
+only the label). In `tests/test_lean.py`, `-k update_order`: every decided bench row replays, a
+wrong `R` is rejected, `REFUTED` certificates replay and give the meaning theorem (and fail with
+`k > p` or a wrong `S`), and a `VERIFIED` statement gives the per-step and compact-set bounds.
+
 Timings on the same 2-CPU VM, a fresh worktree:
 
 | Step | Time |
@@ -545,6 +576,8 @@ Timings on the same 2-CPU VM, a fresh worktree:
 | variational bench with the update maps (38 claims, 20 Lean certificates in one batch per file), warm | 2 min 18 s |
 | `lake build`, cold after `lake exe cache get`: `PhysVerify.Update` alone | 4.0 s |
 | `pytest tests/test_lean.py -k update` (5 tests), warm | 1 min 41 s |
+| `lake build PhysVerify.UpdateOrder`, with every other module built | 1 min 7 s (mostly loading) |
+| `pytest tests/test_lean.py -k update_order` (14 tests, both forms), warm | 2 min 28 s |
 | `pytest tests/test_lean.py -k "variational or discrete or Discrete or dmomentum or update"` (25 tests, both file kinds), warm | 6 min 13 s |
 | `pytest tests/test_lean.py -k "variational or discrete or Discrete or dmomentum"` (15 tests), warm | about 4 min 20 s |
 
@@ -583,17 +616,21 @@ What is proven in Lean (`lean/PhysVerify/Kernel.lean`, imports only `PhysVerify.
 * `REFUTED` (`KernelRefuted`): a rational `z ∈ D` where every assignment is junk-free and
   `J(exec prog z) ≠ J(z)`. `kernel_refuted_meaning`: its orbit changes `J` at the first step.
 
-What is exact Python: the routing (as for update maps) and the order claims, which still run on
-the map composed by substitution (`kernel.compose`); for kernels that composition is trusted for
-the order claims only. Tests check it against `exec`: on rational points in Python, and in Lean
-for two kernels (`exec prog = updateStep Φ` on the state).
+What is exact Python: the routing (as for update maps) and the order decision, which runs on the
+map composed by substitution (`kernel.compose`). The Lean replay (`KernelOrderVerified`,
+`KernelOrderRefuted`, `kernel_order_meaning`, `kernel_order_refuted_meaning`) checks the
+identity `J(exec prog z) − J(z) = h^{p+1}·R` against `exec` itself, so the composition only
+proposes `R` and is no longer trusted for a replayed row. Tests also check the composition
+against `exec`: on rational points in Python, and in Lean for two kernels (`exec prog =
+updateStep Φ` on the state).
 
 What is trusted, or only tested:
 
 | Piece | Status |
 |---|---|
 | `exec` semantics and conservation along orbits | proven (Lean) |
-| order claims on the composed map | exact (Python) |
+| order claims: the per-step drift identity, against `exec` | proven (Lean) |
+| order claims over a time T (orbits) | not claimed |
 | JSON-to-Lean serialisation of the program, `D` and `J` | trusted (literal printer, as for every claim file) |
 | C path: the printer `kernel_c.py`, the C compiler, IEEE double arithmetic | empirical (differential test; C compiler and float semantics untrusted) |
 
@@ -636,22 +673,22 @@ Map form (`benchmark/variational/`) against program form (`benchmark/kernels/`),
 | integrator | claim | expected | map form | program form | guarantee |
 |---|---|---|---|---|---|
 | central-quartic-explicit-euler | update_conserves L | REFUTED | REFUTED | REFUTED | proven (Lean) |
-| central-quartic-explicit-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | VERIFIED | exact (Python) |
-| central-quartic-explicit-euler | update_conserves_order_p 2 | REFUTED | REFUTED | REFUTED | exact (Python) |
+| central-quartic-explicit-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
+| central-quartic-explicit-euler | update_conserves_order_p 2 | REFUTED | REFUTED | REFUTED | proven (Lean) |
 | central-quartic-symplectic-euler | update_conserves L | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
 | central-quartic-symplectic-euler | update_conserves L, sign flipped | REFUTED | REFUTED | REFUTED | proven (Lean) |
 | central-quartic-verlet | update_conserves L | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
-| central-quartic-verlet | update_conserves_order_p 5 | VERIFIED | VERIFIED | VERIFIED | exact (Python) |
+| central-quartic-verlet | update_conserves_order_p 5 | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
 | oscillator-symplectic-euler | update_conserves H | REFUTED | REFUTED | REFUTED | proven (Lean) |
 | oscillator-symplectic-euler | update_conserves H − h w² p q/2 | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
-| oscillator-symplectic-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | VERIFIED | exact (Python) |
-| oscillator-symplectic-euler | update_conserves_order_p 2 | REFUTED | REFUTED | REFUTED | exact (Python) |
+| oscillator-symplectic-euler | update_conserves_order_p 1 | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
+| oscillator-symplectic-euler | update_conserves_order_p 2 | REFUTED | REFUTED | REFUTED | proven (Lean) |
 | oscillator-implicit-midpoint | update_conserves H | VERIFIED | VERIFIED | VERIFIED | proven (Lean) |
 | oscillator-implicit-midpoint | update_conserves L-sign energy | REFUTED | REFUTED | REFUTED | proven (Lean) |
 | oscillator-implicit-midpoint | update_conserves_order_p 2 | UNKNOWN | UNKNOWN | UNKNOWN | none |
 | central-quartic-adjoint-symplectic-euler | update_conserves L | VERIFIED | | VERIFIED | proven (Lean) |
 | central-quartic-adjoint-symplectic-euler | update_conserves L, sign flipped | REFUTED | | REFUTED | proven (Lean) |
-| central-quartic-adjoint-symplectic-euler | update_conserves_order_p 3 | VERIFIED | | VERIFIED | exact (Python) |
+| central-quartic-adjoint-symplectic-euler | update_conserves_order_p 3 | VERIFIED | | VERIFIED | proven (Lean) |
 | oscillator-adjoint-symplectic-euler | update_conserves H − h w² p q/2 | REFUTED | | REFUTED | proven (Lean) |
 | oscillator-adjoint-symplectic-euler | update_conserves H + h w² p q/2 | VERIFIED | | VERIFIED | proven (Lean) |
 
@@ -1685,7 +1722,7 @@ Params gives where each layer reads a parameter (see `params` in the module docs
 | `del_equations` | the claimed update is the discrete Euler–Lagrange equations of L_d | for every triple (q_k, q_k+1, q_k+2) in D: DEL(L_d) = 0 iff the claimed update holds | variational | none | `del_verified_meaning` |
 | `discrete_momentum_conserved` | J(q0, q1) is constant, exactly, along every solution of the DEL equations that stays in D (a Noether momentum or any other such J) | for every N and every discrete trajectory q_0..q_N+1 in D solving the DEL: J(q_N, q_N+1) = J(q_0, q_1) | variational | none | `dmomentum_meaning` |
 | `update_conserves` | the explicit update map z' = Phi(z) conserves J exactly (for a straight-line kernel, Phi is exec prog, run by Lean: kernel_conserves_meaning) | for all z in D: J(Phi(z)) = J(z); so along every orbit in D, J(z_N) = J(z_0) | variational | none | `update_conserves_meaning` |
-| `update_conserves_order_p` | the explicit update map conserves J to order at least p: the per-step drift is O(h^{p+1}) | J(Phi(z)) - J(z) = O(h^{p+1}): the coefficients of h^0 .. h^p vanish identically | variational | p: `claims[].p` | gloss only |
+| `update_conserves_order_p` | the explicit update map (or kernel) conserves J to order at least p, per step: the drift of one step is O(h^{p+1}); nothing is claimed about orbits over a time T | for all z in D: J(Phi(z)) - J(z) = h^{p+1} R(z, h) with R a polynomial, so \|J(Phi(z)) - J(z)\| <= M h^{p+1} wherever \|R\| <= M (on every compact set some M works) | variational | p: `claims[].p` | `update_order_meaning` |
 | `conserved` | Q is constant along every solution of the Euler–Lagrange equations of L that stays in D | for every trajectory twice differentiable on an open interval, with jet in D and solving the EL equations there: Q is constant on that interval | conserved | none | `conserved_meaning` |
 | `el_equations` | the claimed equations of motion are the Euler–Lagrange equations of L on D | for every trajectory twice differentiable at t with jet in D: the EL equations of L hold at t iff the claimed equations hold at t | derivation | none | `verified_meaning_at` |
 | `dim_mismatch` | a law of the theory is not dimensionally homogeneous | the two sides of the law have different dimensions under the theory's symbol dimensions | theory | law: `args.law` | `Law.dimMismatch_refutes` |

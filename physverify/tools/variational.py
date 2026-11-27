@@ -10,6 +10,9 @@
 * `update_conserves` (explicit maps): routed by the exact rational normal form of
   J(Φ(z)) − J(z); VERIFIED by `simp` + `ring1`/`field_simp`, REFUTED at a rational z ∈ D
   where J changes, replayed by `norm_num`.
+* `update_conserves_order_p`: routed by the planner's own exact expansion of the drift in h;
+  VERIFIED proves J(Φ(z)) − J(z) = h^{p+1}·R by the same `simp` + `ring1`, REFUTED gives a
+  rational point and the polynomial S(t) with drift = t^k·S(t) there, proved by `ring1`.
 
 Nothing here is trusted: the judge only asks Lean whether the tactics prove its statement.
 """
@@ -22,7 +25,7 @@ from fractions import Fraction
 import mpmath as mp
 
 from ..derivation import find_witness, lean_point
-from ..expr import E, diff, lit, simplify, substitute, to_lean
+from ..expr import E, diff, lit, simplify, substitute, to_lean, variables
 from ..variational import Integrator, NotPolynomial, UpdateMap, VClaim, del_exprs, update_defect
 from .eulerlagrange import (NONZERO, _denominators, _domain_intro, _env_lean, _solve, neval, phys_ok,
                             qeval)
@@ -433,7 +436,10 @@ def update_refutation_point(U: UpdateMap, c: VClaim, seed: int = 0) -> dict | No
 
 
 def update_verified_tactic(U: UpdateMap, c: VClaim) -> str:
+    """`update_conserves`, and `update_conserves_order_p` (one more goal: R is junk-free; the
+    identity is J(Φ(z)) − J(z) = h^{p+1}·R)."""
     idx = U.index()
+    order = c.kind == "update_conserves_order_p"
     intro, facts, hyps = _intro(U)
     phys = f"simp [{PHYS1}, {NONZERO}{hyps}] <;> {CLOSE} | {_sign_close(U)}"
     dens, seen = [], set()
@@ -448,12 +454,13 @@ def update_verified_tactic(U: UpdateMap, c: VClaim) -> str:
         f"simp [Expr.eval, Fn.eval] at hden{i}" for i, d in enumerate(dens))
     dh = "".join(f", hden{i}" for i in range(len(dens)))
     return f"""{intro}{haves}
-refine ⟨⟨?_, ?_, ?_⟩, ?_⟩
+refine ⟨⟨?_, ?_, ?_⟩, {"?_, " if order else ""}?_⟩
 · simp only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq]
   (repeat' apply And.intro) <;> first | trivial | ({phys})
 · {phys}
-· simp [{UPD}, {PHYS1}, {NONZERO}{hyps}{dh}] <;> {CLOSE} | {_sign_close(U)}
-· simp [{UPD}, Expr.eval, Fn.eval{facts}] <;> {IDENT}"""
+· simp [{UPD}, {PHYS1}, {NONZERO}{hyps}{dh}] <;> {CLOSE} | {_sign_close(U)}{f'''
+· {phys}''' if order else ""}
+· simp [{"drift, " if order else ""}{UPD}, Expr.eval, Fn.eval{facts}] <;> {IDENT}"""
 
 
 def update_refuted_tactic(U: UpdateMap, w: dict) -> str:
@@ -465,10 +472,105 @@ def update_refuted_tactic(U: UpdateMap, w: dict) -> str:
 · simp [{UPD}, Expr.eval, Fn.eval] <;> norm_num"""
 
 
+def _h_only_positive(U: UpdateMap) -> bool:
+    """Every domain atom that mentions h is `h > 0`."""
+    return all(not ({"h"} & (variables(a) | variables(b))) or
+               (op == ">" and a.kind == "var" and b.kind == "lit" and b.q == 0)
+               for op, a, b in U.domain)
+
+
+def update_order_point(U: UpdateMap, coef, seed: int = 0) -> dict | None:
+    """A rational state and parameters (h left free), in the h-free domain atoms, with every
+    value non-zero (monomial denominators stay away from 0), where the h^k coefficient `coef`
+    of the drift is non-zero."""
+    from ..variational import p_eval
+    rng = random.Random(seed)
+    for env in update_points(U, rng, 200):
+        env.pop("h")
+        if any(v == 0 for v in env.values()):
+            continue
+        ok = True
+        for op, a, b in U.domain:
+            if "h" in variables(a) | variables(b):
+                continue
+            x, y = qeval(a, env), qeval(b, env)
+            if x is None or y is None or not {">": x > y, "<": x < y, "!=": x != y}[op]:
+                ok = False
+                break
+        if ok and p_eval(coef, env):
+            env["h"] = Fraction(0)
+            return env
+    return None
+
+
+def update_order_refuted_tactic(U: UpdateMap, w: dict, S: str, k: int, ok: list[str],
+                                step: str) -> str:
+    """`OrderRefuted` at the point `w` with δ = 1: D and no junk for h := t ∈ (0, 1), and the
+    drift is t^k·S(t) as a polynomial identity in t (every other value is a rational). `simp`
+    can leave `2 ^ (2 : ℤ)` with a numeral base, which `ring1` treats as an atom: hence the
+    `zpow_ofNat` fallback."""
+    ok_lines = "\n".join(f"  · {x}" for x in ok)
+    return f"""refine ⟨{_env_lean(U, w)}, {S}, {k}, 1, by decide, by decide, ?_, one_pos, ?_⟩
+· simp [Expr.eval, Function.update_apply] <;> norm_num
+· intro t ht0 ht1
+  refine ⟨?_, ⟨?_, ?_, ?_⟩, ?_⟩
+  · simp [Expr.eval, Function.update_apply, ht0] <;> norm_num
+{ok_lines}
+  · simp [drift, {step}, Expr.eval, Fn.eval] <;>
+      first | ring1 | (simp only [zpow_ofNat, zpow_natCast, Int.reduceNeg]; ring1)"""
+
+
+def propose_update_order(U: UpdateMap, c: VClaim, seed: int = 0) -> list[tuple[str, str]]:
+    """`update_conserves_order_p`: the planner's own exact expansion of the drift picks the
+    polarity. VERIFIED: the Lean identity J(Φ(z)) − J(z) = h^{p+1}·R (R from the statement).
+    REFUTED: a point where the lowest non-zero coefficient, of h^k with k ≤ p, is non-zero."""
+    from ..kernel import Kernel
+    from ..variational import (NotPolynomial, is_polynomial, p_eval, poly_expr, update_order_coeffs,
+                               update_order_remainder)
+    try:
+        coeffs = update_order_coeffs(U, c)
+    except NotPolynomial:
+        return []
+    if any(e < 0 for e in coeffs):
+        return []
+    low = [e for e in sorted(coeffs) if e <= c.p and coeffs[e][0]]
+    kernel = isinstance(U, Kernel)
+    if not low:
+        if not is_polynomial(update_order_remainder(U, c)) or find_witness(U) is None:
+            return []
+        if kernel:
+            from .kernel import kernel_verified_tactic
+            return [("verified", kernel_verified_tactic(U, c))]
+        return [("verified", update_verified_tactic(U, c))]
+    if not _h_only_positive(U):
+        return []
+    k = low[0]
+    w = update_order_point(U, coeffs[k][0], seed)
+    if w is None:
+        return []
+    if kernel:
+        w.update({t: Fraction(0) for t in U.temps})
+    S = {(("h", e - k),) if e > k else (): p_eval(q[0], w) for e, q in coeffs.items() if e >= k}
+    S = to_lean(poly_expr({m: v for m, v in S.items() if v}), U.index())
+    if kernel:
+        from .kernel import EXEC
+        ok = [f"simp [{EXEC}, {PHYS1}, ht0.ne'] <;> norm_num",
+              f"simp [{PHYS1}, Function.update_apply, ht0.ne'] <;> norm_num",
+              f"simp [{EXEC}, {PHYS1}, ht0.ne'] <;> norm_num"]
+        return [("refuted", update_order_refuted_tactic(U, w, S, k, ok, EXEC))]
+    ok = [f"simp [List.mem_cons, List.not_mem_nil, forall_eq_or_imp, {PHYS1}, Function.update_apply, "
+          f"ht0.ne'] <;> norm_num",
+          f"simp [{PHYS1}, Function.update_apply, ht0.ne'] <;> norm_num",
+          f"simp [{UPD}, {PHYS1}, ht0.ne'] <;> norm_num"]
+    return [("refuted", update_order_refuted_tactic(U, w, S, k, ok, UPD))]
+
+
 def propose_update(U: UpdateMap, c: VClaim, seed: int = 0) -> list[tuple[str, str]]:
     """Route by the exact normal form of J(Φ(z)) − J(z) when it exists (numerator ≡ 0:
     verified; else a rational point where it is nonzero: refuted). Outside the rational
     fragment, try both. Nothing here is trusted."""
+    if c.kind == "update_conserves_order_p":
+        return propose_update_order(U, c, seed)
     if c.kind != "update_conserves":
         return []
     from ..kernel import Kernel

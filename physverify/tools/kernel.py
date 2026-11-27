@@ -1,4 +1,4 @@
-"""Untrusted proof search for `update_conserves` on straight-line kernels
+"""Untrusted proof search for `update_conserves` (and `update_conserves_order_p`) on straight-line kernels
 (`physverify/kernel.py`, `PhysVerify/Kernel.lean`).
 
 Routing is the same exact decision as for explicit maps (the rational normal form of
@@ -65,12 +65,14 @@ def kernel_verified_tactic(K: Kernel, c: VClaim) -> str:
         f"  simp [Expr.eval, Fn.eval, {NONZERO}{hyps}] <;> {close}\n"
         f"simp [Expr.eval, Fn.eval] at hden{i}" for i, d in enumerate(dens))
     dh = "".join(f", hden{i}" for i in range(len(dens)))
+    order = c.kind == "update_conserves_order_p"     # one more goal: R is junk-free
     return f"""{intro}{haves}
-refine ⟨⟨?_, ?_, ?_⟩, ?_⟩
+refine ⟨⟨?_, ?_, ?_⟩, {"?_, " if order else ""}?_⟩
 · simp [{EXEC}, {PHYS1}, {NONZERO}{hyps}{dh}] <;> {close}
 · simp [{PHYS1}, {NONZERO}{hyps}] <;> {close}
-· simp [{EXEC}, {PHYS1}, {NONZERO}{hyps}{dh}] <;> {close}
-· simp [{EXEC}, Expr.eval, Fn.eval{facts}] <;> {IDENT}"""
+· simp [{EXEC}, {PHYS1}, {NONZERO}{hyps}{dh}] <;> {close}{f'''
+· simp [{PHYS1}, {NONZERO}{hyps}] <;> {close}''' if order else ""}
+· simp [{"drift, " if order else ""}{EXEC}, Expr.eval, Fn.eval{facts}] <;> {IDENT}"""
 
 
 def kernel_refuted_tactic(K: Kernel, w: dict) -> str:
