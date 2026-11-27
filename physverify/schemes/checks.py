@@ -588,10 +588,11 @@ def _solve(cols: list, rhs: dict, names: list) -> list | None:
         if i is None:
             return None
         rows[j], rows[i] = rows[i], rows[j]
-        rows[j] = [x / rows[j][j] for x in rows[j]]
+        piv = rows[j][j]
+        rows[j] = [x / piv if x else x for x in rows[j]]
         for i2 in range(len(rows)):
-            if i2 != j and rows[i2][j]:
-                rows[i2] = [a - rows[i2][j] * b for a, b in zip(rows[i2], rows[j])]
+            if i2 != j and (f := rows[i2][j]):
+                rows[i2] = [a - f * b if b else a for a, b in zip(rows[i2], rows[j])]   # b = 0 leaves a as is
     if any(row[-1] for row in rows[len(cols):]):
         return None
     return [rows[j][-1] for j in range(len(cols))]
