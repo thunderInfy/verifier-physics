@@ -33,7 +33,7 @@ from itertools import product
 
 import numpy as np
 
-from ..expr import E, lit, parse, substitute, var, variables as expr_variables
+from ..expr import E, intern, lit, parse, substitute, var, variables as expr_variables
 from . import checks, poly as P
 from .checks import NOT_APPLICABLE, REFUTED, UNKNOWN, VERIFIED, result
 from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, _steps, ev
@@ -367,7 +367,7 @@ def _shallow_water(spec: dict) -> bool:
 
 def run(Hs: list, case: tuple, g: float, x0: float, T: float, lam: float, n: int) -> dict:
     hL, uL, hR, uR = case
-    dx = 1 / n
+    Hs, dx = [intern(H) for H in Hs], 1 / n
     assert abs(x0 * n - round(x0 * n)) < 1e-9, "x0 must be a cell interface"
     x = (np.arange(n) + 0.5) * dx
     h, m = np.where(x < x0, hL, hR), np.where(x < x0, hL * uL, hR * uR)

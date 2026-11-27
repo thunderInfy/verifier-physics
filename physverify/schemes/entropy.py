@@ -24,7 +24,7 @@ from fractions import Fraction
 
 import numpy as np
 
-from ..expr import parse
+from ..expr import intern, parse
 from . import checks, poly as P
 from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, UNKNOWN, _steps, ev, transmissive
 
@@ -40,9 +40,9 @@ def fan(x: np.ndarray, t: float, uL: float, uR: float, x0: float) -> np.ndarray:
 
 
 def run(H, uL: float, uR: float, x0: float, T: float, lam: float, n: int) -> dict:
-    dx = 1 / n
+    H, dx = intern(H), 1 / n
     assert abs(x0 * n - round(x0 * n)) < 1e-9, "x0 must be a cell interface"
-    x = (np.arange(n) + 0.5) * dx
+    x =(np.arange(n) + 0.5) * dx
     u = np.where(x < x0, uL, uR)
     steps, dt = _steps(T, lam * dx)
     with np.errstate(all="ignore"):

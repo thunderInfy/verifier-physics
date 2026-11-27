@@ -20,7 +20,7 @@ import math
 
 import numpy as np
 
-from ..expr import E
+from ..expr import E, intern
 from . import checks, poly as P
 
 NOT_REFUTED, REFUTED_EMPIRICALLY, SUSPICIOUS, UNKNOWN = "NOT_REFUTED", "REFUTED_EMPIRICALLY", "SUSPICIOUS", "UNKNOWN"
@@ -28,21 +28,31 @@ EMPIRICAL = "empirical (float64 refinement study; not a proof)"
 TOL = 0.2
 GRIDS = (25, 50, 100, 200, 400)
 _F = {"sin": np.sin, "cos": np.cos, "exp": np.exp, "log": np.log}
+_OPS = {"neg", "add", "sub", "mul", "div", "powi", "rpow", "sqrt", "app"}
 
 
-def ev(e: E, env: dict):
+def ev(e: E, env: dict, memo: dict | None = None):
+    """e on numpy arrays. Memoized by node identity within one call, so on an `intern`ed e each
+    distinct subexpression is evaluated once (the values are the same either way)."""
     k, a = e.kind, e.args
     if k == "var": return env[e.name]
     if k == "lit": return float(e.q)
     if k == "pi": return math.pi
-    if k == "neg": return -ev(a[0], env)
-    if k in ("add", "sub", "mul", "div"):
-        x, y = ev(a[0], env), ev(a[1], env)
-        return {"add": x + y, "sub": x - y, "mul": x * y}[k] if k != "div" else x / y
-    if k in ("powi", "rpow"): return ev(a[0], env) ** float(e.q)
-    if k == "sqrt": return np.sqrt(ev(a[0], env))
-    if k == "app": return _F[e.name](ev(a[0], env))
-    raise ValueError(k)
+    if k not in _OPS: raise ValueError(k)
+    memo = {} if memo is None else memo
+    if id(e) in memo:
+        return memo[id(e)][1]
+    x = ev(a[0], env, memo)
+    if k == "neg": out = -x
+    elif k == "add": out = x + ev(a[1], env, memo)
+    elif k == "sub": out = x - ev(a[1], env, memo)
+    elif k == "mul": out = x * ev(a[1], env, memo)
+    elif k == "div": out = x / ev(a[1], env, memo)
+    elif k in ("powi", "rpow"): out = x ** float(e.q)
+    elif k == "sqrt": out = np.sqrt(x)
+    else: out = _F[e.name](x)
+    memo[id(e)] = (e, out)
+    return out
 
 
 def exact(problem: dict, x: np.ndarray, t: float) -> np.ndarray:
@@ -117,6 +127,7 @@ def _errors(u, ref, dx):
 
 
 def _rk4(H: E, u, dx, dt, steps):
+    H = intern(H)
     rhs = lambda v: (_stencil(H, v, 1.0) - v) / dx
     for _ in range(steps):
         k1 = rhs(u); k2 = rhs(u + dt / 2 * k1); k3 = rhs(u + dt / 2 * k2); k4 = rhs(u + dt * k3)
@@ -130,7 +141,7 @@ def _steps(T, dt):
 
 
 def combined(H: E, problem: dict, T: float, lam: float, boundary: str = "periodic", grids=GRIDS) -> list:
-    rows = []
+    H, rows = intern(H), []
     for n in grids:
         x, dx = _grid(n), 1 / n
         steps, dt = _steps(T, lam * dx)
@@ -154,6 +165,7 @@ def space(H: E, problem: dict, T: float) -> list:
 
 
 def time(H: E, problem: dict, T: float, n: int = 200) -> list:
+    H = intern(H)
     x, dx = _grid(n), 1 / n
     steps, dt = _steps(T, dx / 20)
     ref = _rk4(H, exact(problem, x, 0), dx, dt, steps)

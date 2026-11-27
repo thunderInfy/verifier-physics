@@ -42,6 +42,7 @@ from fractions import Fraction
 
 import numpy as np
 
+from ..expr import intern
 from . import checks, poly as P
 from .convergence import EMPIRICAL, NOT_REFUTED, REFUTED_EMPIRICALLY, UNKNOWN, _steps, ev, transmissive
 
@@ -73,7 +74,7 @@ def crossing(u: np.ndarray, mid: float, dx: float) -> tuple[float, int]:
 
 
 def run(H, uL: float, uR: float, x0: float, T: float, lam: float, n: int) -> dict:
-    dx = 1 / n
+    H, dx = intern(H), 1 / n
     assert abs(x0 * n - round(x0 * n)) < 1e-9, "x0 must be a cell interface"
     u = np.where((np.arange(n) + 0.5) * dx < x0, uL, uR)
     mid = (uL + uR) / 2
