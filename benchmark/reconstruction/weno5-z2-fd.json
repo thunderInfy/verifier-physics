@@ -1,0 +1,32 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO5-Z with q = 2, finite-difference flux form",
+ "source": "Borges, Carmona, Costa and Don, J. Comput. Phys. 227 (2008), with the power q = 2 (the paper calls it p); not accessed by us, statements from secondary sources (arXiv 2004.07954 sec. 2.2, arXiv 2110.13607 sec. 2.2, R. Borges, PhD thesis, UFRJ 2014, p. 70): with q = 2 the scheme is fifth order at first-order critical points (eps = 1e-40). The square needs no absolute value: tau_5^2 = (beta_0 - beta_2)^2",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(2*vm2 - 7*vm1 + 11*v0)/6", "(-vm1 + 5*v0 + 2*vp1)/6", "(2*v0 + 5*vp1 - vp2)/6"],
+  "weights": {
+   "kind": "z",
+   "d": ["1/10", "6/10", "3/10"],
+   "beta": ["13/12*(vm2 - 2*vm1 + v0)^2 + 1/4*(vm2 - 4*vm1 + 3*v0)^2",
+            "13/12*(vm1 - 2*v0 + vp1)^2 + 1/4*(vm1 - vp1)^2",
+            "13/12*(v0 - 2*vp1 + vp2)^2 + 1/4*(3*v0 - 4*vp1 + vp2)^2"],
+   "tau": [0, 2],
+   "q": 2
+  }
+ },
+ "claims": [
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "generic", "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived", "why": "(tau/beta_k)^2 = O(dx^6): weights d_k + O(dx^6)"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "Borges et al. (secondary sources): q = 2 recovers fifth order at n_cp = 1. Sketch: (tau/beta_k)^2 = O(dx^2) with a common leading term c^2 dx^2, so omega_k - d_k = O(dx^3) at both stencils"},
+  {"claim": "reconstruction_order_p", "p": 6, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "REFUTED", "confidence": "derived", "why": "the linear part has a non-zero dx^5 term at f' = 0"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "critical", "n_cp": 2, "eps": "0",
+   "expect": "REFUTED", "confidence": "unsure",
+   "why": "the thesis (p. 70): 'at critical points of order 2, all three schemes lose accuracy' (q = 2, eps = 1e-40); not derived"}
+ ]
+}

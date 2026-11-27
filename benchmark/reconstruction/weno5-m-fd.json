@@ -1,0 +1,49 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO5-M (mapped Jiang-Shu weights), finite-difference flux form",
+ "source": "Henrick, Aslam and Powers, J. Comput. Phys. 207 (2005) 542-567: the mapping g_k(w) = w (d_k + d_k^2 - 3 d_k w + w^2) / (d_k^2 + w (1 - 2 d_k)), eq. (43) p. 555, applied to the normalised Jiang-Shu weights (eq. (44)) and renormalised (eqs. (46)-(47)); fifth order at f' = 0 'even near critical points where f' = 0' (p. 557, eps = 1e-40 in the numerics, Table 4); for r = 3 the rate at n_cp = 2 is 2 for the JS and the mapped weights alike, r_c = max(2r - 2 - n_cp, n_cp), eq. (60) p. 565 and Table 10 p. 566, derived with eps = 0. Every order there is for the derivative approximation (the flux difference)",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(2*vm2 - 7*vm1 + 11*v0)/6", "(-vm1 + 5*v0 + 2*vp1)/6", "(2*v0 + 5*vp1 - vp2)/6"],
+  "weights": {
+   "kind": "m",
+   "d": ["1/10", "6/10", "3/10"],
+   "beta": ["13/12*(vm2 - 2*vm1 + v0)^2 + 1/4*(vm2 - 4*vm1 + 3*v0)^2",
+            "13/12*(vm1 - 2*v0 + vp1)^2 + 1/4*(vm1 - vp1)^2",
+            "13/12*(v0 - 2*vp1 + vp2)^2 + 1/4*(3*v0 - 4*vp1 + vp2)^2"],
+   "q": 2
+  }
+ },
+ "claims": [
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "generic", "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "JS weights d_k + O(dx^2); g_k(d_k) = d_k, g_k'(d_k) = g_k''(d_k) = 0 (Henrick et al. eq. (45)), so the mapped weights are d_k + O(dx^6)"},
+  {"claim": "reconstruction_order_p", "p": 6, "form": "flux_difference", "regime": "generic", "eps": "0",
+   "expect": "REFUTED", "confidence": "derived", "why": "the linear part has a non-zero dx^5 term"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "Henrick et al. p. 557 and Table 10: fifth order at n_cp = 1. JS weights d_k + O(dx) at both stencils (their eq. (39)), mapped to d_k + O(dx^3): O(dx^3) dx^3 / dx = O(dx^5)"},
+  {"claim": "reconstruction_order_p", "p": 6, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "REFUTED", "confidence": "derived", "why": "the linear part has a non-zero dx^5 term at f' = 0"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "critical", "n_cp": 1, "eps": {"c": "1", "m": "4"},
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "eps comparable to beta_k = O(dx^4): the JS weights are still d_k + O(dx) (as with eps = 0, scaled by beta/(eps + beta)), and the map makes that O(dx^3)"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "point", "regime": "critical", "n_cp": 1, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived", "why": "mapped weight errors O(dx^3) times candidate errors O(dx^3)"},
+  {"claim": "reconstruction_order_p", "p": 5, "form": "flux_difference", "regime": "generic", "eps": {"c": "1/1000000", "m": "0"},
+   "expect": "VERIFIED", "confidence": "derived", "why": "eps fixed: JS weights d_k + O(dx^2), mapped O(dx^6)"},
+  {"claim": "reconstruction_order_p", "p": 2, "form": "flux_difference", "regime": "critical", "n_cp": 2, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived",
+   "why": "Henrick et al. eq. (60), Table 10: rate 2 at n_cp = 2; convex weights of third-order candidates give O(dx^3)/dx in any case"},
+  {"claim": "reconstruction_order_p", "p": 3, "form": "flux_difference", "regime": "critical", "n_cp": 2, "eps": "0",
+   "expect": "REFUTED", "confidence": "derived",
+   "why": "Henrick et al. eq. (60), Table 10: r_c = max(2r - 2 - n_cp, n_cp) = 2 for r = 3, n_cp = 2, mapped or not: the leading JS weights are not d_k ((121/108, 1/36, 121/108) f'''^2 dx^6 indicators), and the map moves only weights near d_k"},
+  {"claim": "reconstruction_order_p", "p": 3, "form": "point", "regime": "critical", "n_cp": 2, "eps": "0",
+   "expect": "VERIFIED", "confidence": "derived", "why": "convex combination of third-order candidates"},
+  {"claim": "reconstruction_order_p", "p": 4, "form": "point", "regime": "critical", "n_cp": 2, "eps": "0",
+   "expect": "REFUTED", "confidence": "unsure",
+   "why": "the limit JS weights are about (0.0001, 0.9996, 0.0003); g_k maps them to about (0.001, 1, 0.001), so the mapped weights tend to about (0, 1, 0), and sum_k (omega_k - d_k) A_k with A = (1/4, -1/12, 1/12) f''' is about -0.08 f''' != 0 at dx^3. The exact limit is not computed"}
+ ]
+}
