@@ -1781,7 +1781,7 @@ is a union of two cones). On each branch, J and D are linear, so a failure is a 
 non-strict linear inequalities, decided by Fourier–Motzkin elimination over the rationals. A REFUTED witness is
 a rational solution, re-checked by recomputing the ENO choices directly. Results: the sign property holds for
 k = 1, 2, 3 with either tie rule and fails for the linear stencils {i-1, i} and {i-1, i, i+1}. The exact supremum
-of J / D is 1, 2 and 7/2 for k = 1, 2, 3. k >= 4 is UNKNOWN: 4^6 branch pairs, and the elimination takes minutes.
+of J / D is 1, 2 and 7/2 for k = 1, 2, 3 (7/2 is our computed maximum, not a published constant). k >= 4 is UNKNOWN: 4^6 branch pairs, and the elimination takes minutes.
 
 ### The scaling limiter
 

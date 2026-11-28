@@ -87,9 +87,12 @@ formal readings, the checker decides \rn{34}{paper_numbers.py::bench_counts} cor
 \rn{9}{paper_numbers.py::bench_counts} undecided and \rn{1}{paper_numbers.py::bench_counts} unscored,
 and gives \rn{0}{paper_numbers.py::bench_counts} wrong verdicts; we wrote those sentences and their
 expected values ourselves (Section~\ref{sec:trust}). The exact checks run in Python with rational
-arithmetic, and many of their verdicts are replayed in the Lean proof assistant: on the
-\rn{30}{paper_numbers.py::lean_replay} example specs of the last full run, the judge states
-\rn{532}{paper_numbers.py::lean_replay} theorems and the Lean kernel accepts all of them.
+arithmetic, and many of their verdicts are replayed in the Lean proof assistant. In a measured run
+over every spec this paper counts, the judge states \rn{598}{paper_numbers.py::lean_replay_all}
+distinct theorems; Lean accepts \rn{596}{paper_numbers.py::lean_replay_all}, rejects
+\rn{1}{paper_numbers.py::lean_replay_all} and does not finish \rn{1}{paper_numbers.py::lean_replay_all}
+within its time limit. \rn{18}{paper_numbers.py::bench_lean_labels} of the
+\rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our benchmark carry a Lean label.
 \end{abstract}
 
 % ====================================================================================================
@@ -196,21 +199,20 @@ bounded integrable initial data $u_0$.
 \paragraph{The Lean replay.} The refutation is a concrete statement: two rational states and a
 rational $\lambda$ at which $H$ decreases. In the Lean replay, the judge writes the negation of the
 monotonicity statement for the spec's $H$, serialised from the spec node for node, and a proof
-evaluates both sides. In the full pass over the example specs the theorem is
-\code{s11\_monotonicity\_ref} (the prefix is the spec's position in the run):
+evaluates both sides. In the measured run, where each spec is certified on its own, the theorem is
+\code{s0\_monotonicity\_ref} (the prefix is the spec's position in its run):
 \[
 \neg\bigl(\forall \lambda > 0,\ \mathtt{MonotoneOn3}\ (x \mapsto 0 \le 1 - \lambda x \wedge 0 \le 1 + \lambda x)\ H\bigr),
 \]
 where $\mathtt{MonotoneOn3}\ C\ H$ says that $H$ is non-decreasing in each argument on states whose
 entries all satisfy $C$, and $H$ is the spec's update with $|x|$ written as $\sqrt{x^2}$. Because the
-statement contains square roots, a companion theorem \code{s11\_monotonicity\_ref\_sqrt} proves that
+statement contains square roots, a companion theorem \code{s0\_monotonicity\_ref\_sqrt} proves that
 each argument of $\sqrt{\cdot}$ is non-negative, so that Lean's convention $\sqrt{x} = 0$ for $x < 0$
 cannot be what makes the statement true. Both are accepted, and the verdict's label becomes
-``proven (Lean)''.\repro{paper_numbers.py::lean_replay} In that pass, over the
-\rn{30}{paper_numbers.py::lean_replay} specs outside \code{schemes/identity/}, the judge states
-\rn{532}{paper_numbers.py::lean_replay} theorems, and Lean accepts
-\rn{532}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} (README, ``Lean certificates
-for the exact scheme checks'').
+``proven (Lean)''.\repro{paper_numbers.py::lean_replay} Over the
+\rn{43}{paper_numbers.py::lean_replay} example specs the judge states
+\rn{562}{paper_numbers.py::lean_replay} theorems, and Lean accepts
+\rn{561}{paper_numbers.py::lean_replay} of them (Table~\ref{tab:leanmeasured}).
 
 \medskip\noindent
 That is the whole pipeline: a sentence, a formal reading, an exact check that returns a witness, a
@@ -578,25 +580,56 @@ steady non-entropy step \R & the step identities for every $\lambda > 0$, and $u
 \end{tabularx}
 \end{table}
 
-In the last full pass, over the \rn{30}{paper_numbers.py::lean_replay} example specs outside
-\code{schemes/identity/} (README command
-\code{python -m physverify.schemes schemes/*.json schemes/*/*.json --lean}), the judge states
-\rn{532}{paper_numbers.py::lean_replay} theorems, \rn{42}{paper_numbers.py::lean_replay} of them
-the square-root side conditions, and no in-scope verdict is left unstated. Lean accepts
-\rn{532}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} of the 532. That pass
-predates the \rn{13}{paper_numbers.py::lean_replay} specs of \code{schemes/identity/} (the
-\code{stated\_identity} rows of Section~\ref{sec:outside}); on them the judge states
-\rn{26}{paper_numbers.py::lean_replay} more theorems (consistency and conservation of each spec's
-numerical flux), bringing the total to \rn{558}{paper_numbers.py::lean_replay}, and we have not run
-Lean on those 26. The README's
-cost table (section ``Lean certificates for the exact scheme checks'') gives, for a warm repeat on a
-2-CPU, 8\,GB machine shared with other jobs, a wall time of
-\rn{638\,s}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven}, of which Lean takes
-\rn{562\,s}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} (about
-\rn{0.95}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven} theorems per second, peak
-memory \rn{3.7\,GB}{tests/test_lean.py::test_every_exact_verdict_in_scope_is_proven}); these timings
-are indicative, and we did not re-measure them for this paper. The test named in the markers runs the
-same certification and prints its own time. Not yet replayed, so these verdicts keep the exact-Python
+\paragraph{The measured run.} We ran Lean on every theorem the judge states for the specs this paper
+counts: the example specs, our benchmark's specs, the specs of the outside benchmark's dev readings,
+and the update-map, variational and kernel files (\code{measure\_lean.py} next to the paper). The
+checker's own Lean path runs unchanged; each theorem goes into its own file, exactly as the checker
+writes it, and runs under a wall-clock limit of
+\rn{20\,min}{paper_numbers.py::lean_replay_all}. A theorem is \emph{accepted} if Lean reports no
+error in it and \code{\#print axioms} shows nothing beyond \code{propext}, \code{Classical.choice} and
+\code{Quot.sound} (so \code{sorryAx} or \code{Lean.ofReduceBool} would count as a rejection),
+\emph{rejected} if Lean reports an error inside it or another axiom, and a \emph{timeout} if the limit
+is reached; timeouts depend on the machine. The run was measured on
+\rn{2026-11-28, commit 1d73a80}{paper_numbers.py::lean_replay}, with
+\rn{Lean 4.30.0-rc1 and Mathlib f369f66}{paper_numbers.py::lean_replay}, on
+\rn{a GCP e2-standard-8 machine (8 vCPU, 32\,GB)}{paper_numbers.py::lean_replay}, six theorems at a
+time. The results, with every theorem's status, axioms and time, are in
+\code{lean\_measured.json}; a test fails if the Lean project, the judges, the planners or the checks
+have changed since.\repro{tests/test_paper_numbers.py::test_lean_measurement_is_current_and_complete}
+Table~\ref{tab:leanmeasured} gives the counts.\repro{tests/test_paper_numbers.py::test_generated_tables_match_their_sources}
+
+\begin{table}[t]\small
+\caption{The measured Lean run, per set of specs: specs, distinct theorems, their status, and the sum of
+their wall times in seconds (each theorem is its own Lean process, so each time includes the import of
+\code{PhysVerify.Scheme} or the module it needs). Theorems shared by several sets count once
+in the last row. Generated from \code{lean\_measured.json}.}\label{tab:leanmeasured}
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+set & specs & theorems & accepted & rejected & error & timeout & Lean s \\ \midrule
+\input{lean_measured_table.tex}
+\end{tabular}
+\end{table}
+
+Of the \rn{598}{paper_numbers.py::lean_replay_all} distinct theorems, Lean accepts
+\rn{596}{paper_numbers.py::lean_replay_all}. The sum of their times is
+\rn{4142\,s}{paper_numbers.py::lean_replay_all}, and the run took
+\rn{1644\,s}{paper_numbers.py::lean_replay_all} of wall time; the median theorem takes
+\rn{4.2\,s}{paper_numbers.py::lean_replay}, and none needs more than
+\rn{2.6\,GB}{paper_numbers.py::lean_replay}. Two are not accepted, and both are findings about the
+planner, not about the verdicts, which do not change:\repro{paper_numbers.py::lean_replay_all}
+\begin{itemize}
+\item \code{s0\_consistency\_0} on \code{burgers-godunov-squared-form} (our benchmark's C17, the flux
+  rewritten as $\max(a, -b)^2/2$ with $\max$ written through $\sqrt{\cdot}$) is \emph{rejected}. Lean's
+  error is ``\code{No goals to be solved}'': the planner's chain of tactic alternatives fails on the
+  consistency identity $F(u, u) = u^2/2$. The check keeps its exact-Python label. The reading would
+  not carry a Lean label even if this theorem were accepted, since its entropy claim rests on the
+  entropy check's \V{} cells, which are not replayed.
+\item \code{s0\_tvd\_harten} on \code{advection-superbee} (the TVD claim itself, through Harten's lemma)
+  is a \emph{timeout}: it did not finish in 20 minutes, and not in one retry with a limit of 60
+  minutes.\repro{paper_numbers.py::lean_replay_all} Superbee's TVD verdict therefore keeps the
+  per-cell label of its sign-cell theorems, which are all accepted.
+\end{itemize}
+Not yet replayed, so these verdicts keep the exact-Python
 label: consistency of a flux recovered from an update (no spec in the corpus needs it), the cells of the
 five-point monotonicity check (nothing in the corpus is \V{} there), the entropy check's \V{} cells,
 and the other exact checks (truncation order, von Neumann stability, hyperbolicity, and the scope
@@ -611,12 +644,7 @@ main. The counts:\repro{paper_numbers.py::bench_counts}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
  & expected true & expected false & total \\ \midrule
-decisive and correct (match) & \rn{17}{paper_numbers.py::bench_counts}
-  & \rn{17}{paper_numbers.py::bench_counts} & \rn{34}{paper_numbers.py::bench_counts} \\
-gap & \rn{7}{paper_numbers.py::bench_counts} & \rn{2}{paper_numbers.py::bench_counts}
-  & \rn{9}{paper_numbers.py::bench_counts} \\
-wrong & 0 & 0 & \rn{0}{paper_numbers.py::bench_counts} \\
-\bottomrule
+\input{bench_counts_table.tex}
 \end{tabular}
 \end{center}
 The expected-true matches are all \V; the expected-false ones are
@@ -641,51 +669,7 @@ unsettled); the verdict and result are from
 \toprule
 & reading & exp. & verdict & result \\ \midrule\endfirsthead
 \toprule & reading & exp. & verdict & result \\ \midrule\endhead
-C01 & Lax--Wendroff: conservative and order 2 on smooth solutions & T & \V & match \\
-    & Lax--Wendroff: local truncation error $O(\Delta x^2)$ & T & \V & match \\
-C02 & Lax--Wendroff: TVD for every $\nu \in [0, 1]$ & F & \R & match \\
-    & the same, in flux-limiter form & F & \R & match \\
-C03 & Lax--Wendroff on Burgers: Tadmor entropy stable (semi-discrete) & F & \R & match \\
-    & Lax--Wendroff on Burgers: converges to the entropy solution & F & \R & match \\
-C04 & upwind: max-norm stable for every $\nu \ge 0$ & F & \R & match \\
-    & upwind: von Neumann stable for every $\nu \ge 0$ & F & \R & match \\
-C05 & Lax--Friedrichs: max-norm stable for $\nu \in [-1, 1]$ & T & \V & match \\
-    & Lax--Friedrichs: von Neumann stable for $\nu \in [-1, 1]$ & T & \V & match \\
-C06 & central flux + forward Euler: consistent, conservative, stable for small $\nu$ & F & \R & match \\
-C07 & Rusanov, local $\alpha$: monotone under $\lambda\max|u| \le 1$ & F & \R & match \\
-    & Rusanov numerical flux is monotone & T & \V & match \\
-    & Rusanov with one global $\alpha$: monotone under $\lambda\alpha \le 1$ & T & \UF & gap \\
-C08 & Engquist--Osher: monotone under $\lambda\max|u| \le 1$, entropy limit & T & \V & match \\
-C09 & Engquist--Osher flux (integral form): Tadmor entropy stable & T & \V & match \\
-    & Engquist--Osher flux: entropy stable for every convex entropy & T & \UF & gap \\
-C10 & Roe: fully discrete limit is the entropy solution & F & \R & match \\
-    & Roe: method-of-lines limit is the entropy solution & F & \R & match \\
-C11 & Roe + Harten fix: converges to the fan on transonic rarefactions & T & \NR & gap \\
-C12 & Lax--Friedrichs on Burgers: order 1, flux form, correct shock speed & T & \NR & gap \\
-    & shock clause, conditional (every bounded limit is a weak solution) & T & \V & match \\
-    & shock clause, unconditional & T & \V & match \\
-C13 & quasilinear upwind: shocks at the Rankine--Hugoniot speed & F & \R & match \\
-    & quasilinear upwind: every bounded limit is a weak solution & F & \R & match \\
-C14 & upwind (update form): consistent, flux form, positive on $[0, 1]$ & T & \V & match \\
-C15 & Lax--Friedrichs (update form): non-negative coefficients on $[-1, 1]$ & T & \V & match \\
-C16 & Lax--Friedrichs on Burgers: Tadmor entropy stable for every $\Delta t/\Delta x$ & F & \R & match \\
-    & fully discrete entropy inequality for every $\Delta t/\Delta x$ & F & \UF & gap \\
-C17 & Godunov flux, $\max$ transcribed literally: consistent, entropy stable & T & \U & gap \\
-    & the same flux rewritten as $\max(a, -b)^2/2$ & T & \V & match \\
-C18 & minmod MUSCL: order 2 in $L^1$ without extrema & T & \NR & gap \\
-    & minmod MUSCL: order 2 in $L^\infty$ with extrema & F & \RE & match \\
-    & minmod MUSCL: truncation error $O(\Delta x^2)$ at every point, extrema included & F & \R & match \\
-    & minmod MUSCL: order 2 in $L^1$ on sine data & u & \NR & unscored \\
-C19 & upwind: global order 1 at fixed $\Delta t/\Delta x$ ($\ell^2$ or $L^1$) & T & \V & match \\
-    & upwind: order 1 in $L^1$ for discontinuous solutions & F & \UF & gap \\
-    & upwind: local truncation error $O(\Delta x)$ & T & \V & match \\
-    & upwind: order 1 in $\Delta x$ and in $\Delta t$, separate refinements & T & \NR & gap \\
-C20 & Rusanov for $u_t + (u^2)_x = 0$: consistent, entropy stable for $\eta = u^2$ & T & \V & match \\
-C21 & minmod: TVD on $[0, 1]$ & T & \V & match \\
-    & superbee: TVD on $[0, 1]$ & T & \V & match \\
-C22 & superbee: TVD on $[0, 3/2]$ & F & \R & match \\
-C23 & minmod flux-limited scheme: monotone for $\nu \in (0, 1]$ & F & \R & match \\
-\bottomrule
+\input{bench_table.tex}
 \end{longtable}}
 
 \paragraph{The gaps, plainly.} From \code{GAPS.md}, ranked by how often we think such claims appear
@@ -783,9 +767,11 @@ the existing kind could already state. The next mechanism in the survey's rankin
 scaling limiter $\tilde p = \bar u + \theta (p - \bar u)$: \code{limiter\_keeps\_average},
 \code{limiter\_bounds} and \code{limiter\_accuracy} decide, for every polynomial of degree $k \le 3$, that
 it keeps the average, that it puts $\tilde p$ in $[m, M]$ at the points where the extrema are taken, and
-that $\max |\tilde p - p|$ is at most a constant times the overshoot of $p$ (the constant is the exact
-supremum, $1, 3, 5$ for $k = 1, 2, 3$: an explicit polynomial attains it and a moment certificate,
-checked by Sturm sequences, bounds it), which gives three more sentences (two statements of its accuracy
+that $\max |\tilde p - p|$ is at most a constant times the overshoot of $p$. The constants
+$C_k = 1, 3, 5$ for $k = 1, 2, 3$ are sharp: exact witness polynomials attain them, which gives the lower
+bound, and a moment certificate, checked by Sturm sequences, gives the upper bound. The Markov--Luk\'acs
+theorem behind that certificate is cited, not proved in our
+code.\repro{tests/test_scaling_limiter.py::test_accuracy_constants} This gives three more sentences (two statements of its accuracy
 lemma and the theorem that the limited scheme keeps the order and the maximum principle). One finding: the
 accuracy clause holds without the hypothesis $\bar u \in [m, M]$, which only the bounds need. These
 \rn{9}{paper_numbers.py::outside_dev} readings use claim
@@ -804,12 +790,7 @@ tag:\repro{paper_numbers.py::outside_dev}
 \begin{tabular}{@{}lrlr@{}}
 \toprule
 property & stated / items & property & stated / items \\ \midrule
-positivity & 5 / 26 & convergence & 1 / 8 \\
-order & 8 / 24 & other & 3 / 8 \\
-stability & 3 / 11 & TVD & 1 / 8 \\
-entropy & 1 / 11 & monotone & 0 / 2 \\
- & & conservation & 0 / 1 \\
-\bottomrule
+\input{outside_property_table.tex}
 \end{tabular}
 \end{center}
 All \rn{27}{paper_numbers.py::outside_dev} readings narrow their sentence.
@@ -817,7 +798,8 @@ All \rn{27}{paper_numbers.py::outside_dev} readings narrow their sentence.
 \paragraph{How much is decided.} \rn{26}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results}
 of the \rn{27}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} readings are decided:
 \rn{18}{paper_numbers.py::outside_dev} \V{} and \rn{8}{paper_numbers.py::outside_dev} \R, all exact
-(rational arithmetic; none of them has been replayed in Lean). The
+(rational arithmetic; in the measured Lean run, \rn{9}{paper_numbers.py::outside_lean_labels} of the
+26 also carry a Lean label). The
 \rn{1}{paper_numbers.py::outside_dev} undecided reading is \code{tecno:02}'s (expected UNSURE):
 \code{stated\_identity} verifies its entropy-conservation clause, but its second-order clause has no
 claim kind, so the conjunction is \U. In the first run the two readings of one sentence of Harten's
@@ -846,7 +828,10 @@ reason & primary & any & what it would take \\ \midrule
 \input{outside_gaps_table.tex}
 \end{tabularx}
 \end{center}
-The low coverage is the main result, not a failure to look. The development sources are mostly about
+One reason, \code{family\_unspecified}, marks a gap in the source rather than in the checker: the
+source fixes a parameter numerically ($\epsilon = 10^{-6}$ in a WENO weight) and leaves open how it
+scales with $\Delta x$, and the sentence's truth depends on that scaling, so no single reading is the
+sentence's. The low coverage is the main result, not a failure to look. The development sources are mostly about
 high-order reconstruction, two-dimensional meshes and theorems over classes of schemes, and a spec
 cannot say any of these today.
 
@@ -973,6 +958,46 @@ halved as a test for the order check. The exact von Neumann check showed it is a
 $|g|^2$ is \rn{$5/4$}{paper_numbers.py::certificate_examples} at $\nu = 1$, $\cos\theta = 0$. And FTCS
 at $\Delta t/\Delta x = 1/2$ to $T = 1/4$ shows order 1 in the refinement study (\NR); only the exact
 check sees the instability.\repro{tests/test_schemes.py::test_ftcs_study_can_miss_the_instability}
+
+\paragraph{Where a WENO order drops, and where it does not.} Two findings of the reconstruction
+checker (\code{reconstruction\_order\_p}, \code{physverify/reconstruction.py}) changed what we wrote
+about WENO orders.
+
+First, the loss to order 3 of WENO5-JS at a first-order critical point ($f' = 0 \ne f''$), with
+$\epsilon = 0$ or $\epsilon \propto \Delta x^4$, holds for the flux difference
+$(\hat f_{i+1/2} - \hat f_{i-1/2})/\Delta x$, not for a single face value $\hat f_{i+1/2}$, which stays
+fifth order there. With $\epsilon \propto \Delta x^2$, or $\epsilon$ fixed, the difference is fifth order
+too.\repro{tests/test_reconstruction.py::test_henrick_aslam_powers_drop_and_its_eps_dependence} The
+$r = 3$ weights of Liu, Osher and Chan show the same split one order lower: at a first-order critical
+point the face value is third order and the flux difference second
+order.\repro{tests/test_reconstruction_zm.py::test_original_measurement_critical_point_coefficients}
+Jiang and Shu's report counts the face value, so its statement there is consistent with this; we
+record it as a refinement at a degenerate point, not as a correction of the source.
+
+Second, for the reading ``$\epsilon \to 0$'', the original smoothness measure of Liu, Osher and Chan
+((2.18) and (2.20) in Jiang and Shu's report) gives fifth order at generic points ($f' \ne 0$), for one
+reconstruction and for the flux difference, while the report's text (p.~7) says
+fourth.\repro{tests/test_reconstruction.py::test_original_measurement_is_fifth_order_where_f_prime_is_nonzero}
+The mechanism is a cancellation of the $h^4$ cross-term, $\sum_k (w_k - d_k) c_k = 0$. In the module's
+orientation ($h = \Delta x$, candidate stencils $k = 0, 1, 2$, face at $x_{i+1/2}$):
+\begin{itemize}
+\item the indicators are $\beta_k = (f'h)^2\bigl(1 + a_k (f''/f') h + \ldots\bigr)$ with $a = (-2, 0, 2)$;
+\item the weights, with $\epsilon = 0$ and $d = (1/10, 6/10, 3/10)$, are
+  $w_k - d_k = d_k\bigl(-2a_k + 2\sum_j d_j a_j\bigr)(f''/f')h + O(h^2) = (12/25, 12/25, -24/25)(f''/f')h + O(h^2)$;
+\item the candidate errors are $c_k\, h^3 = (-1/4, 1/12, -1/12) f''' h^3 + O(h^4)$;
+\item so the $h^4$ cross-term is $(-3/25 + 1/25 + 2/25) f''' (f''/f') h^4 = 0$.
+\end{itemize}
+A test reads the indicators' expansion and the candidate errors from the module's series and checks
+the weights' first-order terms, the cross-term and the checker's leading order
+5.\repro{tests/test_reconstruction_zm.py::test_original_measurement_cancellation_identity} The step
+from the indicators to the weights is a hand derivation: the test evaluates its formula, and does not
+derive it from the series. The report's argument on p.~7 uses the condition $w_k - d_k = O(h^2)$,
+(2.14), which is sufficient for fifth order, so failing it does not refute fifth order; here the
+cancellation gives it instead. The report's numerical tables (at $\epsilon = 10^{-6}$) are
+pre-asymptotic near the critical points of their test data and consistent with this
+(\code{benchmark/outside/notes/jiang-shu-tables.md}). The text does not settle whether ``4th order''
+means ``exactly 4th'' or ``at least 4th'', so the item's field stays unformalised
+(\code{ERRATA\_PROPOSED.md} lists it).
 
 \paragraph{A branch tested before it was rebased.} An order-of-accuracy branch passed the full test
 suite in its own worktree and was merged. The branch predated the benchmark, so the test that compares
@@ -1141,6 +1166,9 @@ current main (commit \code{9e906e7}). The merge gate is
   has a gloss only: its reading was chosen by a person and is checked by review.
 \item[Reading] One formal meaning of an English sentence: a conjunction of named claims on specs, with
   relations and bridges.
+\item[Reading choices] Where a sentence's wording admits more than one formal meaning, the reading
+  fixes one, and we list the choice. ``$(r+1)$th order'' is read as ``order at least $r + 1$'' (the
+  \code{reconstruction\_order\_p} claim with $p = r + 1$), not as ``exactly $r + 1$''.
 \item[Bridge] A stated lemma linking a sentence's wording to a named claim.
 \item[Check, witness] A function of the spec that returns a status and the data that justify it.
 \item[Certificate] A witness that a simpler checker can verify: an identity, a list of non-negative
@@ -1167,21 +1195,31 @@ Lean meaning theorem; of the \rn{22}{paper_numbers.py::claim_kinds} kinds used f
 \rn{2}{paper_numbers.py::claim_kinds} do (\code{conservative} and \code{positive\_under\_cfl}).
 
 A Lean \emph{label} on a verdict is a different thing: it says that the certificate behind the verdict
-was replayed by the kernel, against a statement the judge wrote from the spec. Of the
+was replayed by the kernel, against a statement the judge wrote from the spec. In the measured Lean
+run (Section~\ref{sec:certs}, Table~\ref{tab:leanmeasured}), of the
 \rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our own benchmark,
-\rn{18}{paper_numbers.py::bench_lean_labels} would carry a Lean label after the replay
+\rn{18}{paper_numbers.py::bench_lean_labels} carry a Lean label
 (\rn{7}{paper_numbers.py::bench_lean_labels} \V{} and \rn{11}{paper_numbers.py::bench_lean_labels} \R;
-\rn{4}{paper_numbers.py::bench_lean_labels} of the 18 with the per-cell label). A verdict carries the label
-if one of its deciding checks, together with the exact checks that check's row requires, is replayed: each
-such row decides the verdict on its own, so the other deciding checks may stay exact Python. The other
+\rn{3}{paper_numbers.py::bench_lean_labels} of the 18 with the per-cell label). The labels are those
+of \code{lean\_cert.relabel\_claims}, the checker's own rule, applied to the measured statuses, so the
+paper and the code cannot disagree on them: a verdict carries the label if one of its deciding checks,
+together with the exact checks that check's row requires, has all its theorems accepted. Each such row
+decides the verdict on its own, so the other deciding checks may stay exact Python. The other
 \rn{16}{paper_numbers.py::bench_lean_labels} have no deciding check that is replayed with all its premises
 (truncation order, von Neumann stability, the frozen jump, the Lipschitz and scope checks of the shock
 rows, consistency of a recovered flux, the entropy check's \V{} cells) or are empirical (one \RE), and keep
 their exact-Python or empirical label. We count a \V{} reading if all its components carry a Lean label, and a \R{}
-reading if one of its refuting components does. The count is of the theorems the judge states
-(\rn{401}{paper_numbers.py::bench_lean_labels} for the benchmark's specs), taken as accepted: we did not
-run Lean on the benchmark's specs for this paper, only on the 30 example specs of the last full run,
-where all 532 stated theorems were accepted. Only \rn{5}{paper_numbers.py::bench_lean_labels} of the 34 verdicts rest
+reading if one of its refuting components does. The judge states
+\rn{405}{paper_numbers.py::bench_lean_labels} theorems for the benchmark's specs, and Lean accepts
+\rn{403}{paper_numbers.py::bench_lean_labels}; the two others are the rejection and the timeout above.
+Taking every stated theorem as accepted, as an earlier version of this paper did, gives the same
+\rn{18}{paper_numbers.py::bench_lean_labels}, but with \rn{2}{paper_numbers.py::bench_lean_labels} per
+cell: superbee's TVD verdict (C21) has only the per-cell label in the measured run. On the outside
+benchmark, \rn{9}{paper_numbers.py::outside_lean_labels} of the
+\rn{26}{paper_numbers.py::outside_lean_labels} decided dev readings carry a Lean label;
+\rn{11}{paper_numbers.py::outside_lean_labels} rest on claim kinds checked in Python only
+(reconstruction order, the scaling limiter, ENO), which have no Lean statement.
+Only \rn{5}{paper_numbers.py::bench_lean_labels} of the 34 verdicts rest
 entirely on claim kinds with a meaning theorem. For the rest, even a Lean-labelled verdict says that a
 certificate is correct, while the step from the certificate to the claim's English gloss is ours.
 

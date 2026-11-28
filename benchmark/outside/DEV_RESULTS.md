@@ -119,7 +119,8 @@ That zero says little about soundness on outside claims, because the readings th
 the easy kind (linear schemes, a CFL range, one smooth extremum). Two naive readings that we rejected would have
 been WRONG. We ran both once to check; neither is stored or scored:
 
-- `fjordholm_mishra_tadmor_2012_tecno:04` (FALSE both ways: the printed entropy flux ^Q has the wrong sign). Read
+- `fjordholm_mishra_tadmor_2012_tecno:04` (FALSE both ways: with the sign of ^Q as printed, +1/2, the identity (3.3) fails, and two independent
+  readings of the printed sign agree; with the sign of the paper's Lemma 3.2, -1/2, it holds). Read
   as "the scheme (3.2) is entropy stable", `entropy_stable_tadmor` on Burgers with D = 1 gives VERIFIED. The
   sentence's content is an identity for the printed ^Q, which in the first round no named claim looked at. A
   misformalisation of this kind is the likeliest route to a WRONG: the named claim checks the property the paper
@@ -195,7 +196,7 @@ The decided readings, with the witness or certificate each verdict rests on:
 | zhang_shu_2011_survey:04 | both | VERIFIED (*tuned*) | the same three, plus Lax–Friedrichs with alpha = 2 for k = 2 on [0, 1/12]: weights 1/6 - lam/2, 2/3, 1/6 - 3 lam/2, lam/2, 3 lam/2 |
 | zhang_shu_2011_survey:13 | both | VERIFIED (*tuned*) | k = 2, 3, with p(x*) = (ubar - u0l/6 - u0r/6)/(2/3): the new average is (2/3) p(x*) + u0l/6 + (1/6 - lam) u0r + lam um1r |
 | fjordholm_mishra_tadmor_2012_tecno:06 | both (UNSURE) | VERIFIED (*tuned*) | ENO of point values, k = 2, 3, both tie rules: every failing system (D > 0 and J < 0, D = 0 and J != 0, ...) on each of the 14 (k = 2) or 88 (k = 3) non-empty selection branches is infeasible (Fourier–Motzkin, exact) |
-| fjordholm_mishra_tadmor_2012_tecno:07 | both (UNSURE) | VERIFIED (*tuned*) | J / D <= 2 (k = 2) and <= 7/2 (k = 3), both tie rules, the same way; the constants are the exact suprema (C_3 = 7/2 is our computation, not a published value we checked) |
+| fjordholm_mishra_tadmor_2012_tecno:07 | both (UNSURE) | VERIFIED (*tuned*) | J / D <= 2 (k = 2) and <= 7/2 (k = 3), both tie rules, the same way; the constants are the exact suprema (C_3 = 7/2 is our computed maximum, not a published constant) |
 | fjordholm_mishra_tadmor_2012_tecno:08 | both | VERIFIED (*tuned*) | as tecno:06, through the bridge (3.20): in the scalar case the scaled reconstruction is plain ENO on the data mu^{i+1}, onto all data |
 | zhang_shu_2010_maxprinciple:06 | both | VERIFIED (*tuned*) | the limiter (2.8)-(2.9), M_j, m_j over the cell, k = 1, 2, 3: p~ - p = (theta - 1)(p - ubar) with 0 <= theta <= 1, and max \|p~ - p\| <= C_k max dist(p, [m, M]) with C_k <= 1, 3, 5, the exact suprema of max \|q\| / max q over zero-mean q of degree k (upper bound by a moment certificate certified by Sturm, attained by explicit witnesses; README; the first version used the Newton–Cotes bound 1, 5, 7); the hypothesis ubar in [m, M] is not needed for this clause |
 | zhang_shu_2011_survey:05 | both | VERIFIED (*tuned*) | the same lemma, (2.9)-(2.10): the same three specs |
