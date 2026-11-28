@@ -292,6 +292,8 @@ def ingest(results: Path, path: Path, retry: bool = False, parallel: int = 6) ->
     jobs, n = WORK / "jobs", 0
     for ex in sorted(results.glob("*.exit")):
         h = ex.stem
+        if h == "registry":            # registry.lean's run, read by ingest-registry
+            continue
         old = store["theorems"].get(h)
         if old and not retry:
             continue
@@ -315,7 +317,7 @@ def ingest(results: Path, path: Path, retry: bool = False, parallel: int = 6) ->
     stamps = lambda kind: sorted(int(p.read_text()) for p in results.glob(f"run.{kind}.*"))
     store.setdefault("runs", {})[results.name] = {
         "host": host["name"], "parallel": parallel, "starts": stamps("start"), "ends": stamps("end"),
-        "theorems": len(list(results.glob("*.exit")))}
+        "theorems": len([p for p in results.glob("*.exit") if p.stem != "registry"])}
     _write(store, path)
     print(f"ingested {n} theorems from {results}")
 
