@@ -39,7 +39,7 @@ if ! done_ build; then
   lake exe cache get && lake build PhysVerify && mark build || exit 1
 fi
 if ! done_ jobs; then
-  "$HERE/lean_run_jobs.sh" "$JOBS" "$RES" "$LIMIT" "$PAR" && mark jobs
+  bash "$HERE/lean_run_jobs.sh" "$JOBS" "$RES" "$LIMIT" "$PAR" && mark jobs || exit 1
 fi
 if ! done_ retry; then
   mkdir -p "$JOBS/../jobs_retry"
@@ -48,7 +48,7 @@ if ! done_ retry; then
     if [ "$c" = 124 ] || [ "$c" = 137 ]; then cp "$JOBS/$h.lean" "$JOBS/../jobs_retry/"; fi
   done
   if ls "$JOBS/../jobs_retry/"*.lean >/dev/null 2>&1; then
-    "$HERE/lean_run_jobs.sh" "$JOBS/../jobs_retry" "${RES}_retry" "$RETRY" 1 || exit 1
+    bash "$HERE/lean_run_jobs.sh" "$JOBS/../jobs_retry" "${RES}_retry" "$RETRY" 1 || exit 1
     cp "$RES/host.json" "${RES}_retry/"
   fi
   mark retry
