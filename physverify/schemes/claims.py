@@ -47,6 +47,7 @@ GUARANTEE.update({"flux_lipschitz": EXACT, "shock_scope_monotone": EXACT, "shock
 GUARANTEE.update({"stationary_rh_violation": EXACT, "stationary_shock_rh_violation": EXACT})  # fixedjump.py
 GUARANTEE.update({"stated_identity": EXACT})  # identity.py
 GUARANTEE.update({"ssp": EXACT, "ssp_linear": EXACT, "ssp_violation": EXACT})  # ssp.py
+GUARANTEE.update({"ssp_class": EXACT, "ssp_coefficient": EXACT})  # ssp_class.py
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -262,6 +263,19 @@ CLAIMS["ssp_preserves"] = (   # time stepping (ssp.py)
     (("ssp", SUFFICIENT, _SSP),
      ("ssp_linear", EQUIVALENT, _SSP_LINEAR),
      ("ssp_violation", NECESSARY, _SSP_VIOLATION)))
+_SSP_CLASS = ("decided both ways: VERIFIED when the linear conditions imply every hypothesis of "
+              "PhysVerify.SSP.ssp_preserves_meaning for every method of the class (a Farkas certificate per hypothesis, replayed exactly); "
+              "REFUTED only with one method of the class and an exact scalar counterexample (a convex set S, F with "
+              "forward Euler keeping S, a stage leaving S at dt = c dt_FE); anything else is UNKNOWN")
+_SSP_C = ("C is the radius of absolute monotonicity of the Butcher tableau, isolated exactly (ssp.coefficient); an "
+          "irrational C is known in a rational enclosure, and a comparison it does not settle is UNKNOWN")
+CLAIMS["ssp_class_preserves"] = (   # classes of methods (ssp_class.py)
+    "every explicit Runge-Kutta method in Shu-Osher form whose coefficients satisfy the stated linear conditions "
+    "keeps every convex property forward Euler keeps, for dt <= c dt_FE",
+    (("ssp_class", EQUIVALENT, _SSP_CLASS),))
+CLAIMS["ssp_coefficient"] = (
+    "the SSP coefficient of the stated method stands in the stated relation to a value or to another method's",
+    (("ssp_coefficient", EQUIVALENT, _SSP_C),))
 claimkinds.require("schemes", CLAIMS)            # one reading per name, shared with the other layers
 
 # (relation, outcome) -> polarity of the evidence for the claim

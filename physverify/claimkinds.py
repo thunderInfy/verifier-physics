@@ -176,6 +176,25 @@ KINDS: dict[str, dict] = {
         "layers": ["schemes"], "meaning": "ssp_preserves_meaning",
         "params": {"method": {"schemes": "claims.ssp.method"}, "property": {"schemes": "claims.ssp.property"},
                    "cfl": {"schemes": "claims.ssp.cfl"}}},
+    "ssp_class_preserves": {
+        "gloss": "every explicit s-stage Runge-Kutta method in Shu-Osher form whose coefficients satisfy the stated "
+                 "linear conditions keeps every convex property forward Euler keeps, under dt <= c dt_FE",
+        "quantifier": "for every alpha, beta satisfying the conditions, every convex set S, every F with forward Euler "
+                      "keeping S on [0, dt_FE], every u^n in S and every dt in [0, c dt_FE]: every stage is in S",
+        # TODO: "ssp_class_preserves_meaning" (lean/PhysVerify/SSP.lean) once a Lean build checks it
+        "layers": ["schemes"], "meaning": None,
+        "params": {"stages": {"schemes": "claims.ssp_class.stages"}, "c": {"schemes": "claims.ssp_class.c"},
+                   "conditions": {"schemes": "claims.ssp_class.conditions?"},
+                   "families": {"schemes": "claims.ssp_class.families?"}}},
+    "ssp_coefficient": {
+        "gloss": "the SSP coefficient C of an explicit Runge-Kutta method (its radius of absolute monotonicity) "
+                 "stands in the stated relation (=, <=, >=, <, >) to a value or to another method's C",
+        "quantifier": "one statement about two numbers: C(method) R value, or C(method) R C(other)",
+        "layers": ["schemes"], "meaning": None,
+        "params": {"method": {"schemes": "claims.ssp_coefficient.method"},
+                   "relation": {"schemes": "claims.ssp_coefficient.relation?"},
+                   "value": {"schemes": "claims.ssp_coefficient.value?"},
+                   "other": {"schemes": "claims.ssp_coefficient.other?"}}},
     # variational integrators and explicit update maps (physverify/variational.py)
     # TODO: `consistent_order_p`, `exact_order_p` and the scheme orders stay gloss only; a Lean
     # meaning needs Taylor expansion with remainder over smooth solutions.

@@ -13,6 +13,9 @@ import json
 from pathlib import Path
 
 from . import checks, claims, convergence, entropy, fixedjump, identity, limiters, linear, shock, shockspeed, ssp, systems
+from . import ssp_class
+
+CLASS_ONLY = {"ssp_class_preserves": ssp_class.ssp_class, "ssp_coefficient": ssp_class.ssp_coefficient}
 
 
 def load(path) -> dict:
@@ -22,6 +25,9 @@ def load(path) -> dict:
 def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) -> dict:
     names = spec.get("named_claims", [])
     claims.validate(names)
+    if names and set(names) <= set(CLASS_ONLY):          # claims about Runge-Kutta coefficients alone: no scheme
+        out = [f(spec) for n, f in CLASS_ONLY.items() if n in names]
+        return {"checks": out, "claims": claims.judge(names, out)}
     if systems.is_system(spec):
         out = systems.check_all(spec)
         return {"checks": out, "claims": claims.judge(names, out)}
@@ -65,6 +71,7 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
         out += [limiters.truncation_branches(spec), limiters.truncation_smooth_data(spec)]
     if "ssp" in params or "ssp_preserves" in names:
         out += [ssp.ssp(spec), ssp.ssp_linear(spec), ssp.ssp_violation(spec)]
+    out += [f(spec) for n, f in CLASS_ONLY.items() if n in names]
     # preconditions of the convergence rows for correct_shock_speed and limit_is_weak_solution
     out += [f(spec) for c, f in (("flux_lipschitz", shockspeed.flux_lipschitz),
                                  ("shock_scope_monotone", shockspeed.shock_scope_monotone),

@@ -26,6 +26,8 @@ linearly ordered field `𝕜` (`ℚ` and `ℝ` both work), and `F` is any map, n
 * `ssp_stage_mem`: the lemma, with the step bound `Δt * β ≤ α * τ` written without division.
 * `ssp_preserves_meaning`: the same with an SSP coefficient `c` (`c * β ≤ α`) and `Δt ≤ c * τ`;
   the claim kind `ssp_preserves` reads this way.
+* `ssp_class_preserves_meaning`: the same for every method of a class whose members have
+  non-negative arrays, unit row sums and ratio `c > 0`; the claim kind `ssp_class_preserves`.
 * `ssp_convexOn_le`: a convex functional that forward Euler does not increase is not increased
   by any stage (total variation, a norm, a convex entropy).
 * `ssp_nonneg`, `ssp_bounds`: positivity and the global maximum principle on `ι → 𝕜`.
@@ -126,6 +128,29 @@ theorem ssp_preserves_meaning {S : Set E} (hS : Convex 𝕜 S) {F : E → E} {τ
     _ = τ * (c * m.β i k) := by ring
     _ ≤ τ * m.α i k := mul_le_mul_of_nonneg_left (hc i k hki hi) hτ
     _ = m.α i k * τ := by ring
+
+/-- The meaning of the claim kind `ssp_class_preserves`: a class `K` of methods (any predicate,
+for instance a list of linear conditions on `α`, `β`) whose members all have non-negative arrays,
+rows of `α` summing to 1 and SSP coefficient `c > 0`. Then every method of the class keeps every
+stage in `S` for `0 ≤ dt ≤ c * τ`. With `c > 0`, `α i k = 0` forces `β i k = 0`, so each member is
+`Admissible` and `ssp_preserves_meaning` applies. -/
+theorem ssp_class_preserves_meaning {K : ShuOsher 𝕜 → Prop} {c : 𝕜} (hc0 : 0 < c)
+    (hK : ∀ m, K m → (∀ i k, k < i → i ≤ m.s → 0 ≤ m.α i k ∧ 0 ≤ m.β i k) ∧
+      (∀ i, 0 < i → i ≤ m.s → ∑ k ∈ range i, m.α i k = 1) ∧ m.Ratio c)
+    {S : Set E} (hS : Convex 𝕜 S) {F : E → E} {τ : 𝕜} (hτ : 0 ≤ τ) (hFE : FEInvariant S F τ)
+    {m : ShuOsher 𝕜} (hm : K m) {dt : 𝕜} (hdt : 0 ≤ dt) (hdtc : dt ≤ c * τ)
+    {u : ℕ → E} (hu : m.Stages F dt u) (h0 : u 0 ∈ S) : ∀ i ≤ m.s, u i ∈ S := by
+  obtain ⟨hnn, hsum, hr⟩ := hK m hm
+  have hadm : m.Admissible := by
+    refine ⟨fun i k hki hi => ⟨(hnn i k hki hi).1, (hnn i k hki hi).2, fun hz => ?_⟩, hsum⟩
+    have h1 := hr i k hki hi
+    rw [hz] at h1
+    have h2 : m.β i k ≤ 0 := by
+      by_contra h
+      push_neg at h
+      exact absurd h1 (not_le.mpr (mul_pos hc0 h))
+    exact le_antisymm h2 (hnn i k hki hi).2
+  exact ssp_preserves_meaning hS hτ hFE hadm hr hdt hdtc hu h0
 
 /-- A convex functional `φ` that no forward-Euler step of length `t ∈ [0, τ]` increases is not
 increased by any stage. -/
