@@ -636,7 +636,8 @@ def outside_lean_labels() -> dict:
         named[key] = {v["claim"]: v for v in rep["claims"]}
         assert {n: v["verdict"] for n, v in named[key].items()} == flat[key]
     lean = lambda v: v["guarantee"].startswith("proven (Lean")
-    decided, label, python_only = 0, [], 0
+    decided, label, python_only, per_cell = 0, [], 0, 0
+    whole = lambda v: lean(v) and not v["guarantee"].startswith("proven (Lean, per cell")
     for e in data["items"]:
         for r in e["readings"]:
             rv = rd.reading_verdict(r, flat)
@@ -649,9 +650,11 @@ def outside_lean_labels() -> dict:
             quant = all if rv["verdict"] == "VERIFIED" else any
             if quant(lean(named[rd._key(c)][c["claim"]]) for c, _ in comps):
                 label.append(e["id"])
+                per_cell += not quant(whole(named[rd._key(c)][c["claim"]]) for c, _ in comps)
             elif quant(c["claim"] in reconstruction.CLAIMS for c, _ in comps):
                 python_only += 1
     return {"decided readings": str(decided), "decided with a Lean label": str(len(label)),
+            "of which per cell": str(per_cell),
             "decided resting on claims with no Lean statement": str(python_only),
             "items with a Lean-labelled reading": ", ".join(dict.fromkeys(label)) or "none"}
 

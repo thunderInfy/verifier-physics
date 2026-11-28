@@ -123,7 +123,8 @@ in one step. A scheme is \emph{monotone} if $H$ is non-decreasing in each of its
 any one input value never lowers the output. Monotone schemes matter because of a theorem of
 Crandall and Majda \cite{crandallmajda1980}: with $\lambda$ fixed, under the CFL condition, for bounded
 integrable initial data, a conservative, consistent, monotone scheme converges as $\Delta x \to 0$ to the
-physically correct (entropy) solution.
+physically correct (entropy) solution. The checker does not prove this theorem: like every theorem behind
+its table, it is a premise carried into the verdict (Section~\ref{sec:trust}).
 
 \paragraph{The formal reading.} The checker reads a scheme as a JSON \emph{spec}. Here it holds the
 PDE flux \code{u\^{}2/2} and the numerical flux as written, with $|x|$ spelled
@@ -154,7 +155,9 @@ H(1, \tfrac{101}{100}, -\tfrac{9}{10}) = \text{\rn{$\tfrac{18011}{100000}$}{test
 with CFL number \rn{$909/1000$}{paper_numbers.py::rusanov_hand_pair}~$\le 1$. A test evaluates both
 values in the spec's own normal form and in an independent implementation of $\max$, and they agree.
 
-\paragraph{The sharp bound.} The same check, asked about $c = 1/3$, returns \V. It covers the state
+\paragraph{The sharp bound.} The same check, asked about $c = 1/3$, returns \V. (Verdicts are written in
+capitals: \V{} and \R{} are exact, \NR{} and \RE{} come from float64 studies, \U{} means undecided, and the
+benchmarks add \UF{} for a sentence no claim kind expresses; Appendix~\ref{app:glossary} lists them.) It covers the state
 space with \rn{32}{paper_numbers.py::rusanov_bounds} sign cells and certifies all
 \rn{96}{paper_numbers.py::rusanov_bounds} partial derivatives (three per cell) by Farkas identities.
 On the cell $u_i \ge u_{i+1} \ge 0$, $u_i \ge u_{i-1} \ge 0$, for example, the identity for the
@@ -374,8 +377,10 @@ likely to write. In one case, C07, the expected value differs from the one first
 notes, because of the counterexample in Section~\ref{sec:example}. ``0 wrong'' is evidence that the
 checks and the table are consistent with our reading of the literature on these 44 readings. It is
 not an error rate on claims from published papers. The outside benchmark (Section~\ref{sec:outside})
-addresses this in part. Its sentences and expected values were fixed blind, but the formal readings
-were written by us, knowing the expected values, and only its development half has been run.
+addresses this in part. Its sentences and expected values were fixed blind. The readings of its
+development half were written by us, knowing the expected values, and we tuned the checker on them; its
+held-out half and the second outside benchmark were read blind, and there the checker decides none of the
+clean sentences (Sections~\ref{sec:heldout} and~\ref{sec:v2}).
 
 \paragraph{Scope.} One space dimension. Scalar conservation laws, plus $2\times2$ systems for
 hyperbolicity, conservation, consistency and depth positivity (shallow water). Three-point stencils,
@@ -394,8 +399,10 @@ Each reading is a conjunction of \emph{components}, and each component is either
 \begin{itemize}
 \item a named claim from the trusted table, applied to a spec file (sometimes with an override, such as
   a different CFL range), with a \emph{relation} to the reading: \code{same} (the named claim is the
-  conjunct), \code{necessary} (the conjunct implies the named claim, so only a refutation transfers) or
-  \code{sufficient} (the named claim implies the conjunct, so only a verification transfers); or
+  conjunct; the files' name for \EQV), \code{necessary} (the conjunct implies the named claim, so only a
+  refutation transfers) or \code{sufficient} (the named claim implies the conjunct, so only a verification
+  transfers). This one-way transfer is the relation's \emph{polarity}; Section~\ref{sec:judge} uses the
+  same three relations, with the same polarity, between checks and claims; or
 \item an \code{unformalized} note, saying why no named claim expresses it.
 \end{itemize}
 A component may carry a \emph{bridge}: a stated lemma that links the sentence's wording to the named
@@ -640,24 +647,35 @@ Of the \rn{598}{paper_numbers.py::lean_replay_all} distinct theorems, Lean accep
 \rn{1644\,s}{paper_numbers.py::lean_replay_all} of wall time, plus one retry of
 \rn{1204\,s}{paper_numbers.py::lean_replay_all}; the median theorem takes
 \rn{4.2\,s}{paper_numbers.py::lean_replay}, and none needs more than
-\rn{2.6\,GB}{paper_numbers.py::lean_replay}. Two are not accepted, and both are findings about the
-planner, not about the verdicts, which do not change:\repro{paper_numbers.py::lean_replay_all}
+\rn{2.6\,GB}{paper_numbers.py::lean_replay}. In words rather than the table's status codes: accepted
+\rn{596}{paper_numbers.py::lean_current}, tactic failure \rn{1}{paper_numbers.py::lean_current},
+exceeded the heartbeat cap \rn{1}{paper_numbers.py::lean_current}, found false
+\rn{0}{paper_numbers.py::lean_current}, wall-clock timeouts
+\rn{0}{paper_numbers.py::lean_current}.\repro{tests/test_paper_numbers.py::test_lean_status_vocabulary} Lean
+refuted none of the statements; both failures are proofs the planner could not finish. They are findings
+about the planner, not about the verdicts, which do not change:\repro{paper_numbers.py::lean_replay_all}
 \begin{itemize}
 \item \code{s0\_consistency\_0} on \code{burgers-godunov-squared-form} (our benchmark's C17, the flux
-  rewritten as $\max(a, -b)^2/2$ with $\max$ written through $\sqrt{\cdot}$) is \emph{rejected}. Lean's
+  rewritten as $\max(a, -b)^2/2$ with $\max$ written through $\sqrt{\cdot}$) is a \emph{tactic failure}. Lean's
   error is ``\code{No goals to be solved}'': the planner's chain of tactic alternatives fails on the
   consistency identity $F(u, u) = u^2/2$. The check keeps its exact-Python label. The reading would
   not carry a Lean label even if this theorem were accepted, since its entropy claim rests on the
   entropy check's \V{} cells, which are not replayed.
 \item \code{s0\_tvd\_harten} on \code{advection-superbee} (the TVD claim itself, through Harten's lemma)
-  is \emph{rejected}. It reached the 20-minute limit; in one retry with a 60-minute limit Lean
+  \emph{exceeds the heartbeat cap}. It reached the 20-minute limit; in one retry with a 60-minute limit Lean
   stopped by itself after \rn{1204\,s}{paper_numbers.py::lean_replay_all} with
   ``\code{(deterministic) timeout at `«tactic execution»', maximum number of heartbeats (4000000) has
   been reached}'', at the heartbeat cap that the judge's preamble sets. Within that cap the planner's
   proof (Harten's lemma with every limiter fact split into its sign cases) does not finish, so this is
-  a rejection, not a wall-clock timeout; we did not raise the cap. Superbee's TVD verdict keeps the
-  per-cell label of its sign-cell theorems, which are all accepted.
+  a failed proof (status code \code{rejected}), not a wall-clock timeout; we did not raise the cap.
+  Superbee's TVD verdict keeps the per-cell label of its sign-cell theorems, which are all accepted.
 \end{itemize}
+Every number above is pinned at \code{b2cafbe} (\code{lean\_measured\_b2cafbe.json}). The current store,
+re-measured on the same machine after the SSP class kinds were added
+(\code{lean\_measured\_f09a5cb.json}), has \rn{600}{paper_numbers.py::lean_current} distinct theorems,
+\rn{598}{paper_numbers.py::lean_current} accepted, the same two failures, and
+\rn{12/12}{paper_numbers.py::lean_current} meaning theorems of the claim-kind registry on the standard
+axioms only.\repro{tests/test_paper_numbers.py::test_lean_measurement_covers_every_meaning_theorem_of_the_registry}
 Not yet replayed, so these verdicts keep the exact-Python
 label: consistency of a flux recovered from an update (no spec in the corpus needs it), the cells of the
 five-point monotonicity check (nothing in the corpus is \V{} there), the entropy check's \V{} cells,
@@ -716,7 +734,8 @@ unsettled); the verdict and result are from
   not monotone, so Crandall--Majda does not apply, and only the rarefaction study bears on it).
 \item \emph{Formula dependence} (C17 reading 1).
 \end{itemize}
-Every gap is \U, \NR{} or \UF, never a wrong verdict. Most expected-true claims that we could not
+Every gap is \U, \NR{} or \UF, never a wrong verdict, on a benchmark that we wrote and that the checker
+was built against. Most expected-true claims that we could not
 verify are claims about limits; most expected-false claims are refuted exactly, even when nothing could
 verify the true version of the sentence.
 
@@ -831,7 +850,7 @@ All \rn{27}{paper_numbers.py::outside_dev} readings narrow their sentence.
 of the \rn{27}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} readings are decided:
 \rn{18}{paper_numbers.py::outside_dev} \V{} and \rn{8}{paper_numbers.py::outside_dev} \R, all exact
 (rational arithmetic; in the measured Lean run, \rn{9}{paper_numbers.py::outside_lean_labels} of the
-26 also carry a Lean label). The
+26 also carry a Lean label, \rn{1}{paper_numbers.py::outside_lean_labels} of them per cell). The
 \rn{1}{paper_numbers.py::outside_dev} undecided reading is \code{tecno:02}'s (expected UNSURE):
 \code{stated\_identity} verifies its entropy-conservation clause, but its second-order clause has no
 claim kind, so the conjunction is \U. In the first run the two readings of one sentence of Harten's
@@ -1158,8 +1177,9 @@ $|g|^2$ is \rn{$5/4$}{paper_numbers.py::certificate_examples} at $\nu = 1$, $\co
 at $\Delta t/\Delta x = 1/2$ to $T = 1/4$ shows order 1 in the refinement study (\NR); only the exact
 check sees the instability.\repro{tests/test_schemes.py::test_ftcs_study_can_miss_the_instability}
 
-\paragraph{Where a WENO order drops, and where it does not.} Two findings of the reconstruction
-checker (\code{reconstruction\_order\_p}, \code{physverify/reconstruction.py}) changed what we wrote
+\paragraph{Where a WENO order drops, and where it does not.} At a critical point of WENO5-JS, one face
+value keeps fifth order; the difference of two drops to third. That is the first of two findings of the
+reconstruction checker (\code{reconstruction\_order\_p}, \code{physverify/reconstruction.py}) changed what we wrote
 about WENO orders.
 
 First, the loss to order 3 of WENO5-JS at a first-order critical point ($f' = 0 \ne f''$), with
@@ -1279,16 +1299,22 @@ different (positivity, maximum principles, invariant domains), so new checks are
 
 \paragraph{Reward signals.} A checker that never certifies a false claim can grade a model that writes
 schemes and claims about them. A verdict of \U{} or \NR{} must earn nothing, or a model learns to write
-claims nothing can decide. Our own benchmark needs adversarial entries, and the outside benchmark
-needs its held-out half run and a reading step that does not depend on us, before either can support
-that use.
+claims nothing can decide. Out of sample the checker now decides almost nothing
+(Section~\ref{sec:heldout}, Section~\ref{sec:v2}), so as a grader it would mostly return \U; our own
+benchmark also needs adversarial entries before it can support that use.
 
-\paragraph{What the outside benchmark asks for.} Its largest gap is claims about classes of schemes
-(``a monotone scheme is TVD''). These need Lean statements in which the numerical flux is a variable,
-not more checks on single specs. The next largest are reconstruction schemes (WENO, ENO, DG and their
-limiters), then several space dimensions and systems.\repro{paper_numbers.py::outside_dev}
+\paragraph{What the outside benchmarks ask for.} In both held-out runs the largest gap is claims about
+classes of schemes (``a monotone scheme is TVD'', ``every SSP method keeps the bound'').
+These need statements in which the scheme is a variable: Lean carries the quantifier over the class, and
+the exact Python checks certify that a given scheme belongs to the class. The SSP class kinds of
+Section~\ref{sec:posthoc} are a first case. The second need is a reading step that states the sentence
+rather than an instance, and records its quantifier when it does narrow, so that the narrowing rule can
+use it. The next gaps are systems, several space dimensions and time
+stepping.\repro{paper_numbers.py::outside_heldout}
 
-\paragraph{Exact conservation certificates for update maps.} Another layer of the repository already
+\paragraph{Exact conservation certificates for update maps.} This paragraph is here because the claim kind
+it describes is the same mechanism (an exact identity, refuted at a rational point, replayed through a
+meaning theorem) applied to time-stepping maps, which is where the outside benchmarks point. Another layer of the repository already
 gives exact certificates of the same kind for explicit update maps $z' = \Phi(z)$ of mechanical
 systems: the claim kind \code{update\_conserves} says $J(\Phi(z)) = J(z)$ for every $z$ in the domain,
 decided by an exact rational-function identity or refuted at a rational point, and replayed in Lean
@@ -1384,14 +1410,29 @@ current main (commit \code{9e906e7}). The merge gate is
   benchmark \UF{} (no named claim expresses the reading).
 \item[Match, gap, wrong] A decisive verdict that agrees with the expected truth; a non-decisive one; a
   decisive one that disagrees.
+\item[Narrowed, instance] A reading that fixes a parameter the sentence leaves free (one flux for ``every
+  flux'', $c = 1$ for every advection speed) is narrowed to an instance. Its verdict is about the instance;
+  under the narrowing polarity rule it can only refute a universal sentence and only verify an existential
+  one.
+\item[Contaminated source] A source we had read while building the checker. Its sentences are reported
+  apart from the clean ones.
+\item[Alone, with hypotheses] The two expected values of an outside sentence: the sentence read by
+  itself, or with every hypothesis the source states for it anywhere. For ``upwind is stable'' read alone
+  in the first outside benchmark there is no CFL bound (so it is FALSE); with hypotheses it has the
+  source's $0 \le \nu \le 1$ (TRUE). The second benchmark reads ``alone'' with the field's standing
+  conditions, such as some CFL condition for an explicit scheme.
+\item[Grid-commensurate] A parameter at which a measured quantity lines up with the grid (a profile moves
+  a whole number of cells in the measuring window), so an empirical error can vanish for a reason that has
+  nothing to do with the scheme.
 \end{description}
 
 \paragraph{Claim kinds.} Table~\ref{tab:kinds} is generated from the registry
 \code{physverify/claimkinds.py} (\code{paper\_numbers.py --write-table}), and a test fails if the
 table in the paper drifts from it.\repro{tests/test_paper_numbers.py::test_claim_kind_table_matches_the_registry}
-Of the \rn{33}{paper_numbers.py::claim_kinds} kinds, \rn{9}{paper_numbers.py::claim_kinds} have a
-Lean meaning theorem; of the \rn{22}{paper_numbers.py::claim_kinds} kinds used for schemes, only
-\rn{2}{paper_numbers.py::claim_kinds} do (\code{conservative} and \code{positive\_under\_cfl}).
+Of the \rn{43}{paper_numbers.py::claim_kinds} kinds, \rn{12}{paper_numbers.py::claim_kinds} have a
+Lean meaning theorem; of the \rn{25}{paper_numbers.py::claim_kinds} kinds used for schemes, only
+\rn{4}{paper_numbers.py::claim_kinds} do (\code{conservative}, \code{positive\_under\_cfl},
+\code{ssp\_preserves} and \code{ssp\_class\_preserves}).
 
 A Lean \emph{label} on a verdict is a different thing: it says that the certificate behind the verdict
 was replayed by the kernel, against a statement the judge wrote from the spec. In the measured Lean
@@ -1410,12 +1451,13 @@ rows, consistency of a recovered flux, the entropy check's \V{} cells) or are em
 their exact-Python or empirical label. We count a \V{} reading if all its components carry a Lean label, and a \R{}
 reading if one of its refuting components does. The judge states
 \rn{405}{paper_numbers.py::bench_lean_labels} theorems for the benchmark's specs, and Lean accepts
-\rn{403}{paper_numbers.py::bench_lean_labels}; the two others are the two rejections above.
+\rn{403}{paper_numbers.py::bench_lean_labels}; the two others are the two failures above.
 Taking every stated theorem as accepted, as an earlier version of this paper did, gives the same
 \rn{18}{paper_numbers.py::bench_lean_labels}, but with \rn{2}{paper_numbers.py::bench_lean_labels} per
 cell: superbee's TVD verdict (C21) has only the per-cell label in the measured run. On the outside
 benchmark, \rn{9}{paper_numbers.py::outside_lean_labels} of the
-\rn{26}{paper_numbers.py::outside_lean_labels} decided dev readings carry a Lean label;
+\rn{26}{paper_numbers.py::outside_lean_labels} decided dev readings carry a Lean label
+(\rn{1}{paper_numbers.py::outside_lean_labels} of them per cell);
 \rn{11}{paper_numbers.py::outside_lean_labels} rest on claim kinds checked in Python only
 (reconstruction order, the scaling limiter, ENO), which have no Lean statement.
 Only \rn{5}{paper_numbers.py::bench_lean_labels} of the 34 verdicts rest
