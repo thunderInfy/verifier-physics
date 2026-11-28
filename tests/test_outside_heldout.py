@@ -1,5 +1,7 @@
-"""The heldout half of the outside benchmark, phase B (benchmark/outside/run_heldout.py): the pin, the override
-merge, and that HELDOUT_RESULTS.md and heldout_verdicts.json are what the frozen checker gives now."""
+"""The heldout half of the outside benchmark, phase B (benchmark/outside/run_heldout.py): the record of the run
+at the pin (the pin commit, the verdicts file's sha256, the readings), the override merge, and that
+HELDOUT_RESULTS.md is rendered from heldout_verdicts.json. The result belongs to the pin commit: once main
+changes physverify/ or lean/, the checker is not re-run here."""
 import copy
 import importlib.util
 import json
@@ -15,11 +17,25 @@ H = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(H)
 
 
-def test_checker_and_readings_are_frozen():
-    assert H.frozen_errors() == []
+def test_heldout_record_is_intact():
+    """The pin commit exists, heldout_verdicts.json names it and has the sha256 HELDOUT_PIN.md records, and
+    each readings file is byte-identical to its readings commit (recorded there too)."""
+    assert H.record_errors() == []
     assert H.PIN in (B / "HELDOUT_PIN.md").read_text()
-    for c in H.READINGS_COMMITS.values():
-        assert c in (B / "HELDOUT_PIN.md").read_text()
+
+
+def test_record_check_catches_a_changed_verdicts_file(tmp_path, monkeypatch):
+    for name in ("heldout_verdicts.json", "HELDOUT_PIN.md", *H.READINGS_COMMITS):
+        (tmp_path / name).write_bytes((B / name).read_bytes())
+    monkeypatch.setattr(H, "HERE", tmp_path)
+    monkeypatch.setattr(H, "PIN_MD", tmp_path / "HELDOUT_PIN.md")
+    assert H.record_errors() == []
+    (tmp_path / "heldout_verdicts.json").write_bytes((B / "heldout_verdicts.json").read_bytes() + b"\n")
+    assert H.record_errors() == ["heldout_verdicts.json does not have the sha256 recorded in HELDOUT_PIN.md"]
+
+
+def _checker_is_the_pins() -> bool:
+    return not H.git("diff", "--name-only", H.PIN, "--", "physverify/", "lean/").strip()
 
 
 def test_deep_merge_keeps_what_the_override_does_not_name():
@@ -48,6 +64,15 @@ def fresh():
     return H.compute()
 
 
+@pytest.fixture(scope="module")
+def stored():
+    return json.loads((B / "heldout_verdicts.json").read_text())
+
+
+# Re-scores with the current checker and compares with the pinned verdicts, so it runs only while physverify/ and
+# lean/ are the pin's; once main changes the checker it is skipped, and the record test stands for it.
+@pytest.mark.skipif(not _checker_is_the_pins(), reason="physverify/ or lean/ differ from the heldout pin: the result "
+                    "belongs to the pin and is checked by its sha256 (test_heldout_record_is_intact)")
 def test_stored_verdicts_are_what_the_checker_gives_now(fresh):
     assert json.loads((B / "heldout_verdicts.json").read_text()) == json.loads(json.dumps(fresh, ensure_ascii=False))
 
@@ -57,18 +82,20 @@ def test_results_md_is_generated_from_the_verdicts_json():
     assert (B / "HELDOUT_RESULTS.md").read_text() == H.render(stored)
 
 
-def test_every_wrong_is_classed_and_contaminated_sources_are_split_out(fresh):
-    for r in fresh["rows"]:
+# this test and the next read the stored, sha256-checked verdicts (they ran on a fresh re-score while the
+# checker was the pin's, which test_stored_verdicts_are_what_the_checker_gives_now equated with the stored file)
+def test_every_wrong_is_classed_and_contaminated_sources_are_split_out(stored):
+    for r in stored["rows"]:
         for f, c in r.get("wrong_class", {}).items():
             assert c["class"] in ("checker", "reading") and c["why"], (r["id"], f)
-    t = fresh["headline"]
+    t = stored["headline"]
     assert t["all"]["items"] == 77
-    assert t["without both contaminated sources"]["items"] == 77 - len(fresh["contaminated_items"])
+    assert t["without both contaminated sources"]["items"] == 77 - len(stored["contaminated_items"])
 
 
-def test_erratum_candidate_rests_on_an_exact_check(fresh):
-    e = fresh["erratum_candidate"]
+def test_erratum_candidate_rests_on_an_exact_check(stored):
+    e = stored["erratum_candidate"]
     assert e["as_printed"]["check_status"] == "REFUTED" and e["as_printed"]["guarantee"].startswith("exact")
     assert e["with_dv_factor"]["check_status"] == "VERIFIED"
-    assert all(s["A2_score"] == "ERRATUM_CANDIDATE" for s in fresh["a2_sensitivity"] if s["id"] == e["id"])
+    assert all(s["A2_score"] == "ERRATUM_CANDIDATE" for s in stored["a2_sensitivity"] if s["id"] == e["id"])
     assert "tadmor_2003_acta:17" in (B / "ERRATA_PROPOSED.md").read_text()

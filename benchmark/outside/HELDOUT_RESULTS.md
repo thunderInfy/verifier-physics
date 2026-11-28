@@ -7,8 +7,10 @@ verdict (or no reading) on TRUE/FALSE, UNSCORED an UNSURE expectation. Only read
 
 ## Pin
 
-- Checker: `b2cafbebed25a0aab659616eaafcd8db90c49426`; `git diff` of `physverify/` and `lean/` against it is empty at HEAD and in
-  the working tree (asserted by `frozen_errors()` before anything runs, and by `tests/test_outside_heldout.py`).
+- Checker: `b2cafbebed25a0aab659616eaafcd8db90c49426`; `git diff` of `physverify/` and `lean/` against it was empty at HEAD and in
+  the working tree when these results were written (asserted by `frozen_errors()` before anything runs). The
+  result belongs to that commit; later checker changes on main do not re-score it. `tests/test_outside_heldout.py`
+  checks the record: the pin exists, `heldout_verdicts.json` names it and has the sha256 in `HELDOUT_PIN.md`.
 - `heldout_readings.json`: byte-identical at HEAD, on disk and at its readings commit `2774e571164a245189a89a1fe7584340ddc3aac7`, the last commit touching it.
 - `heldout_readings_a2.json`: byte-identical at HEAD, on disk and at its readings commit `0d16ffeda6c295d35c21f03c905998fd3086cd58`, the last commit touching it.
 - Lean was not run: every verdict is the Python checker's (exact verdicts are Fraction arithmetic, their

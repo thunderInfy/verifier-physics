@@ -7,7 +7,9 @@ reading-sensitivity check. With --write it stores heldout_verdicts.json and rend
 from it (every number in the .md comes from the .json).
 
 Nothing runs unless the pin holds: physverify/ and lean/ unchanged since the A0 commit, and both readings
-files byte-identical to their readings commits (frozen_errors). The checker is never changed here.
+files byte-identical to their readings commits (frozen_errors). The checker is never changed here. The
+result belongs to the pin commit; once main changes the checker this script no longer runs there, and the
+merge gate checks the record instead (record_errors).
 
 Scorer code, not trusted code. It differs from run_dev.py in two places, both outside physverify/:
 - overrides are deep-merged into the base spec (deep_merge). run_dev.py applies none to reconstruction
@@ -21,8 +23,10 @@ A component whose spec (base + override) makes the checker raise is SPEC_ERROR; 
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -118,6 +122,35 @@ def frozen_errors() -> list[str]:
             errs.append(f"{name} is not byte-identical to its readings commit {commit[:7]}")
         if git("log", "-1", "--format=%H", "HEAD", "--", path).decode().strip() != commit:
             errs.append(f"{name}: the last commit touching it is not {commit[:7]}")
+    return errs
+
+
+PIN_MD = HERE / "HELDOUT_PIN.md"
+
+
+def recorded_sha256() -> str:
+    """The sha256 of heldout_verdicts.json as HELDOUT_PIN.md records it."""
+    return re.search(r"`heldout_verdicts\.json` sha256: `([0-9a-f]{64})`", PIN_MD.read_text())[1]
+
+
+def record_errors() -> list[str]:
+    """What the merge gate checks now that main has moved on from the pin (frozen_errors still guards
+    --write): the pin commit exists, heldout_verdicts.json names it and has the sha256 HELDOUT_PIN.md
+    records, and each readings file is byte-identical to its readings commit. The checker is not re-run:
+    the held-out result belongs to PIN, not to the current physverify/."""
+    errs = []
+    if subprocess.run(["git", "cat-file", "-e", f"{PIN}^{{commit}}"], cwd=ROOT, capture_output=True).returncode:
+        errs.append(f"the pin commit {PIN[:7]} is not in the repository")
+    raw = (HERE / "heldout_verdicts.json").read_bytes()
+    if json.loads(raw)["pin"]["checker"] != PIN:
+        errs.append(f"heldout_verdicts.json does not name the pin {PIN[:7]}")
+    if hashlib.sha256(raw).hexdigest() != recorded_sha256():
+        errs.append("heldout_verdicts.json does not have the sha256 recorded in HELDOUT_PIN.md")
+    for name, commit in READINGS_COMMITS.items():
+        if commit not in PIN_MD.read_text():
+            errs.append(f"HELDOUT_PIN.md does not record the readings commit {commit[:7]} of {name}")
+        if git("show", f"{commit}:benchmark/outside/{name}") != (HERE / name).read_bytes():
+            errs.append(f"{name} is not byte-identical to its readings commit {commit[:7]}")
     return errs
 
 
@@ -456,8 +489,10 @@ def render(v: dict) -> str:
          "MATCH is VERIFIED on TRUE or REFUTED on FALSE, WRONG a decisive verdict against TRUE/FALSE, GAP no decisive",
          "verdict (or no reading) on TRUE/FALSE, UNSCORED an UNSURE expectation. Only reader A1's readings count.", "",
          "## Pin", "",
-         f"- Checker: `{v['pin']['checker']}`; `git diff` of `physverify/` and `lean/` against it is empty at HEAD and in",
-         "  the working tree (asserted by `frozen_errors()` before anything runs, and by `tests/test_outside_heldout.py`).",
+         f"- Checker: `{v['pin']['checker']}`; `git diff` of `physverify/` and `lean/` against it was empty at HEAD and in",
+         "  the working tree when these results were written (asserted by `frozen_errors()` before anything runs). The",
+         "  result belongs to that commit; later checker changes on main do not re-score it. `tests/test_outside_heldout.py`",
+         "  checks the record: the pin exists, `heldout_verdicts.json` names it and has the sha256 in `HELDOUT_PIN.md`.",
          ]
     for name, c in v["pin"]["readings_commits"].items():
         L.append(f"- `{name}`: byte-identical at HEAD, on disk and at its readings commit `{c}`, the last commit touching it.")
