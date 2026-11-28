@@ -99,7 +99,9 @@ def test_every_rn_key_is_one_paper_numbers_defines():
 def test_numbers_tex_is_what_paper_numbers_gives_now():
     """numbers.tex is what paper_numbers.py generates now from the data files and the checker. A function runs
     only if a file it reads changed since numbers.tex was generated (its recorded inputs sha256); otherwise its
-    recorded values are the ones these files gave. The commit of the data files is recomputed every time."""
+    recorded values are the ones these files gave. The commit of the data files is recomputed every time.
+    After a rebase over checker or data changes, run --write-table to restore the fast path (the check stays
+    correct if you don't, only slower: every function whose inputs moved reruns)."""
     pn = _paper_numbers()
     differ, ran = pn._numbers_differing((PAPER / "numbers.tex").read_text(), compute=_out)
     assert not differ, (differ, HINT)
@@ -110,7 +112,8 @@ def test_numbers_tex_is_what_paper_numbers_gives_now():
 
 
 def test_numbers_check_recomputes_when_an_input_changes(tmp_path):
-    """On a copy of the files paper_numbers.py reads: unchanged, the check runs nothing but the git log; after an
+    """On a copy of the files paper_numbers.py reads, with numbers.tex's input hashes recorded afresh from the
+    copy: unchanged, the check runs nothing but the git log; after an
     edit to heldout_verdicts.json it reruns the functions that read benchmark/outside/ and reports the changed
     number; a value edited by hand in numbers.tex is refused."""
     import importlib.util
@@ -127,7 +130,11 @@ def test_numbers_check_recomputes_when_an_input_changes(tmp_path):
     copy = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(copy)
     assert copy.ROOT == tmp_path
-    text = (tmp_path / "papers/scheme-claims/numbers.tex").read_text()
+    # record the copy's own input hashes (and the data commit now), so the test does not depend on numbers.tex
+    # having been regenerated since the last rebase; the recorded values are kept and nothing runs
+    recorded = {k: (v, fn) for k, v, fn in copy._PNSET.findall((PAPER / "numbers.tex").read_text())}
+    recorded |= {k: (copy._value(k, _out(fn)), fn) for k, (_, fn) in recorded.items() if fn in copy.ALWAYS}
+    text = copy._numbers_tex(numbers=recorded)
     ran = []
 
     def compute(fn):     # the copy has no git history: the data commit and the unchanged functions come from here
