@@ -145,7 +145,8 @@ theorem convex_nonneg (ι : Type*) : Convex 𝕜 {v : ι → 𝕜 | ∀ j, 0 ≤
   simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
   exact add_nonneg (mul_nonneg ha (hx j)) (mul_nonneg hb (hy j))
 
-theorem convex_bounds (ι : Type*) (lo hi : 𝕜) : Convex 𝕜 {v : ι → 𝕜 | ∀ j, lo ≤ v j ∧ v j ≤ hi} := by
+theorem convex_bounds (ι : Type*) (lo hi : 𝕜) :
+    Convex 𝕜 {v : ι → 𝕜 | ∀ j, lo ≤ v j ∧ v j ≤ hi} := by
   intro x hx y hy a b ha hb hab
   simp only [Set.mem_setOf_eq] at hx hy ⊢
   intro j
@@ -165,8 +166,8 @@ theorem ssp_nonneg {ι : Type*} {F : (ι → 𝕜) → (ι → 𝕜)} {τ : 𝕜
     {m : ShuOsher 𝕜} (hm : m.Admissible) {c : 𝕜} (hc : m.Ratio c) {dt : 𝕜} (hdt : 0 ≤ dt)
     (hdtc : dt ≤ c * τ) {u : ℕ → ι → 𝕜} (hu : m.Stages F dt u) (h0 : ∀ j, 0 ≤ u 0 j) :
     ∀ i ≤ m.s, ∀ j, 0 ≤ u i j :=
-  ssp_preserves_meaning (convex_nonneg ι) hτ (fun v hv t ht0 ht => by
-    simpa using hFE v hv t ht0 ht) hm hc hdt hdtc hu h0
+  ssp_preserves_meaning (S := {v : ι → 𝕜 | ∀ j, 0 ≤ v j}) (convex_nonneg ι) hτ
+    (fun v hv t ht0 ht => by simpa using hFE v hv t ht0 ht) hm hc hdt hdtc hu h0
 
 /-- The global maximum principle: if forward Euler keeps data in `[lo, hi]` for `t ∈ [0, τ]`
 (a local maximum principle gives this with `lo = min uⁿ`, `hi = max uⁿ`), so does every stage. -/
@@ -176,8 +177,8 @@ theorem ssp_bounds {ι : Type*} {F : (ι → 𝕜) → (ι → 𝕜)} {τ : 𝕜
     {m : ShuOsher 𝕜} (hm : m.Admissible) {c : 𝕜} (hc : m.Ratio c) {dt : 𝕜} (hdt : 0 ≤ dt)
     (hdtc : dt ≤ c * τ) {u : ℕ → ι → 𝕜} (hu : m.Stages F dt u)
     (h0 : ∀ j, lo ≤ u 0 j ∧ u 0 j ≤ hi) : ∀ i ≤ m.s, ∀ j, lo ≤ u i j ∧ u i j ≤ hi :=
-  ssp_preserves_meaning (convex_bounds ι lo hi) hτ (fun v hv t ht0 ht => by
-    simpa using hFE v hv t ht0 ht) hm hc hdt hdtc hu h0
+  ssp_preserves_meaning (S := {v : ι → 𝕜 | ∀ j, lo ≤ v j ∧ v j ≤ hi}) (convex_bounds ι lo hi) hτ
+    (fun v hv t ht0 ht => by simpa using hFE v hv t ht0 ht) hm hc hdt hdtc hu h0
 
 variable {N : ℕ} [NeZero N]
 
