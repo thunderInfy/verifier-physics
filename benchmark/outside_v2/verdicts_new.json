@@ -1,10 +1,11 @@
 {
  "about": "Checker output for the v2 readings at one pin (run_v2.py --checker-root); scores are computed from this file by run_v2.py --render.",
- "pin": "7c6cd15",
- "checker_commit": "7c6cd1510a9b1ef90d0f7b66b68f16fef99a917f",
+ "pin": "NEW",
+ "checker_commit": "3792caf54dbc66099d9855ec2d3d38b8d4242088",
+ "checker_root_head": "c82603b3e4f858f86ec348c149ad637223bae88d",
  "checker_root": "/home/quetictech/dev/office/worktrees/w0084",
  "physverify_file": "/home/quetictech/dev/office/worktrees/w0084/physverify/__init__.py",
- "lean_store": null,
+ "lean_store": "papers/scheme-claims/lean_measured_d8fb00a.json",
  "readings_commits": {
   "readings.json": "4c82154397c6c8f2ce1176870b7f283c5b2cc124",
   "readings_a2.json": "c6f480d74631f2c4de9cba57fcdd9fdabbdd84a9"

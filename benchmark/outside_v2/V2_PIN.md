@@ -45,4 +45,15 @@ items whose value leaned on a condition the source does not print where the rule
 
 ## Readings commit
 
-(recorded by phase B)
+Recorded by phase B, and checked by `run_v2.py` (`frozen_errors`) and `tests/test_outside_v2_scores.py`: each file
+is byte-identical to its readings commit, which is the last commit touching it.
+
+| file | readings commit |
+|---|---|
+| `readings.json` (A1, all 95 items) | `4c82154397c6c8f2ce1176870b7f283c5b2cc124` (Bench v2 readings (A1): blind reader pass over all 95 items; rebased from d1ad108) |
+| `readings_a2.json` (A2, the 22-item subset) | `c6f480d74631f2c4de9cba57fcdd9fdabbdd84a9` (Bench v2 readings (A2): blind readings of the 22-item agreement subset) |
+
+## Spec translation (phase B)
+
+The specs the readings name were written by the scorer in the commit with subject "Bench v2 B: spec translation",
+before the first checker run (`TRANSLATION.md`). The test asserts that specs/ at HEAD equals that commit.

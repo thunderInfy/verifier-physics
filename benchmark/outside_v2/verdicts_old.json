@@ -2,6 +2,7 @@
  "about": "Checker output for the v2 readings at one pin (run_v2.py --checker-root); scores are computed from this file by run_v2.py --render.",
  "pin": "OLD",
  "checker_commit": "b2cafbebed25a0aab659616eaafcd8db90c49426",
+ "checker_root_head": "b2cafbebed25a0aab659616eaafcd8db90c49426",
  "checker_root": "/tmp/w0084-old-pin",
  "physverify_file": "/tmp/w0084-old-pin/physverify/__init__.py",
  "lean_store": "papers/scheme-claims/lean_measured_b2cafbe.json",
