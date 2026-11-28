@@ -89,9 +89,8 @@ and gives \rn{0}{paper_numbers.py::bench_counts} wrong verdicts; we wrote those 
 expected values ourselves (Section~\ref{sec:trust}). The exact checks run in Python with rational
 arithmetic, and many of their verdicts are replayed in the Lean proof assistant. In a measured run
 over every spec this paper counts, the judge states \rn{598}{paper_numbers.py::lean_replay_all}
-distinct theorems; Lean accepts \rn{596}{paper_numbers.py::lean_replay_all}, rejects
-\rn{1}{paper_numbers.py::lean_replay_all} and does not finish \rn{1}{paper_numbers.py::lean_replay_all}
-within its time limit. \rn{18}{paper_numbers.py::bench_lean_labels} of the
+distinct theorems; Lean accepts \rn{596}{paper_numbers.py::lean_replay_all} and rejects
+\rn{2}{paper_numbers.py::lean_replay_all} (planner proofs that fail; no verdict changes). \rn{18}{paper_numbers.py::bench_lean_labels} of the
 \rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our benchmark carry a Lean label.
 \end{abstract}
 
@@ -612,8 +611,9 @@ set & specs & theorems & accepted & rejected & error & timeout & Lean s \\ \midr
 
 Of the \rn{598}{paper_numbers.py::lean_replay_all} distinct theorems, Lean accepts
 \rn{596}{paper_numbers.py::lean_replay_all}. The sum of their times is
-\rn{4142\,s}{paper_numbers.py::lean_replay_all}, and the run took
-\rn{1644\,s}{paper_numbers.py::lean_replay_all} of wall time; the median theorem takes
+\rn{4147\,s}{paper_numbers.py::lean_replay_all}, and the run took
+\rn{1644\,s}{paper_numbers.py::lean_replay_all} of wall time, plus one retry of
+\rn{1204\,s}{paper_numbers.py::lean_replay_all}; the median theorem takes
 \rn{4.2\,s}{paper_numbers.py::lean_replay}, and none needs more than
 \rn{2.6\,GB}{paper_numbers.py::lean_replay}. Two are not accepted, and both are findings about the
 planner, not about the verdicts, which do not change:\repro{paper_numbers.py::lean_replay_all}
@@ -625,8 +625,12 @@ planner, not about the verdicts, which do not change:\repro{paper_numbers.py::le
   not carry a Lean label even if this theorem were accepted, since its entropy claim rests on the
   entropy check's \V{} cells, which are not replayed.
 \item \code{s0\_tvd\_harten} on \code{advection-superbee} (the TVD claim itself, through Harten's lemma)
-  is a \emph{timeout}: it did not finish in 20 minutes, and not in one retry with a limit of 60
-  minutes.\repro{paper_numbers.py::lean_replay_all} Superbee's TVD verdict therefore keeps the
+  is \emph{rejected}. It reached the 20-minute limit; in one retry with a 60-minute limit Lean
+  stopped by itself after \rn{1204\,s}{paper_numbers.py::lean_replay_all} with
+  ``\code{(deterministic) timeout at `«tactic execution»', maximum number of heartbeats (4000000) has
+  been reached}'', at the heartbeat cap that the judge's preamble sets. Within that cap the planner's
+  proof (Harten's lemma with every limiter fact split into its sign cases) does not finish, so this is
+  a rejection, not a wall-clock timeout; we did not raise the cap. Superbee's TVD verdict keeps the
   per-cell label of its sign-cell theorems, which are all accepted.
 \end{itemize}
 Not yet replayed, so these verdicts keep the exact-Python
@@ -1211,7 +1215,7 @@ rows, consistency of a recovered flux, the entropy check's \V{} cells) or are em
 their exact-Python or empirical label. We count a \V{} reading if all its components carry a Lean label, and a \R{}
 reading if one of its refuting components does. The judge states
 \rn{405}{paper_numbers.py::bench_lean_labels} theorems for the benchmark's specs, and Lean accepts
-\rn{403}{paper_numbers.py::bench_lean_labels}; the two others are the rejection and the timeout above.
+\rn{403}{paper_numbers.py::bench_lean_labels}; the two others are the two rejections above.
 Taking every stated theorem as accepted, as an earlier version of this paper did, gives the same
 \rn{18}{paper_numbers.py::bench_lean_labels}, but with \rn{2}{paper_numbers.py::bench_lean_labels} per
 cell: superbee's TVD verdict (C21) has only the per-cell label in the measured run. On the outside

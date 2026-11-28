@@ -29,10 +29,10 @@
   "specs": 107,
   "theorems": 598,
   "accepted": 596,
-  "rejected": 1,
+  "rejected": 2,
   "error": 0,
-  "timeout": 1,
-  "lean seconds (sum over theorems)": 4142,
+  "timeout": 0,
+  "lean seconds (sum over theorems)": 4147,
   "by kind": {
    "variational": 14,
    "schemes": 43,
@@ -41,8 +41,8 @@
    "kernels": 7
   },
   "not accepted": {
-   "s0_consistency_0": "rejected",
-   "s0_tvd_harten": "timeout"
+   "s0_tvd_harten": "rejected",
+   "s0_consistency_0": "rejected"
   }
  },
  "runs": {
@@ -56,6 +56,17 @@
     1795826650
    ],
    "theorems": 598
+  },
+  "results_retry": {
+   "host": "lean-build",
+   "parallel": 1,
+   "starts": [
+    1795826722
+   ],
+   "ends": [
+    1795827926
+   ],
+   "theorems": 1
   }
  },
  "specs": {
@@ -22324,22 +22335,27 @@
   },
   "e8646bcc61af65f7cd12": {
    "name": "s0_tvd_harten",
-   "status": "timeout",
+   "status": "rejected",
    "axioms": [],
-   "exit": 124,
-   "seconds": 1200.04,
-   "peak_rss_mb": 772,
-   "limit_s": 1200,
+   "exit": 1,
+   "seconds": 1204.47,
+   "peak_rss_mb": 4997,
+   "limit_s": 3600,
    "host": "lean-build",
-   "log": "",
+   "log": "/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:663:50: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:663:16: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (4000000) has been reached\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:654:10: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:653:8: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:652:6: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:651:4: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:639:9298: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:6:0: error: (deterministic) timeout at `whnf`, maximum number of heartbeats (4000000) has been reached\n's0_tvd_harten' does not depend on any axioms",
    "attempts": [
     {
      "status": "timeout",
      "seconds": 1200.04,
      "limit_s": 1200
+    },
+    {
+     "status": "rejected",
+     "seconds": 1204.47,
+     "limit_s": 3600
     }
    ],
-   "message": ""
+   "message": "/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:663:50: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:663:16: error: (deterministic) timeout at `isDefEq`, maximum number of heartbeats (4000000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:654:10: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:653:8: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:652:6: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:651:4: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:639:9298: error: (deterministic) timeout at `«tactic execution»`, maximum number of heartbeats (4000000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n/home/quetictech/office/ceo/w0065/jobs_retry/e8646bcc61af65f7cd12.lean:6:0: error: (deterministic) timeout at `whnf`, maximum number of heartbeats (4000000) has been reached\n\nNote: Use `set_option maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n's0_tvd_harten' does not depend on any axioms\n"
   },
   "e8d820a3d72136a4d742": {
    "name": "s0_tvd_harten_7",
