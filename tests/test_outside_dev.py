@@ -76,3 +76,18 @@ def test_narrowing_rule_maps_a_narrowed_reading_to_the_sentence():
     assert frozen["score"] == {"alone": "WRONG", "with_hypotheses": "WRONG"} and "instance_verdict" not in frozen["actual"][0]
     assert ruled["score"] == {"alone": "GAP", "with_hypotheses": "GAP"}
     assert (ruled["actual"][0]["instance_verdict"], ruled["actual"][0]["verdict"]) == (C.VERIFIED, C.NOT_REFUTED)
+
+
+def test_dev_and_heldout_share_one_deep_merge(rows):
+    """run_heldout.py uses run_dev.deep_merge, so dev and heldout apply overrides the same way, and the switch of
+    run_dev from bench._spec's one-level merge to it moved no dev score (the scores recomputed with it equal
+    those stored in dev_readings.json, which were written before the switch)."""
+    _h = importlib.util.spec_from_file_location("run_heldout_for_dev", B / "run_heldout.py")
+    run_heldout = importlib.util.module_from_spec(_h)
+    _h.loader.exec_module(run_heldout)
+    where = lambda f: (Path(f.__code__.co_filename).name, f.__code__.co_firstlineno)
+    assert where(run_heldout.deep_merge) == where(run_dev.deep_merge) == ("run_dev.py", run_dev.deep_merge.__code__.co_firstlineno)
+    assert run_dev.deep_merge({"a": {"b": 1, "c": 2}, "l": [1]}, {"a": {"b": 3}, "l": [2]}) == \
+        {"a": {"b": 3, "c": 2}, "l": [2]}
+    stored = {e["id"]: e["score"] for e in json.loads((B / "dev_readings.json").read_text())["items"]}
+    assert {r["id"]: r["score"] for r in rows} == stored

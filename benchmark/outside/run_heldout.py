@@ -171,14 +171,7 @@ def load(name: str = "heldout_readings.json") -> dict:
     return json.loads((HERE / name).read_text())
 
 
-def deep_merge(base, override):
-    """override into base, recursively for dicts; any other value (lists included) replaces."""
-    if isinstance(base, dict) and isinstance(override, dict):
-        out = copy.deepcopy(base)
-        for k, v in override.items():
-            out[k] = deep_merge(base[k], v) if k in base else copy.deepcopy(v)
-        return out
-    return copy.deepcopy(override)
+deep_merge = D.deep_merge          # one merge for dev and heldout (run_dev.py)
 
 
 def merged_spec(c: dict) -> dict:

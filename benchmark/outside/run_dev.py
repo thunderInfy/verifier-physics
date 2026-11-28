@@ -25,6 +25,7 @@ A field with several readings scores WRONG if any reading is WRONG, else MATCH i
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import sys
@@ -112,20 +113,35 @@ def components(data: dict):
             yield from (c for c in r["formalization"] if "unformalized" not in c)
 
 
+def deep_merge(base, override):
+    """override into base, recursively for dicts; any other value (lists included) replaces. The one merge of
+    the outside benchmark's scorers (run_heldout.py uses this one)."""
+    if isinstance(base, dict) and isinstance(override, dict):
+        out = copy.deepcopy(base)
+        for k, v in override.items():
+            out[k] = deep_merge(base[k], v) if k in base else copy.deepcopy(v)
+        return out
+    return copy.deepcopy(override)
+
+
 def run(data: dict, checker=check) -> dict:
-    """{(spec, override): {named claim: verdict}}, one check per spec and override."""
+    """{(spec, override): {named claim: verdict}}, one check per spec and override. Each override is
+    deep-merged into its base spec (`deep_merge`), for reconstruction claims too."""
     groups: dict = {}
     for c in components(data):
         groups.setdefault(_key(c), (c, []))[1].append(c["claim"])
     out = {}
     for key, (c, names) in groups.items():
+        override = c.get("override", {})
         if c["claim"] in reconstruction.CLAIMS:
-            spec = json.loads((SPECS / c["spec"]).read_text())
+            spec = deep_merge(json.loads((SPECS / c["spec"]).read_text()), override)
             out[key] = {n: reconstruction.check_claim(spec["reconstruction"], {"claim": n, **c["params"]})["verdict"]
                         for n in dict.fromkeys(names)}
             continue
         names = list(dict.fromkeys(names))
-        report = checker(bench._spec(SPECS, c["spec"], c.get("override", {}), names))
+        # bench._spec merges one level deep; handing it the deep-merged top-level values gives the merged spec
+        merged = deep_merge(bench.load(SPECS / c["spec"]), override)
+        report = checker(bench._spec(SPECS, c["spec"], {t: merged[t] for t in override}, names))
         out[key] = {v["claim"]: v["verdict"] for v in report["claims"]}
     return out
 
