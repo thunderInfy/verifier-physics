@@ -157,10 +157,12 @@ def test_numbers_check_recomputes_when_an_input_changes(tmp_path):
 
 
 def test_lean_stores_are_named_explicitly():
-    """The paper's Lean numbers read two named stores, never "the latest": the pin (b2cafbe) and the
-    re-measurement on main (f09a5cb). A newer lean_measured_*.json next to them does not move the paper."""
+    """The paper's Lean numbers read named stores, never "the latest": the pin (b2cafbe), the re-measurement on
+    main (dcb4d09) and the run that first accepted the pin's two failures (fee9d14). A newer lean_measured_*.json
+    next to them does not move the paper."""
     pn = _paper_numbers()
-    assert pn.PAPER_STORE.name == "lean_measured_b2cafbe.json" and pn.MAIN_STORE.name == "lean_measured_f09a5cb.json"
+    assert pn.PAPER_STORE.name == "lean_measured_b2cafbe.json" and pn.MAIN_STORE.name == "lean_measured_dcb4d09.json"
+    assert pn.FIXED_STORE.name == "lean_measured_fee9d14.json"
     assert _measure_lean().PAPER_STORE == pn.PAPER_STORE
     src = (PAPER / "paper_numbers.py").read_text()
     assert "load_store()" not in src and "store_paths" not in src
@@ -366,16 +368,20 @@ def test_out_of_sample_headline():
 
 def test_lean_status_vocabulary():
     """The paper's Lean vocabulary (accepted / tactic failure / heartbeat cap / found false) covers every theorem
-    of the pinned run (b2cafbe) and of the current one (f09a5cb), and Lean found no statement false."""
+    of the pinned run (b2cafbe), of the run that fixed its two failures (fee9d14) and of the current one on
+    main (dcb4d09), and Lean found no statement false: the pin has one tactic failure and one heartbeat cap, the
+    later two none."""
     out = _out("lean_current")
-    for name in ("b2cafbe", "f09a5cb"):
+    for name, bad in (("b2cafbe", [1, 1, 0]), ("fixed", [0, 0, 0]), ("main", [0, 0, 0])):
         n = [int(out[f"{name}: {k}"]) for k in ("accepted", "tactic failure", "heartbeat cap", "found false")]
-        assert sum(n) == int(out[f"{name}: theorems"]) and n[1:] == [1, 1, 0], (name, n)
+        assert sum(n) == int(out[f"{name}: theorems"]) and n[1:] == bad, (name, n)
         assert out[f"{name}: timeout status"] == "0"
-    assert (out["b2cafbe: theorems"], out["f09a5cb: theorems"]) == ("598", "600")
-    assert out["f09a5cb: registry meanings accepted"] == "12/12"
-    assert out["f09a5cb: commit"] == "f09a5cb" and out["f09a5cb: machine"] == out["b2cafbe: machine"]
-    assert out["b2cafbe: not accepted"] == out["f09a5cb: not accepted"]
+    assert (out["b2cafbe: theorems"], out["fixed: theorems"], out["main: theorems"]) == ("598", "600", "600")
+    assert out["b2cafbe: not accepted"] == "s0_consistency_0, s0_tvd_harten"
+    assert out["main: not accepted"] == out["fixed: not accepted"] == "none"
+    assert out["main: registry meanings accepted"] == "14/14"
+    assert (out["main: file commit"], out["fixed: file commit"]) == ("dcb4d09", "fee9d14")
+    assert out["main: machine"] == out["fixed: machine"] == out["b2cafbe: machine"]
 
 
 def test_lean_labels_come_from_the_measured_run():

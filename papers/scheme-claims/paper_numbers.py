@@ -25,7 +25,8 @@ B = ROOT / "benchmark" / "scheme-claims"
 HERE = Path(__file__).resolve().parent
 # the measured Lean runs the paper reads, each named: a newer store next to them must not move the paper
 PAPER_STORE = HERE / "lean_measured_b2cafbe.json"   # the paper's pin (the held-out commit): every Lean number
-MAIN_STORE = HERE / "lean_measured_f09a5cb.json"    # the "re-measured on main" sentences only
+MAIN_STORE = HERE / "lean_measured_dcb4d09.json"    # the "re-measured on main" sentences only
+FIXED_STORE = HERE / "lean_measured_fee9d14.json"   # the run at which the pin's two failures were first accepted
 
 
 def _with(name: str, **claims) -> dict:
@@ -898,12 +899,13 @@ def outside_v2_posthoc() -> dict:
 
 
 def lean_current() -> dict:
-    """The current measured Lean run (lean_measured_f09a5cb.json, the store whose Lean key is HEAD's), beside
-    the paper's pinned run (b2cafbe): distinct theorems by status, the two failures named by kind (Lean's
-    message: the heartbeat cap, or a tactic error), and the registry's meaning theorems by status."""
+    """The current measured Lean run on main (MAIN_STORE, the store whose Lean key is HEAD's; keys "main: ..."),
+    beside the paper's pinned run (b2cafbe) and the run that first accepted the pin's two failures (FIXED_STORE,
+    "fixed: ..."): distinct theorems by status, the failures named by kind (Lean's message: the heartbeat cap,
+    or a tactic error), and the registry's meaning theorems by status."""
     ml = _measure_lean()
     out = {}
-    for name, path in (("b2cafbe", PAPER_STORE), ("f09a5cb", MAIN_STORE)):
+    for name, path in (("b2cafbe", PAPER_STORE), ("main", MAIN_STORE), ("fixed", FIXED_STORE)):
         store = ml.load_store(path)
         used = {h for s in store["specs"].values() for _, h in s["theorems"]}
         th = [store["theorems"][h] for h in used]
@@ -1097,13 +1099,16 @@ NUMBERS = {
     "lean.pin.heartbeat": ("lean_current", "b2cafbe: heartbeat cap"),
     "lean.pin.false": ("lean_current", "b2cafbe: found false"),
     "lean.pin.timeout": ("lean_current", "b2cafbe: timeout status"),
-    "lean.main.commit": ("lean_current", "f09a5cb: commit"),
-    "lean.main.measured": ("lean_current", lambda o: f"{o['f09a5cb: measured']} at commit {o['f09a5cb: commit']}"),
-    "lean.main.machine": ("lean_current", "f09a5cb: machine", "a {}"),
-    "lean.main.specs": ("lean_current", "f09a5cb: specs"),
-    "lean.main.theorems": ("lean_current", "f09a5cb: theorems"),
-    "lean.main.accepted": ("lean_current", "f09a5cb: accepted"),
-    "lean.main.registry": ("lean_current", "f09a5cb: registry meanings accepted"),
+    "lean.main.commit": ("lean_current", "main: file commit"),
+    "lean.main.measured": ("lean_current", lambda o: f"{o['main: measured']} at commit {o['main: file commit']}"),
+    "lean.main.machine": ("lean_current", "main: machine", "a {}"),
+    "lean.main.specs": ("lean_current", "main: specs"),
+    "lean.main.theorems": ("lean_current", "main: theorems"),
+    "lean.main.accepted": ("lean_current", "main: accepted"),
+    "lean.main.registry": ("lean_current", "main: registry meanings accepted"),
+    "lean.fixed.commit": ("lean_current", "fixed: file commit"),
+    "lean.fixed.theorems": ("lean_current", "fixed: theorems"),
+    "lean.fixed.accepted": ("lean_current", "fixed: accepted"),
     "lean.examples.specs": ("lean_replay", "specs"),
     "lean.examples.theorems": ("lean_replay", "theorems stated"),
     "lean.examples.accepted": ("lean_replay", "accepted"),

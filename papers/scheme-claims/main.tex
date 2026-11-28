@@ -98,9 +98,10 @@ before tuning it could state \rn{dev.first.stated} of them. On our own benchmark
 \rn{bench.wrong} wrongly; we wrote those sentences and their expected values.
 The exact checks run in Python with rational arithmetic, and the checker turns its verdicts into
 \rn{lean.pin.theorems} distinct Lean theorems (measured at commit \code{\rn{lean.pin.commit}}, whose verifier
-code, \code{physverify/}, \code{lean/} and the specs, is identical to \code{\rn{lean.pin.keycommit}}'s). Lean
-accepts \rn{lean.pin.accepted}; one proof fails a tactic, one exceeds the heartbeat cap,
-and Lean finds none false. \rn{benchlean.label} of the
+code, \code{physverify/}, \code{lean/} and the specs, is identical to \code{\rn{lean.pin.keycommit}}'s). In
+that pinned run Lean accepts \rn{lean.pin.accepted}; \rn{lean.pin.tactic} proof fails a tactic,
+\rn{lean.pin.heartbeat} exceeds the heartbeat cap, and Lean finds none false (on main, after planner fixes,
+Lean accepts \rn{lean.main.accepted} of \rn{lean.main.theorems}). \rn{benchlean.label} of the
 \rn{benchlean.decisive} decisive verdicts on our benchmark are also proved in Lean
 (for \rn{benchlean.percell} of them Lean proves each case separately, and exact
 Python checks that the cases cover every input); the others stand on the exact Python check alone.
@@ -230,7 +231,8 @@ paper counts, the same run has \rn{lean.pin.theorems} distinct theorems, \rn{lea
 That is the count the abstract gives, because \code{\rn{heldout.pin}} is the commit at which the held-out
 verdicts were scored, and the Lean labels in our tables hold there. Re-measured on main at
 \code{\rn{lean.main.commit}}, the store has \rn{lean.main.theorems} theorems, \rn{lean.main.accepted}
-accepted, with the same two failures (Section~\ref{sec:certs}).
+accepted: the pinned run's two failures (Section~\ref{sec:certs}) were fixed by planner changes and first
+accepted in the run at \code{\rn{lean.fixed.commit}} (\rn{lean.fixed.accepted} of \rn{lean.fixed.theorems}).
 
 \medskip\noindent
 That is the whole pipeline: a sentence, a formal reading, an exact check that returns a witness, a
@@ -682,7 +684,7 @@ Of the \rn{lean.all.theorems} distinct theorems, Lean accepts
 exceeded the heartbeat cap \rn{lean.pin.heartbeat}, found false
 \rn{lean.pin.false}, wall-clock timeouts
 \rn{lean.pin.timeout}.\repro{tests/test_paper_numbers.py::test_lean_status_vocabulary} Lean
-refuted none of the statements; both failures are proofs the planner could not finish. They are findings
+refuted none of the statements; both failures of the pinned run are proofs the planner could not finish. They are findings
 about the planner, not about the verdicts, which do not change:\repro{paper_numbers.py::lean_replay_all}
 \begin{itemize}
 \item \code{s0\_consistency\_0} on \code{burgers-godunov-squared-form} (our benchmark's C17, the flux
@@ -701,12 +703,14 @@ about the planner, not about the verdicts, which do not change:\repro{paper_numb
   Superbee's TVD verdict keeps the per-cell label of its sign-cell theorems, which are all accepted.
 \end{itemize}
 Every number above is pinned at \code{\rn{lean.pin.keycommit}} (\code{lean\_measured\_b2cafbe.json}), the commit at which
-the held-out verdicts were scored. After the SSP class kinds were added we re-measured on main:
-\code{lean\_measured\_f09a5cb.json}, run on \rn{lean.main.measured}
+the held-out verdicts were scored. On main both failures were fixed in the planner (a tactic chain that
+survives an early-closed goal; superbee's TVD case splits run without the earlier hypotheses in context), and
+the run at \code{\rn{lean.fixed.commit}} accepts \rn{lean.fixed.accepted} of \rn{lean.fixed.theorems}.
+After the SSP and Harten class kinds were added we re-measured on main:
+\code{lean\_measured\_\rn{lean.main.commit}.json}, run on \rn{lean.main.measured}
 on the same machine (\rn{lean.main.machine}), has
 \rn{lean.main.specs} specs, \rn{lean.main.theorems} distinct theorems,
-\rn{lean.main.accepted} accepted, the same two failures
-(\code{s0\_consistency\_0} and \code{s0\_tvd\_harten}), and
+\rn{lean.main.accepted} accepted, and
 \rn{lean.main.registry} meaning theorems of the claim-kind registry on the standard
 axioms only.\repro{tests/test_paper_numbers.py::test_lean_measurement_covers_every_meaning_theorem_of_the_registry}
 Not yet replayed, so these verdicts keep the exact-Python
@@ -1122,6 +1126,17 @@ programming with Farkas certificates, or an exact counterexample) and \code{ssp\
 The kinds move the gap rather than the score, because in these sentences the class statement sits inside a
 larger one (a two-dimensional scheme, a system, a specific limited DG method).
 
+\paragraph{Harten class kinds.} Later we added two TVD kinds whose object is a class of schemes:
+\code{tvd\_monotone\_class} (every three-point conservative scheme whose flux has difference quotients in
+stated bounds, under stated polynomial conditions on the bounds and $\lambda$; Farkas certificates over the
+conditions and their pairwise products) and \code{tvd\_limiter\_class} (every flux-limited scheme whose
+limiter meets stated piecewise bounds, for $0 \le \nu \le \nu_{\max}$; Sturm sequences on every piece). Their
+Lean meaning theorems quantify over the flux and the limiter. Sweby's region is sufficient, not necessary, so
+a limiter class outside it is \U{} unless an exact counterexample is found. Read post hoc, the ``monotone
+schemes are TVD'' sentences of the dev items become statable and \V, but each reading narrows the sentence
+(three points, uniform flux bounds), so under the narrowing rule they stay gaps; no dev item states a limiter
+class.\repro{tests/test_harten_class.py::test_posthoc_tvd_readings}
+
 % ====================================================================================================
 \section{When the checker corrected us}\label{sec:corrected}
 
@@ -1495,7 +1510,7 @@ rows, consistency of a recovered flux, the entropy check's \V{} cells) or are em
 their exact-Python or empirical label. We count a \V{} reading if all its components carry a Lean label, and a \R{}
 reading if one of its refuting components does. The judge states
 \rn{benchlean.stated} theorems for the benchmark's specs, and Lean accepts
-\rn{benchlean.accepted}; the two others are the two failures above.
+\rn{benchlean.accepted}; the two others are the pinned run's two failures above.
 Taking every stated theorem as accepted, as an earlier version of this paper did, gives the same
 \rn{benchlean.projected}, but with \rn{benchlean.projected.percell} per
 cell: superbee's TVD verdict (C21) has only the per-cell label in the measured run. On the outside

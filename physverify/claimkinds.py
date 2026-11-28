@@ -201,7 +201,7 @@ KINDS: dict[str, dict] = {
         "layers": ["schemes"], "meaning": "tvd_limiter_class_meaning",
         "params": {"pieces": {"schemes": "claims.tvd_limiter_class.pieces"},
                    "nu_max": {"schemes": "claims.tvd_limiter_class.nu_max"},
-                   "zero_for_nonpositive_r": {"schemes": "claims.tvd_limiter_class.zero_for_nonpositive_r?"}}},
+                   "zero_left": {"schemes":"claims.tvd_limiter_class.zero_for_nonpositive_r?"}}},
     "ssp_coefficient": {
         "gloss": "the SSP coefficient C of an explicit Runge-Kutta method (its radius of absolute monotonicity) "
                  "stands in the stated relation (=, <=, >=, <, >) to a value or to another method's C",
