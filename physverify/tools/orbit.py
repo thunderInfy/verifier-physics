@@ -8,6 +8,8 @@ every admissible perihelion — for any angular momentum.
 
 from __future__ import annotations
 
+from fractions import Fraction
+
 from .. import lean_terms as lt
 from ..core import PROVEN, Candidate
 from ..theory import Evidence, Theory
@@ -56,7 +58,9 @@ def obligation(args, th: Theory, evidence: dict[str, Evidence]):
                f"[{float(a1):.4g}, {float(b1):.4g}] and aphelion in [{float(a2):.4g}, {float(b2):.4g}]"),
         guarantee=PROVEN,
         assumptions=[
-            "Newtonian central-force radial equation r'' = ℓ²/r³ − f(r) (two-body reduction)",
+            "Newton's second law under a central attraction of magnitude f(r) per unit mass, any f(r) and any "
+            "angular momentum ℓ (a fixed centre, or two bodies in relative coordinates): the radial equation "
+            "r'' = ℓ²/r³ − f(r)",
             f"{ev.id}: r(t) has a local min ({o['perihelion']}) and a local max ({o['aphelion']}) "
             f"inside the stated bounds ({ev.source})",
         ] + ([f"{ev.id}: hard bounds on {', '.join(sorted(params))}"] if params else []),
@@ -66,19 +70,42 @@ def obligation(args, th: Theory, evidence: dict[str, Evidence]):
     )
 
 
+def _qeval(e, env: dict[str, Fraction]) -> Fraction:
+    """Exact value of a rational expression (+ - * /, integer powers); ValueError for anything else."""
+    k, a = e.kind, e.args
+    if k == "var": return env[e.name]
+    if k == "lit": return Fraction(e.q)
+    if k == "neg": return -_qeval(a[0], env)
+    if k in ("add", "sub", "mul", "div"):
+        x, y = _qeval(a[0], env), _qeval(a[1], env)
+        return x + y if k == "add" else x - y if k == "sub" else x * y if k == "mul" else x / y
+    if k == "powi":
+        return _qeval(a[0], env) ** int(e.q)
+    raise ValueError(k)
+
+
 def _promising(th: Theory, spec) -> bool:
-    """Cheap untrusted pre-filter: is h(r) = r³ f(r) smaller at aphelion than at perihelion?"""
+    """Cheap untrusted pre-filter: is h(r) = r³ f(r) smaller at aphelion than at perihelion, at the
+    midpoints of the boxes (parameters at their midpoints, other positive symbols 1)? Exact: rational
+    arithmetic when f is rational (so K/r³, h constant, is filtered out), else intervals, filtering out
+    only what they show is not smaller. Can't tell: True, Lean decides."""
     from .enclosure import _box, ieval
     from mpmath import iv
     rsym, f, (a1, b1, a2, b2), params, positive = spec
-    env = {s: _box(lo, hi).mid for s, (lo, hi) in params.items()}
-    env.update({s: iv.mpf(1) for s in positive})
+    mid = {s: (Fraction(lo) + Fraction(hi)) / 2 for s, (lo, hi) in params.items()}
+    mid.update({s: Fraction(1) for s in positive})
+    x, y = (Fraction(a1) + Fraction(b1)) / 2, (Fraction(a2) + Fraction(b2)) / 2
     try:
-        h = lambda r: float((r ** 3 * ieval(f, {**env, rsym: iv.mpf(r)})).mid)
-        x, y = float((a1 + b1) / 2), float((a2 + b2) / 2)
+        h = lambda r: r ** 3 * _qeval(f, {**mid, rsym: r})
         return h(y) < h(x)
+    except (ValueError, KeyError, ZeroDivisionError):
+        pass
+    try:
+        env = {s: _box(v, v) for s, v in mid.items()}
+        h = lambda r: _box(r, r) ** 3 * ieval(f, {**env, rsym: _box(r, r)})
+        return not h(y).a >= h(x).b
     except Exception:
-        return True  # can't tell: let Lean decide
+        return True
 
 
 def propose(th: Theory, evidence: list[Evidence]) -> list[Candidate]:
