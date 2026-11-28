@@ -304,6 +304,22 @@ checker corrected us (Section~\ref{sec:corrected}).
 
 We state the limits first, because they bound every result that follows.
 
+\begin{figure}[ht]\centering\small
+\newcommand{\tbox}[2]{\fbox{\parbox[c]{2.9cm}{\centering\textbf{#1}\\[2pt]{\footnotesize #2}}}}
+\tbox{search}{exact checks' search, proof planner: \emph{untrusted}}
+$\to$ \tbox{witness}{identity, Farkas weights, Bernstein list, counterexample}
+$\to$ \tbox{small checker}{exact replay in Python \code{Fraction}: \emph{trusted}}
+$\to$ \tbox{Lean kernel}{replays the certificate: \emph{kernel-checked}}
+\\[6pt]
+{\footnotesize Trusted side inputs: the spec (the reading of the sentence, by a person), the relation table
+\code{claims.py}, the Lean statement generator \code{lean\_cert.py}, and the theorems behind the table rows
+(premises, not proved by us).}
+\caption{The trust chain. The search may be wrong; its output counts only once a checker confirms the
+witness. A verdict rests on the kernel if Lean replayed its certificate, and on exact Python otherwise. The
+side inputs are trusted for every verdict.}\label{fig:trust}
+\end{figure}
+Figure~\ref{fig:trust} shows the chain.
+
 \paragraph{The trust table.} This is the table from the repository README, copied verbatim. It
 covers the whole verifier, of which the scheme checker is one part.
 
@@ -795,42 +811,14 @@ now.\repro{tests/test_outside_dev.py::test_stored_verdicts_and_scores_are_what_t
 
 \subsection{The development half: tuned on, non-blind readers}\label{sec:dev}
 
-\paragraph{Re-scored after the checker additions.} The numbers below are from a later scoring of
-the development half, after three changes made in response to the first run. A checker fix added an
-exact test for non-negativity of a polynomial in one variable (square-free part and Sturm count) to
-the positivity check, and a row for the linear TVD equivalence (a linear update with
-$\sum_k c_k = 1$ is TVD for all data iff every $c_k \ge 0$); together they closed the two checker gaps
-on one sentence of Harten's report, without changing any reading, spec or expected value. Then the
-\code{stated\_identity} kind (Section~\ref{sec:trust}) gave readings to two sentences that needed a
-claim about a formula the source prints (an entropy flux, an entropy-conservative flux). Last, the
-\code{reconstruction\_order\_p} kind (the exact order of a WENO-type reconstruction in a stated
-regime and $\epsilon$ scaling) gave a reading to one WENO sentence (with its hypotheses). Last, we
-surveyed the 48 sentences that list reconstruction as a gap
-(\code{benchmark/outside/notes/reconstruction-survey.md}) and built the two mechanisms that covered the
-most of them. \code{cell\_average\_max\_principle} decides whether one cell-average step fed by
-polynomials stays in $[m, M]$ when given point values do: the update must be a convex combination
-of the hypotheses, an exact identity with weights non-negative on the CFL range (three sentences from
-Zhang and Shu's maximum-principle paper and their survey). \code{eno\_sign\_property} and
-\code{eno\_jump\_ratio\_at\_most} decide, for ENO interpolation of order 2 and 3 and all data, the sign
-property and a jump bound, by Fourier--Motzkin elimination over the finitely many polyhedral branches of
-the stencil selection (three sentences of the TeCNO paper). The same survey found one more WENO sentence
-the existing kind could already state. The next mechanism in the survey's ranking was Zhang and Shu's
-scaling limiter $\tilde p = \bar u + \theta (p - \bar u)$: \code{limiter\_keeps\_average},
-\code{limiter\_bounds} and \code{limiter\_accuracy} decide, for every polynomial of degree $k \le 3$, that
-it keeps the average, that it puts $\tilde p$ in $[m, M]$ at the points where the extrema are taken, and
-that $\max |\tilde p - p|$ is at most a constant times the overshoot of $p$. The constants
-$C_k = 1, 3, 5$ for $k = 1, 2, 3$ are sharp: exact witness polynomials attain them, which gives the lower
-bound, and a moment certificate, checked by Sturm sequences, gives the upper bound. The Markov--Luk\'acs
-theorem behind that certificate is cited, not proved in our
-code.\repro{tests/test_scaling_limiter.py::test_accuracy_constants} This gives three more sentences (two statements of its accuracy
-lemma and the theorem that the limited scheme keeps the order and the maximum principle). One finding: the
-accuracy clause holds without the hypothesis $\bar u \in [m, M]$, which only the bounds need. These
-\rn{9}{paper_numbers.py::outside_dev} readings use claim
-kinds chosen because they cover these items: the checker is \emph{tuned on} them, and the
-\rn{14}{paper_numbers.py::outside_dev} matches that rest only on them say how far the tuning reached,
-not how the checker does on unseen claims. We changed the checker after seeing these items, so these
-numbers measure fit, not prediction. The first run gave readings for 9 of the 99 sentences and decided
-12 of its 14 readings, with none wrong.
+\paragraph{Tuned on.} The numbers below are from the current scoring of the development half, after
+checker additions made in response to its first run (Appendix~\ref{app:devhistory} gives the history).
+\rn{9}{paper_numbers.py::outside_dev} readings use claim kinds chosen because they cover these items: the
+checker is \emph{tuned on} them, and the \rn{14}{paper_numbers.py::outside_dev} matches that rest only on
+them say how far the tuning reached, not how the checker does on unseen claims. We changed the checker
+after seeing these items, so these numbers measure fit, not prediction. The first run gave readings for 9
+of the 99 sentences and decided 12 of its 14 readings, with none wrong.
+
 
 \paragraph{How much can be stated.} The checker can state a formal reading for
 \rn{22}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} of the
@@ -1351,6 +1339,39 @@ current main (commit \code{9e906e7}). The merge gate is
 \code{uv run pytest -q tests/ --ignore=tests/test\_lean.py}.
 
 \printrepro
+
+\section{History of the development half}\label{app:devhistory}
+
+The checker additions made after the first run of the development half (Section~\ref{sec:dev}), in order. A checker fix added an
+exact test for non-negativity of a polynomial in one variable (square-free part and Sturm count) to
+the positivity check, and a row for the linear TVD equivalence (a linear update with
+$\sum_k c_k = 1$ is TVD for all data iff every $c_k \ge 0$); together they closed the two checker gaps
+on one sentence of Harten's report, without changing any reading, spec or expected value. Then the
+\code{stated\_identity} kind (Section~\ref{sec:trust}) gave readings to two sentences that needed a
+claim about a formula the source prints (an entropy flux, an entropy-conservative flux). Next, the
+\code{reconstruction\_order\_p} kind (the exact order of a WENO-type reconstruction in a stated
+regime and $\epsilon$ scaling) gave a reading to one WENO sentence (with its hypotheses). Last, we
+surveyed the 48 sentences that list reconstruction as a gap
+(\code{benchmark/outside/notes/reconstruction-survey.md}) and built the two mechanisms that covered the
+most of them. \code{cell\_average\_max\_principle} decides whether one cell-average step fed by
+polynomials stays in $[m, M]$ when given point values do: the update must be a convex combination
+of the hypotheses, an exact identity with weights non-negative on the CFL range (three sentences from
+Zhang and Shu's maximum-principle paper and their survey). \code{eno\_sign\_property} and
+\code{eno\_jump\_ratio\_at\_most} decide, for ENO interpolation of order 2 and 3 and all data, the sign
+property and a jump bound, by Fourier--Motzkin elimination over the finitely many polyhedral branches of
+the stencil selection (three sentences of the TeCNO paper). The same survey found one more WENO sentence
+the existing kind could already state. The next mechanism in the survey's ranking was Zhang and Shu's
+scaling limiter $\tilde p = \bar u + \theta (p - \bar u)$: \code{limiter\_keeps\_average},
+\code{limiter\_bounds} and \code{limiter\_accuracy} decide, for every polynomial of degree $k \le 3$, that
+it keeps the average, that it puts $\tilde p$ in $[m, M]$ at the points where the extrema are taken, and
+that $\max |\tilde p - p|$ is at most a constant times the overshoot of $p$. The constants
+$C_k = 1, 3, 5$ for $k = 1, 2, 3$ are sharp: exact witness polynomials attain them, which gives the lower
+bound, and a moment certificate, checked by Sturm sequences, gives the upper bound. The Markov--Luk\'acs
+theorem behind that certificate is cited, not proved in our
+code.\repro{tests/test_scaling_limiter.py::test_accuracy_constants} This gives three more sentences (two statements of its accuracy
+lemma and the theorem that the limited scheme keeps the order and the maximum principle). One finding: the
+accuracy clause holds without the hypothesis $\bar u \in [m, M]$, which only the bounds need. The
+readings these last kinds made possible are the ones flagged \code{tuned\_on}.
 
 \section{Glossary}\label{app:glossary}
 
