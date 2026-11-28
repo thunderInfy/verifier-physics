@@ -93,7 +93,7 @@ systems, two space dimensions and time stepping. What's needed next is two thing
 class of schemes, and readers who state the sentence rather than an instance. On the development half of the first outside benchmark, readings we wrote after
 seeing the expected values decide \rn{dev.decided} of
 \rn{dev.readings} correctly; we then tuned the checker on these sentences, and
-before tuning it could state 9 of them. On our own benchmark it decides
+before tuning it could state \rn{dev.first.stated} of them. On our own benchmark it decides
 \rn{bench.match} of \rn{bench.readings} readings correctly and
 \rn{bench.wrong} wrongly; we wrote those sentences and their expected values.
 The exact checks run in Python with rational arithmetic, and the checker turns its verdicts into
@@ -278,7 +278,7 @@ copied verbatim from published papers, reports and lecture notes by collectors w
 checker, with expected values fixed before any checker run (Section~\ref{sec:outside}).
 \begin{itemize}
 \item \emph{The held-out half of the first outside benchmark}, scored once with the checker frozen at
-  commit \code{b2cafbe}: of \rn{heldout.clean.items} sentences from sources we never read
+  commit \code{\rn{heldout.pin}}: of \rn{heldout.clean.items} sentences from sources we never read
   while building the checker, it can state \rn{heldout.clean.stated} and decides
   \rn{heldout.clean.decided}. All \rn{heldout.all.match} of its correct
   decisions in the half are on two \emph{contaminated} sources, papers we had read while building the
@@ -306,8 +306,8 @@ We also report two in-sample numbers, and label them as such. On the development
 outside benchmark, with readings we wrote after seeing the expected values, the checker decides
 \rn{dev.decided} of \rn{dev.readings} readings, none wrongly.
 We changed the checker after seeing these sentences, so this number measures fit, not prediction; before
-tuning it could state 9 of the \rn{dev.items} sentences. On our own benchmark there
-are 0 wrong verdicts among \rn{bench.readings} readings; since we wrote it, that number
+tuning it could state \rn{dev.first.stated} of the \rn{dev.items} sentences. On our own benchmark there
+are \rn{bench.wrong} wrong verdicts among \rn{bench.readings} readings; since we wrote it, that number
 shows less than it seems (Section~\ref{sec:trust}). The most useful in-sample finding is the pair of
 plausible readings we rejected because they would have been wrong verdicts
 (Section~\ref{sec:outside}, ``Two readings that would have been wrong''), and the places where the
@@ -404,8 +404,8 @@ the sentences as papers do and fixed each expected value before running the chec
 citation or an argument, but we also built the checker. Its blind spots and ours may coincide. A
 sentence that a checker of this kind would get wrong is, almost by construction, one we would be less
 likely to write. In one case, C07, the expected value differs from the one first written in our task
-notes, because of the counterexample in Section~\ref{sec:example}. ``0 wrong'' is evidence that the
-checks and the table are consistent with our reading of the literature on these 44 readings. It is
+notes, because of the counterexample in Section~\ref{sec:example}. ``\rn{bench.wrong} wrong'' is evidence that the
+checks and the table are consistent with our reading of the literature on these \rn{bench.readings} readings. It is
 not an error rate on claims from published papers. The outside benchmark (Section~\ref{sec:outside})
 addresses this in part. Its sentences and expected values were fixed blind. The readings of its
 development half were written by us, knowing the expected values, and we tuned the checker on them; its
@@ -692,7 +692,7 @@ about the planner, not about the verdicts, which do not change:\repro{paper_numb
   not carry a Lean label even if this theorem were accepted, since its entropy claim rests on the
   entropy check's \V{} cells, which are not replayed.
 \item \code{s0\_tvd\_harten} on \code{advection-superbee} (the TVD claim itself, through Harten's lemma)
-  \emph{exceeds the heartbeat cap}. It reached the 20-minute limit; in one retry with a 60-minute limit Lean
+  \emph{exceeds the heartbeat cap}. It reached the \rn{lean.all.limit} limit; in one retry with a \rn{lean.all.retrylimit} limit Lean
   stopped by itself after \rn{lean.all.retry} with
   ``\code{(deterministic) timeout at `«tactic execution»', maximum number of heartbeats (4000000) has
   been reached}'', at the heartbeat cap that the judge's preamble sets. Within that cap the planner's
@@ -700,7 +700,7 @@ about the planner, not about the verdicts, which do not change:\repro{paper_numb
   a failed proof (status code \code{rejected}), not a wall-clock timeout; we did not raise the cap.
   Superbee's TVD verdict keeps the per-cell label of its sign-cell theorems, which are all accepted.
 \end{itemize}
-Every number above is pinned at \code{b2cafbe} (\code{lean\_measured\_b2cafbe.json}), the commit at which
+Every number above is pinned at \code{\rn{lean.pin.keycommit}} (\code{lean\_measured\_b2cafbe.json}), the commit at which
 the held-out verdicts were scored. After the SSP class kinds were added we re-measured on main:
 \code{lean\_measured\_f09a5cb.json}, run on \rn{lean.main.measured}
 on the same machine (\rn{lean.main.machine}), has
@@ -853,7 +853,7 @@ All \rn{dev.readings} readings narrow their sentence.
 of the \rn{dev.readings} readings are decided:
 \rn{dev.verified} \V{} and \rn{dev.refuted} \R, all exact
 (rational arithmetic; in the measured Lean run, \rn{outsidelean.label} of the
-26 also carry a Lean label, \rn{outsidelean.percell} of them per cell). The
+\rn{outsidelean.decided} also carry a Lean label, \rn{outsidelean.percell} of them per cell). The
 \rn{dev.undecided} undecided reading is \code{tecno:02}'s (expected UNSURE):
 \code{stated\_identity} verifies its entropy-conservation clause, but its second-order clause has no
 claim kind, so the conjunction is \U. In the first run the two readings of one sentence of Harten's
@@ -893,7 +893,7 @@ cannot say any of these today.
 \rn{dev.differ} of the \rn{dev.items} items (FALSE alone
 and TRUE with hypotheses on \rn{dev.differ.ft}). Almost always the dropped hypothesis
 is a CFL bound, a smoothness condition or convergence of the scheme.
-\rn{dev.differ.stated} of the 30 are stated, and the checker gets every scored field of
+\rn{dev.differ.stated} of the \rn{dev.differ} are stated, and the checker gets every scored field of
 those nine right. On a dropped CFL bound it is reliable: the reading with the hypothesis verifies on
 the stated range and the reading without it is refuted on $[0, 2]$, both exactly. A dropped ``away from
 extrema'' is half covered: the unqualified order claim is refuted at a smooth extremum, but the
@@ -994,7 +994,7 @@ clean (both removed) &\rn{heldout.clean.items}
 Every match is on a contaminated source. On the clean sentences the run measures coverage, not
 out-of-sample accuracy: the three stated sentences (two SSP Runge--Kutta statements and one TVD
 Runge--Kutta statement) each leave a part unformalised, so each conjunction is at best \U, although the
-formal part is \V. The 42-sentence row is the result for \emph{this} checker version. We will build to its
+formal part is \V. The \rn{heldout.clean.items}-sentence row is the result for \emph{this} checker version. We will build to its
 gaps, so the next version is measured on a fresh blind benchmark (Section~\ref{sec:v2}), not on this one.
 
 \paragraph{Why so little is stated.} Each unformalised field of a clean sentence has one entry (for one
@@ -1117,7 +1117,7 @@ only refute it.
 Runge--Kutta methods as the object: \code{ssp\_class\_preserves} (every method in a class given by linear
 conditions on its Shu--Osher coefficients keeps every convex property forward Euler keeps; exact linear
 programming with Farkas certificates, or an exact counterexample) and \code{ssp\_coefficient}. With them,
-2 of the 5 sentences that needed a class kind become statable, and 0 verdicts change: each new component is
+\rn{posthoc.ssp.statable} of the \rn{v2.ssp.class} sentences that needed a class kind become statable, and 0 verdicts change: each new component is
 \SUF{} and \R, \NEC{} and \V, or sits beside an unformalised part.\repro{tests/test_narrowing.py::test_posthoc_ssp_verdicts}
 The kinds move the gap rather than the score, because in these sentences the class statement sits inside a
 larger one (a two-dimensional scheme, a system, a specific limited DG method).
@@ -1349,8 +1349,11 @@ number, and the test or function that reproduces it. A target
 \code{paper\_numbers.py::}\textit{name} is a function of \code{papers/scheme-claims/paper\_numbers.py},
 run with \code{uv run python papers/scheme-claims/paper\_numbers.py} \textit{name}; it prints what the
 checker returns.
-``(see text)'' marks a sentence whose numbers all come from one target. All numbers were taken from
-current main (commit \code{9e906e7}). The merge gate is
+``(see text)'' marks a sentence whose numbers all come from one target. The numbers are computed
+by the checker of current main from the benchmark records and the measured Lean runs (the files under
+\code{benchmark/scheme-claims/}, \code{benchmark/outside/} and \code{benchmark/outside\_v2/}, and the two
+\code{lean\_measured} files named above) as of commit \code{\rn{data.commit}}, the last commit that changed
+them. The merge gate is
 \code{uv run pytest -q tests/ --ignore=tests/test\_lean.py}.
 
 \printrepro
@@ -1370,8 +1373,9 @@ on one sentence of Harten's report, without changing any reading, spec or expect
 claim about a formula the source prints (an entropy flux, an entropy-conservative flux). Next, the
 \code{reconstruction\_order\_p} kind (the exact order of a WENO-type reconstruction in a stated
 regime and $\epsilon$ scaling) gave a reading to one WENO sentence (with its hypotheses). Last, we
-surveyed the 48 sentences that list reconstruction as a gap
-(\code{benchmark/outside/notes/reconstruction-survey.md}) and built the two mechanisms that covered the
+surveyed the sentences that listed reconstruction as a gap
+(\code{benchmark/outside/notes/reconstruction-survey.md}; \rn{dev.gaps.reconstruction} development sentences
+list it today) and built the two mechanisms that covered the
 most of them. \code{cell\_average\_max\_principle} decides whether one cell-average step fed by
 polynomials stays in $[m, M]$ when given point values do: the update must be a convex combination
 of the hypotheses, an exact identity with weights non-negative on the CFL range (three sentences from
@@ -1480,7 +1484,7 @@ run (Section~\ref{sec:certs}, Table~\ref{tab:leanmeasured}), of the
 \rn{benchlean.decisive} decisive verdicts on our own benchmark,
 \rn{benchlean.label} carry a Lean label
 (\rn{benchlean.verified} \V{} and \rn{benchlean.refuted} \R;
-\rn{benchlean.percell} of the 18 with the per-cell label). The labels are those
+\rn{benchlean.percell} of the \rn{benchlean.label} with the per-cell label). The labels are those
 of \code{lean\_cert.relabel\_claims}, the checker's own rule, applied to the measured statuses, so the
 paper and the code cannot disagree on them: a verdict carries the label if one of its deciding checks,
 together with the exact checks that check's row requires, has all its theorems accepted. Each such row
@@ -1500,7 +1504,7 @@ benchmark, \rn{outsidelean.label} of the
 (\rn{outsidelean.percell} of them per cell);
 \rn{outsidelean.pythononly} rest on claim kinds checked in Python only
 (reconstruction order, the scaling limiter, ENO), which have no Lean statement.
-Only \rn{benchlean.meaning} of the 34 verdicts rest
+Only \rn{benchlean.meaning} of the \rn{benchlean.decisive} verdicts rest
 entirely on claim kinds with a meaning theorem. For the rest, even a Lean-labelled verdict says that a
 certificate is correct, while the step from the certificate to the claim's English gloss is ours.
 

@@ -9,7 +9,10 @@ import functools
 import json
 import re
 import subprocess
+import warnings
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 PAPER = ROOT / "papers" / "scheme-claims"
@@ -94,10 +97,56 @@ def test_every_rn_key_is_one_paper_numbers_defines():
 
 
 def test_numbers_tex_is_what_paper_numbers_gives_now():
-    """numbers.tex is what paper_numbers.py generates now from the data files and the checker."""
+    """numbers.tex is what paper_numbers.py generates now from the data files and the checker. A function runs
+    only if a file it reads changed since numbers.tex was generated (its recorded inputs sha256); otherwise its
+    recorded values are the ones these files gave. The commit of the data files is recomputed every time."""
     pn = _paper_numbers()
-    outputs = {fn: _out(fn) for fn in dict.fromkeys(fn for fn, *_ in pn.NUMBERS.values())}
-    assert (PAPER / "numbers.tex").read_text() == pn._numbers_tex(outputs), HINT
+    differ, ran = pn._numbers_differing((PAPER / "numbers.tex").read_text(), compute=_out)
+    assert not differ, (differ, HINT)
+    assert "data_commit" in ran
+    if set(ran) - pn.ALWAYS:
+        warnings.warn(f"inputs of {sorted(set(ran) - pn.ALWAYS)} changed but not their numbers; {HINT} to record "
+                      "the new inputs, or this test recomputes them on every run")
+
+
+def test_numbers_check_recomputes_when_an_input_changes(tmp_path):
+    """On a copy of the files paper_numbers.py reads: unchanged, the check runs nothing but the git log; after an
+    edit to heldout_verdicts.json it reruns the functions that read benchmark/outside/ and reports the changed
+    number; a value edited by hand in numbers.tex is refused."""
+    import importlib.util
+    import shutil
+    pn = _paper_numbers()
+    skip = shutil.ignore_patterns(*pn._SKIP, "*.pyc")
+    for rel in dict.fromkeys(pn.CODE + pn._OUTSIDE + ("papers/scheme-claims/numbers.tex",)):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        if (ROOT / rel).is_dir():
+            shutil.copytree(ROOT / rel, tmp_path / rel, ignore=skip)
+        elif (ROOT / rel).is_file():
+            shutil.copy2(ROOT / rel, tmp_path / rel)
+    spec = importlib.util.spec_from_file_location("paper_numbers_copy", tmp_path / "papers/scheme-claims/paper_numbers.py")
+    copy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(copy)
+    assert copy.ROOT == tmp_path
+    text = (tmp_path / "papers/scheme-claims/numbers.tex").read_text()
+    ran = []
+
+    def compute(fn):     # the copy has no git history: the data commit and the unchanged functions come from here
+        ran.append(fn)
+        return copy.ALL[fn]() if fn == "outside_heldout" else _out(fn)
+
+    assert copy._numbers_differing(text, compute) == ({}, ["data_commit"])
+    f = tmp_path / "benchmark/outside/heldout_verdicts.json"
+    v = json.loads(f.read_text())
+    v["pin"]["checker"] = "0" * 40
+    f.write_text(json.dumps(v))
+    ran.clear()
+    differ, stale = copy._numbers_differing(text, compute)
+    assert set(stale) == set(copy.READS) - {"bench_counts", "bench_lean_labels"} | copy.ALWAYS == set(ran)
+    assert differ == {"heldout.pin": (_out("outside_heldout")["pin"], "0000000")}
+    edited = text.replace("\\pnset{bench.wrong}{0}", "\\pnset{bench.wrong}{1}")
+    assert edited != text
+    with pytest.raises(ValueError):
+        copy._numbers_differing(edited, compute)
 
 
 def test_lean_stores_are_named_explicitly():

@@ -7,7 +7,10 @@ prints what the checker returns, and the paper copies the output.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import re
 import subprocess
 import sys
 from fractions import Fraction
@@ -472,6 +475,8 @@ def outside_dev() -> dict:
            "fields differ": str(s["fields_differ"]), "fields differ, stated": str(len(s["fields_differ_stated"])),
            "narrowed matches": str(s["narrowed_matches"]),
            "tuned readings": str(s["tuned_readings"]), "tuned matches": str(s["tuned_matches"]),
+           "items listing reconstruction": str(sum(any("reconstruction" in u["reasons"] for u in e["unformalized"])
+                                                   for e in data["items"])),
            "instance from justification": ", ".join(
                e["id"] for e in data["items"] for r in e["readings"] if r.get("instance_from_justification"))}
     for k, v in s["verdicts"].items():
@@ -883,6 +888,10 @@ def outside_v2_posthoc() -> dict:
         out[f"moved {m}"] = str(k)
     out["moved items"] = ", ".join(dict.fromkeys(m["id"] for m in n["moved"]))
     ssp = P.ssp()
+    # the "too narrow" SSP items of V2_RESULTS.md with a post-hoc spec (each spec's name or about starts with its item)
+    narrow = {i for i, (_, cat, _) in _v2().SSP_JUDGED.items() if cat == "too narrow"}
+    specs = [json.loads(f.read_text()) for f in sorted((ROOT / "benchmark/outside_v2/posthoc_specs").glob("*.json"))]
+    out["too narrow, now statable"] = str(len(narrow & {d.get("name", d.get("about", "")).split(",")[0] for d in specs}))
     out["posthoc SSP specs run"] = str(len(ssp))
     out["posthoc SSP verdicts"] = "; ".join(f"{s['file']} {s['name']}: {s['verdicts']}" for s in ssp)
     return out
@@ -927,6 +936,19 @@ def product_rule() -> dict:
     r = checks.conservation(spec)
     return {"status": r["status"], "recovered flux": r["witness"].get("recovered_flux", ""),
             "consistency": checks.consistency(spec)["status"]}
+
+
+# the benchmark records and measured Lean runs the numbers read; Appendix A names the last commit that changed them
+DATA = ("benchmark/scheme-claims", "benchmark/outside", "benchmark/outside_v2",
+        str(PAPER_STORE.relative_to(ROOT)), str(MAIN_STORE.relative_to(ROOT)))
+
+
+def data_commit() -> dict:
+    """The last commit that changed the data files the numbers read (DATA; git log, nothing is run). Not HEAD,
+    which every commit moves: this one moves only when a benchmark record or a measured run changes."""
+    git = subprocess.run(["git", "log", "-1", "--format=%H", "--", *DATA], cwd=ROOT, capture_output=True, text=True,
+                         check=True)
+    return {"commit": git.stdout.strip()[:7]}
 
 
 def gate() -> dict:
@@ -996,6 +1018,7 @@ NUMBERS = {
     "posthoc.decided": ("outside_v2_posthoc", "annotated: decided_fields"),
     "posthoc.match2gap": ("outside_v2_posthoc", "moved MATCH -> GAP"),
     "posthoc.wrong2gap": ("outside_v2_posthoc", "moved WRONG -> GAP"),
+    "posthoc.ssp.statable": ("outside_v2_posthoc", "too narrow, now statable"),
     # the outside benchmark as collected, and its development half (tuned on)
     "outside.items": ("outside_dev", "items, all"),
     "outside.sources": ("outside_dev", "sources, all"),
@@ -1024,6 +1047,7 @@ NUMBERS = {
     "dev.differ.ft": ("outside_dev", "differ FALSE alone, TRUE with hypotheses"),
     "dev.differ.stated": ("outside_dev", "fields differ, stated"),
     "dev.fromjustification": ("outside_dev", "instance from justification, readings"),
+    "dev.gaps.reconstruction": ("outside_dev", "items listing reconstruction"),
     "dev.first.stated": ("outside_dev_first_run", "stated"),
     "dev.first.items": ("outside_dev_first_run", "items"),
     "dev.first.readings": ("outside_dev_first_run", "readings"),
@@ -1093,6 +1117,7 @@ NUMBERS = {
     "lean.all.accepted": ("lean_replay_all", "accepted"),
     "lean.all.seconds": ("lean_replay_all", "Lean seconds, sum over theorems", "{}\\,s"),
     "lean.all.limit": ("lean_replay_all", lambda o: f"{int(o['limit per theorem (s)']) // 60}\\,min"),
+    "lean.all.retrylimit": ("lean_replay_all", lambda o: f"{int(o['retry limit (s)']) // 60}\\,min"),
     "lean.all.wall": ("lean_replay_all", _first("run results: wall seconds"), "{}\\,s"),
     "lean.all.retry": ("lean_replay_all", _first("run results_retry: wall seconds"), "{}\\,s"),
     # the worked example and the certificates
@@ -1125,31 +1150,95 @@ NUMBERS = {
     "kinds.meaning": ("claim_kinds", "with a meaning theorem"),
     "kinds.schemes": ("claim_kinds", "scheme kinds"),
     "kinds.schemes.meaning": ("claim_kinds", "scheme kinds with a meaning theorem"),
+    # where they come from
+    "data.commit": ("data_commit", "commit"),
 }
 NUMBERS_TEX = HERE / "numbers.tex"
+
+
+def _value(key: str, output: dict) -> str:
+    fn, read, *fmt = NUMBERS[key]
+    v = read(output) if callable(read) else output[read]
+    f = fmt[0] if fmt else "{}"
+    return f(v) if callable(f) else f.format(v)
 
 
 def _numbers(outputs: dict | None = None) -> dict:
     """KEY -> (printed value, function) for every entry of NUMBERS; each function runs once (several minutes in
     all: the benchmark's checks and the Lean labels). `outputs` may hold function outputs already computed."""
     outputs = dict(outputs or {})
-    out = {}
-    for key, (fn, read, *fmt) in NUMBERS.items():
+    for fn in dict.fromkeys(fn for fn, *_ in NUMBERS.values()):
         if fn not in outputs:
             outputs[fn] = ALL[fn]()
-        v = read(outputs[fn]) if callable(read) else outputs[fn][read]
-        f = fmt[0] if fmt else "{}"
-        out[key] = (f(v) if callable(f) else f.format(v), fn)
-    return out
+    return {key: (_value(key, outputs[fn]), fn) for key, (fn, *_) in NUMBERS.items()}
 
 
-def _numbers_tex(outputs: dict | None = None) -> str:
-    """numbers.tex: one \\pnset{KEY}{value}{paper_numbers.py::function} per entry of NUMBERS. main.tex inputs it
-    and prints a value only through \\rn{KEY}; tests/test_paper_numbers.py fails if the file drifts from this."""
-    out = ["% generated from the functions of paper_numbers.py by `paper_numbers.py --write-table`; do not edit"]
-    for key, (v, fn) in _numbers(outputs).items():
-        out.append(f"\\pnset{{{key}}}{{{v}}}{{paper_numbers.py::{fn}}}")
-    return "\n".join(out) + "\n"
+# What each function's numbers can depend on, hashed so that the test recomputes a function only when one of these
+# files changed. Every function reads the checker (and the Lean files its statements come from), the example specs,
+# this script, measure_lean.py, the measured runs and the locked environment; some also read benchmark records.
+CODE = ("physverify", "schemes", "data", "lean", "pyproject.toml", "uv.lock",
+        *(str(p.relative_to(ROOT)) for p in [Path(__file__).resolve(), HERE / "measure_lean.py",
+                                             *sorted(HERE.glob("lean_measured_*.json"))]))
+_OUTSIDE = ("benchmark/scheme-claims", "benchmark/outside", "benchmark/outside_v2", "benchmark/reconstruction")
+READS = {"bench_counts": ("benchmark/scheme-claims",), "bench_lean_labels": ("benchmark/scheme-claims",),
+         **{fn: _OUTSIDE for fn in ("outside_dev", "outside_dev_first_run", "outside_naive_readings",
+                                     "outside_lean_labels", "outside_heldout", "outside_v2", "outside_v2_posthoc")}}
+ALWAYS = {"data_commit"}        # reads git history, not files: recomputed every time (a git log)
+_SKIP = {"__pycache__", ".lake", ".pytest_cache", ".git", "build_certs"}     # caches and Lean scratch (.gitignore)
+
+
+def _inputs_sha256(fn: str) -> str:
+    """sha256 over the path and bytes of every file in CODE and READS[fn] (untracked files too)."""
+    h = hashlib.sha256()
+    for rel in CODE + READS.get(fn, ()):
+        p = ROOT / rel
+        files = [p] if p.is_file() else []
+        for d, dirs, names in os.walk(p):
+            dirs[:] = sorted(x for x in dirs if x not in _SKIP)
+            files += [Path(d) / n for n in sorted(names) if not n.endswith(".pyc")]
+        for f in files:
+            h.update(str(f.relative_to(ROOT)).encode() + b"\0" + hashlib.sha256(f.read_bytes()).digest())
+    return h.hexdigest()
+
+
+_PNSET = re.compile(r"^\\pnset\{([^}]+)\}\{(.*)\}\{paper_numbers\.py::(\w+)\}$", re.M)
+_INPUTS = re.compile(r"^% inputs (\w+) ([0-9a-f]{64})$", re.M)
+_VALUES = re.compile(r"^% values sha256 ([0-9a-f]{64})$", re.M)
+
+
+def _numbers_tex(outputs: dict | None = None, numbers: dict | None = None, inputs: dict | None = None) -> str:
+    """numbers.tex: one \\pnset{KEY}{value}{paper_numbers.py::function} per entry of NUMBERS, the sha256 of each
+    function's inputs when it ran, and a sha256 over those lines. main.tex inputs it and prints a value only through
+    \\rn{KEY}; tests/test_paper_numbers.py fails if the file drifts from this (`_numbers_differing`)."""
+    fns = dict.fromkeys(fn for fn, *_ in NUMBERS.values())
+    if inputs is None:
+        inputs = {fn: _inputs_sha256(fn) for fn in fns if fn not in ALWAYS}    # before the functions run
+    if numbers is None:
+        numbers = _numbers(outputs)
+    body = [f"% inputs {fn} {inputs[fn]}" for fn in fns if fn not in ALWAYS]
+    body += [f"\\pnset{{{key}}}{{{v}}}{{paper_numbers.py::{fn}}}" for key, (v, fn) in numbers.items()]
+    digest = hashlib.sha256("\n".join(body).encode()).hexdigest()
+    return "\n".join(["% generated from the functions of paper_numbers.py by `paper_numbers.py --write-table`; "
+                      "do not edit", *body, f"% values sha256 {digest}"]) + "\n"
+
+
+def _numbers_differing(text: str, compute=None) -> tuple[dict, list]:
+    """Compare numbers.tex (`text`) with what paper_numbers.py gives now, running only the functions whose inputs
+    changed since the file was generated (and ALWAYS). A function whose inputs hash as recorded gave its recorded
+    values from these very files, so they stand; the sha256 over the lines catches a hand edit. Returns
+    ({KEY: (recorded, now)} for every key that differs, the functions that ran). `compute(fn)` runs a function
+    (default: ALL[fn]()). Raises ValueError if the file is not one `_numbers_tex` writes."""
+    compute = compute or (lambda fn: ALL[fn]())
+    recorded = {k: (v, fn) for k, v, fn in _PNSET.findall(text)}
+    inputs, values = dict(_INPUTS.findall(text)), _VALUES.findall(text)
+    if (list(recorded) != list(NUMBERS) or any(fn != NUMBERS[k][0] for k, (_, fn) in recorded.items())
+            or text != _numbers_tex(numbers=recorded, inputs=inputs) or len(values) != 1):
+        raise ValueError("numbers.tex is not what paper_numbers.py writes for NUMBERS (edited by hand?)")
+    fns = dict.fromkeys(fn for fn, *_ in NUMBERS.values())
+    stale = [fn for fn in fns if fn in ALWAYS or inputs.get(fn) != _inputs_sha256(fn)]
+    outputs = {fn: compute(fn) for fn in stale}
+    now = {k: _value(k, outputs[fn]) for k, (fn, *_) in NUMBERS.items() if fn in outputs}
+    return {k: (recorded[k][0], v) for k, v in now.items() if v != recorded[k][0]}, stale
 
 
 ALL = {k: f for k, f in list(globals().items())
