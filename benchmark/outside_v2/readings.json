@@ -1,0 +1,1683 @@
+{
+ "about": "Formal readings of the v2 outside benchmark (stripped.jsonl), reader pass A1, made blind: without any checker output and without the expected values. Same format as benchmark/outside/dev_readings.json, one entry per item in stripped.jsonl order, except: no `actual` and no `score` (nothing was run), and the specs the readings name are not written yet: each `spec` is a path relative to benchmark/ under outside_v2/specs/, and its draft (as the reader would write it, from the item's `scheme` field) is in `specs` below, for phase B to write and check. Scheme claims take their parameters from the spec's `claims`; reconstruction claims from the component's `params`. Reasons are from the taxonomy in benchmark/outside/README.md, primary first.",
+ "items": [
+  {
+   "id": "hu_adams_shu_2013_pp_flux_limiter:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "time-stepping"
+     ],
+     "note": "a positivity limiter for every high-order conservative base scheme of the 1D Euler equations (forward Euler or SSP RK stages); positivity of density and pressure is a system property"
+    }
+   ]
+  },
+  {
+   "id": "hu_adams_shu_2013_pp_flux_limiter:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "the limiter keeps any base scheme unchanged except at critical fluxes and enforces a sufficient condition for positive density and pressure (Euler)"
+    }
+   ]
+  },
+  {
+   "id": "hu_adams_shu_2013_pp_flux_limiter:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "'less restrictive than those in previous works' is a comparison with other papers; the order-keeping time-step condition is a system result with no named claim"
+    }
+   ]
+  },
+  {
+   "id": "hu_adams_shu_2013_pp_flux_limiter:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "multi-d"
+     ],
+     "note": "report of numerical examples ('suggest ... can be used to prevent positivity failure')"
+    }
+   ]
+  },
+  {
+   "id": "hu_adams_shu_2013_pp_flux_limiter:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "time-stepping"
+     ],
+     "note": "as item 01 (concluding-remarks restatement)"
+    }
+   ]
+  },
+  {
+   "id": "hu_adams_shu_2013_pp_flux_limiter:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "as item 02"
+    }
+   ]
+  },
+  {
+   "id": "hu_adams_shu_2013_pp_flux_limiter:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "as item 03"
+    }
+   ]
+  },
+  {
+   "id": "borges_costa_don_2006_wenoz:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "'less dissipation', 'same computational cost', 'slightly better performance': comparisons with no defined property"
+    }
+   ]
+  },
+  {
+   "id": "borges_costa_don_2006_wenoz:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "'substantially larger weights to discontinuous stencils than the previous versions' is a comparison, and 'the enhancements come from' is an explanation, not a property"
+    }
+   ]
+  },
+  {
+   "id": "borges_costa_don_2006_wenoz:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "'less dissipative approximation' with no defined property"
+    }
+   ]
+  },
+  {
+   "id": "borges_costa_don_2006_wenoz:04",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "at a first-order critical point (v' = 0, v'' != 0) and with eps = 0, the WENO-Z scheme is not fifth order: reconstruction_order_p for p = 5 fails, as for classical WENO; the second clause (no relevant influence in problems with shocks) is a numerical observation",
+     "narrowing": "'the same theoretical deficiency of the classical WENO at critical points' read as: the order of the scheme drops below five at a critical point (the classical scheme's deficiency); other reading, not taken: only the sufficient condition omega_k = d_k + O(dx^3) of eq. (12) fails, which need not lower the order. Critical point of order n_cp = 1 (the source's 'v'(x_i) = 0'); the order measured on the flux difference (h_{i+1/2} - h_{i-1/2})/dx, the scheme's spatial operator (form point is the other choice); eps = 0, the item's hypothesis. The shock clause is left unformalised",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/borges-wenoz-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "negated": true,
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "critical",
+        "n_cp": 1,
+        "eps": "0"
+       }
+      },
+      {
+       "unformalized": "'no relevant influence at problems with shocks have been found': a report of numerical experiments"
+      }
+     ]
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": "alone",
+     "reasons": [
+      "family_unspecified",
+      "not-checkable"
+     ],
+     "note": "the bare sentence does not fix how eps scales with dx, and the order at critical points depends on it (eps fixed against eps << beta_k); the shock clause is a numerical observation"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "a modification of every Runge-Kutta method guaranteeing norm conservation or monotonicity for ODEs; no claim kind for inner-product-norm conservation of a time integrator"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "every relaxed RK method keeps the accuracy and stability properties of its base method"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "lemma on gamma_n > 0 for every RK method with sum b_i a_ij > 0"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "theorem for every RK method of order >= 2"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "order of IDT/RRK for every RK method of order p"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "gamma_n = 1 + O(dt^{p-1}) for every RK method of order p"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "as item 05, from Lemma 4"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "the order conditions (rooted trees) for every RK method"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "nesting of absolute-stability regions for every explicit RK method and every 0 <= gamma_1 <= gamma_2"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "absolute monotonicity of (A, gamma b) for every RK method"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "SSP-coefficient bound C(A, gamma b) >= C(A, b) for every RK method; ssp_preserves takes one method and one spatial step, and says nothing about how C changes with gamma"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "'seems to be a simple and effective way' is hedged and evaluative"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:13",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "every RRK method preserves linear first integrals"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "'many SSP RK methods' is existential; no claim kind for the SSP coefficient of a relaxed method"
+    }
+   ]
+  },
+  {
+   "id": "ketcheson_2019_relaxation_rk:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "time-stepping"
+     ],
+     "note": "'slightly modified', 'essentially the same' allowable step size: no definite property"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "order of the numerical viscosity of LxF and the NT family of formal order r (NT: minmod slopes, staggered predictor-corrector); no claim kind for the size of numerical viscosity"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "'improved resolution ... by lowering the amount of numerical viscosity': comparative"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "'suffers from excessive numerical viscosity': no defined property"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "the new KT family has numerical viscosity O(dx^{2r-1}) and needs no eigenstructure; no claim kind for viscosity order, and the second-order member uses limited piecewise-linear reconstruction"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "'maintain their high-resolution independent of O(1/dt)' is vague, and 'admit a semi-discrete formulation' is existential"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "time-stepping"
+     ],
+     "note": "conjunction of 1D semi-discrete TVD and a 2D maximum principle; the 2D conjunct cannot be formalised, so the conjunction cannot be verified. The 1D conjunct alone has the reading given for kurganov_tadmor_2000_central:07"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:07",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the scalar semi-discrete KT scheme with minmod-like slopes (4.9), 1 <= theta <= 2, is TVD in time; instance: f(u) = u, theta = 1 and theta = 2, and its forward-Euler step is TVD on a CFL range [0, 1/4], which implies the semi-discrete TVD property",
+     "narrowing": "the theorem covers every slope satisfying the clipping condition (4.6); we take the family the sentence names ('e.g., the family of minmod-like limiters'), at its two end points theta = 1 and theta = 2 (other reading, not taken: the whole class (4.6), which would be scheme-class); scalar flux narrowed to linear advection f(u) = u, so the local speed is 1 and the flux is u^-_{j+1/2}; the semi-discrete (time-continuous) TVD property is reached through forward Euler: if u + dt L(u) is TVD for every dt/dx in [0, c] with c > 0, then d/dt TV(u(t)) <= 0 along the ODE (TV is Lipschitz), so the named claim is sufficient, not the same; c = 1/4 is our choice, any positive c would do",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/kt-semidiscrete-minmod-theta1-advection.json",
+       "claim": "tvd_under_cfl",
+       "relation": "sufficient",
+       "bridge": "forward-Euler TVD on [0, 1/4] implies TV(u(t)) non-increasing for the semi-discrete ODE system (one Euler step of size dt changes u by dt L(u) + o(dt))"
+      },
+      {
+       "spec": "outside_v2/specs/kt-semidiscrete-minmod-theta2-advection.json",
+       "claim": "tvd_under_cfl",
+       "relation": "sufficient",
+       "bridge": "as for theta = 1"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d"
+     ],
+     "note": "2D fully discrete maximum principle under CFL 1/8"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "time-stepping"
+     ],
+     "note": "2D maximum principle with the SSP RK family (5.7)"
+    }
+   ]
+  },
+  {
+   "id": "kurganov_tadmor_2000_central:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "illegible",
+      "multi-d",
+      "time-stepping"
+     ],
+     "note": "the coefficients eta, c_k of Table 5.2 did not survive the text extraction; 2D multi-level scheme"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "'can be constructed' is existential; kinetic energy preservation for Euler"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "a condition on every momentum flux of the stated form, with any consistent p~ and f^rho, for kinetic energy preservation (Euler)"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "uniqueness of the flux terms under entropy consistency (Euler)"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system"
+     ],
+     "note": "entropy conservative and kinetic-energy-preserving two-point flux for 1D Euler"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system"
+     ],
+     "note": "'some dissipation has to be added if shocks are present or the mesh is coarse': no defined property"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "kinetic energy stability and approximate/exact entropy stability of scalar dissipation for Euler"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "matrix-dissipation fluxes kinetic energy and entropy stable (Euler)"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system"
+     ],
+     "note": "'shown to be free of entropy violating solutions' by numerical tests, compared with Roe"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "multi-d"
+     ],
+     "note": "'carbuncle free solutions for blunt body flows': numerical, no defined property"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system"
+     ],
+     "note": "as item 04"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "second-order accuracy of a semi-discrete central-flux scheme for Euler"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system"
+     ],
+     "note": "as item 05"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:13",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "'preserve the stability properties' (kinetic energy, entropy) of the dissipative Euler fluxes"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "kinetic energy dissipation for suitable eigenvalues of the dissipation matrix (Euler)"
+    }
+   ]
+  },
+  {
+   "id": "chandrashekar_2013_kep_es:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system"
+     ],
+     "note": "'can yield oscillatory solutions even for weak shocks': numerical observation"
+    }
+   ]
+  },
+  {
+   "id": "guermond_popov_2016_invariant_domains:01",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "with the artificial viscosity (3.13), every convex invariant set containing the initial data is an invariant domain of the method (under the CFL condition (4.5), standing for an explicit scheme)",
+     "narrowing": "narrowed to an instance: scalar linear advection f(u) = a u, a = 1 (a 1x1 hyperbolic system; f is free data of the method), one space dimension, continuous P1 elements on a uniform mesh, forward Euler; there the method is the upwind scheme (spec name gives the reduction), every interval is a convex invariant set, and the CFL condition (4.5) is nu = a dt/dx <= 1/2 (h = dx, mu = 1/2, theta_min = 1, Theorem 4.1's mesh quantities). For a scalar law with linear update, 'every interval [m, M] containing the data is kept' is the non-negativity of the update weights. The 'properties are based on the introduction of an artificial dissipation' part is read as a description, not a separate claim",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/gp-p1-1d-advection.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "bridge": "for a linear update u_i^{n+1} = sum_k c_k u_{i+k} with sum_k c_k = 1, 'u^n in [m, M] implies u^{n+1} in [m, M]' for every data and every m <= M holds iff every c_k >= 0"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "guermond_popov_2016_invariant_domains:02",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the invariant domain property holds for any hyperbolic system under a CFL condition; instance: every interval containing the data is kept for nu in [0, 1/2]",
+     "narrowing": "narrowed to an instance: scalar linear advection f(u) = a u, a = 1 (a 1x1 hyperbolic system; f is free data of the method), one space dimension, continuous P1 elements on a uniform mesh, forward Euler; there the method is the upwind scheme (spec name gives the reduction), every interval is a convex invariant set, and the CFL condition (4.5) is nu = a dt/dx <= 1/2 (h = dx, mu = 1/2, theta_min = 1, Theorem 4.1's mesh quantities); 'any hyperbolic system' narrowed to one instance, which keeps a TRUE value but cannot show a general one; 'a CFL condition' taken as (4.5), the one the theorem uses",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/gp-p1-1d-advection.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "bridge": "as for guermond_popov_2016_invariant_domains:01"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "guermond_popov_2016_invariant_domains:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "fully discrete entropy inequality for every admissible entropy of a system on unstructured meshes; even in a 1D scalar instance there is no claim kind for a fully discrete cell entropy inequality"
+    }
+   ]
+  },
+  {
+   "id": "guermond_popov_2016_invariant_domains:04",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the method is first-order accurate (instance: consistent to order at least 1); the SSP clause is existential",
+     "narrowing": "narrowed to an instance: scalar linear advection f(u) = a u, a = 1 (a 1x1 hyperbolic system; f is free data of the method), one space dimension, continuous P1 elements on a uniform mesh, forward Euler; there the method is the upwind scheme (spec name gives the reduction), every interval is a convex invariant set, and the CFL condition (4.5) is nu = a dt/dx <= 1/2 (h = dx, mu = 1/2, theta_min = 1, Theorem 4.1's mesh quantities); 'formally first-order accurate in space' read as consistency order at least 1 of the fully discrete scheme at fixed dt/dx (the forward-Euler time error is first order too); 'can be made high-order in time by using SSP algorithms' is left unformalised",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/gp-p1-1d-advection.json",
+       "claim": "consistent_order_p",
+       "relation": "same"
+      },
+      {
+       "unformalized": "'can be made high-order in time by using Strong Stability Preserving algorithms' is existential (a construction), with no claim kind"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "guermond_popov_2016_invariant_domains:05",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "Theorem 4.1: (i) A is an invariant domain and (ii) U_i^{n+1} lies in every convex invariant set containing the values of the stencil of i; instance: each new value lies between the min and max of its stencil for nu in [0, 1/2]",
+     "narrowing": "narrowed to an instance: scalar linear advection f(u) = a u, a = 1 (a 1x1 hyperbolic system; f is free data of the method), one space dimension, continuous P1 elements on a uniform mesh, forward Euler; there the method is the upwind scheme (spec name gives the reduction), every interval is a convex invariant set, and the CFL condition (4.5) is nu = a dt/dx <= 1/2 (h = dx, mu = 1/2, theta_min = 1, Theorem 4.1's mesh quantities). For a scalar law the convex invariant sets are intervals, so (ii) is the local maximum principle over I(S_i) = {i-1, i, i+1}, and (i) follows from (ii); if the checker's stencil is the scheme's own {i-1, i}, its claim is stronger, hence still sufficient",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/gp-p1-1d-advection.json",
+       "claim": "local_max_principle_under_cfl",
+       "relation": "same",
+       "bridge": "(ii) for every interval B containing the stencil values is min(stencil) <= U_i^{n+1} <= max(stencil); (i) is the case B = A"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "guermond_popov_2016_invariant_domains:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "Theorem 4.2, fully discrete entropy inequality on meshes; no claim kind even for a 1D scalar instance"
+    }
+   ]
+  },
+  {
+   "id": "guermond_popov_2016_invariant_domains:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "system"
+     ],
+     "note": "Theorem 4.4 for the graph-viscosity variant (4.13) on general meshes; the bilinear form b_K is a mesh construction"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "multi-d",
+      "system",
+      "reconstruction"
+     ],
+     "note": "cell entropy inequality of every semi-discrete high-order DG method with monotone flux, scalar and symmetric systems, any dimension and triangulation"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "a negative claim about DG methods in general: the cell entropy inequality fails for other entropies or inexact quadrature"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "reconstruction"
+     ],
+     "note": "a framework of nodal DG methods entropy stable for any given convex entropy"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "Theorem 3.3 for every consistent symmetric f_S (and every entropy conservative one); nodal DG with SBP operators"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction"
+     ],
+     "note": "Theorem 3.4 for every entropy stable interface flux"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every monotone scalar two-point flux is entropy stable (Theorem 3.5)"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every Godunov-type flux of a Riemann solver with the entropy inequality (3.39)"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:08",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the Godunov flux is entropy stable; instance: Burgers' equation with the square entropy",
+     "narrowing": "narrowed to a scalar instance, Burgers' f(u) = u^2/2 with U = u^2/2 (the corollary is stated for the systems of the paper and every convex entropy; scalar f and the entropy are free data); the Godunov flux of a convex scalar law written in closed form max(f(max(uL,0)), f(min(uR,0))), which is (3.38) with the exact Riemann solution",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/chen-shu-godunov-burgers.json",
+       "claim": "entropy_stable_tadmor",
+       "relation": "same",
+       "bridge": "entropy stable in the sense (3.20): (v_R - v_L) f^(u_L, u_R) - (psi_R - psi_L) <= 0, which equals Tadmor's -(v_R - v_L)(f^ - f*) >= 0 with f* the entropy conservative flux, since (v_R - v_L) f* = psi_R - psi_L"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "chen_shu_2017_esdg:09",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the HLL flux with wave-speed estimates bounding the true speeds is entropy stable; instance: lambda_L = -max(|uL|, |uR|), lambda_R = max(|uL|, |uR|) for Burgers' equation, square entropy",
+     "narrowing": "narrowed to one admissible choice of lambda_L, lambda_R (free data of the HLL flux, constrained by the hypothesis), the local Lax-Friedrichs case the source names, and to Burgers' f(u) = u^2/2 with U = u^2/2; other reading, not taken: the statement for every admissible lambda_L, lambda_R as a class",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/chen-shu-hll-rusanov-burgers.json",
+       "claim": "entropy_stable_tadmor",
+       "relation": "same",
+       "bridge": "entropy stable in the sense (3.20): (v_R - v_L) f^(u_L, u_R) - (psi_R - psi_L) <= 0, which equals Tadmor's -(v_R - v_L)(f^ - f*) >= 0 with f* the entropy conservative flux, since (v_R - v_L) f* = psi_R - psi_L"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "chen_shu_2017_esdg:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "Jensen-type lemma for every average-preserving scaling with 0 <= theta_j <= 1 and every convex U; the limiter claim kinds do not cover entropy"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "the bound-preserving scaling limiter does not increase the quadrature entropy of a cell; no claim kind for entropy of a limiter"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "TVD/TVB DG limiter does not increase entropy"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:13",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "multi-d",
+      "reconstruction"
+     ],
+     "note": "Theorem 4.3, 2D nodal DG on triangles, for every flux with the stated properties"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "system"
+     ],
+     "note": "wall boundary treatment for 2D Euler"
+    }
+   ]
+  },
+  {
+   "id": "chen_shu_2017_esdg:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "illegible",
+      "scheme-class",
+      "multi-d",
+      "system"
+     ],
+     "note": "the scheme (5.4) did not survive the text extraction; LDG fluxes for every alpha >= 0, beta, convection-diffusion systems in 2D"
+    }
+   ]
+  },
+  {
+   "id": "cockburn_shu_2001_rkdg_review:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "a description of RKDG; 'allows the method to be non-linearly stable regardless of its accuracy' has no definite property or CFL range (it alludes to the SSP property of the time discretisation)"
+    }
+   ]
+  },
+  {
+   "id": "cockburn_shu_2001_rkdg_review:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "multi-d",
+      "reconstruction"
+     ],
+     "note": "'stable, high-order accurate, highly parallelizable ... easily handle complicated geometries': no defined properties"
+    }
+   ]
+  },
+  {
+   "id": "cockburn_shu_2001_rkdg_review:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "Harten's lemma: every scheme of the incremental form with C, D >= 0, C + D <= 1"
+    }
+   ]
+  },
+  {
+   "id": "cockburn_shu_2001_rkdg_review:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction"
+     ],
+     "note": "TVDM of the means for DG with the limiter LP_h, every monotone Lipschitz flux"
+    }
+   ]
+  },
+  {
+   "id": "cockburn_shu_2001_rkdg_review:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction"
+     ],
+     "note": "TVBM with the TVB-corrected limiter, every monotone Lipschitz flux"
+    }
+   ]
+  },
+  {
+   "id": "cockburn_shu_2001_rkdg_review:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "TVBM stability of RKDG for every RK method with alpha_il >= 0 and every monotone flux"
+    }
+   ]
+  },
+  {
+   "id": "cockburn_shu_2001_rkdg_review:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "multi-d",
+      "system",
+      "reconstruction"
+     ],
+     "note": "'it has been shown' by Euler experiments; resolution and efficiency comparisons"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:01",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the upwind method for linear advection is von Neumann stable under dt <= dx/|c| and first order",
+     "narrowing": "c narrowed to c = 1 (the c >= 0 branch; the c < 0 branch is its mirror image); 'conditionally von-Neumann-stable ... with the stability condition dt <= dx/|c|' read as von Neumann stability on nu in [0, 1] (not as the claim that it is unstable beyond); 'first-order discretization' read as consistency order at least 1",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/barsukow-upwind-advection.json",
+       "claim": "von_neumann_stable_under_cfl",
+       "relation": "same"
+      },
+      {
+       "spec": "outside_v2/specs/barsukow-upwind-advection.json",
+       "claim": "consistent_order_p",
+       "relation": "same"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "barsukow_uzh_notes:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "l2 stability iff |A(k)| <= 1, for every linear method (6.49)"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "conservative iff the sum is kept, for every method H with H(0) = 0"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "the Lax-Wendroff theorem, for every conservative consistent Lipschitz method"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "entropy-solution limit for every method with a discrete entropy inequality"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:06",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the modified Lax-Friedrichs method, as printed, is conservative; instance: Burgers' equation",
+     "narrowing": "scalar flux narrowed to f(u) = u^2/2 (f is free data; conservation of a flux-form update holds for every f, so the instance keeps a TRUE value). The spec uses the update exactly as the sentence prints it, not the flux form (9.10), so the check has to find the flux; the formula is the claim, the method's Riemann-solution definition and its CFL condition are not needed for conservation",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/barsukow-modified-lf-burgers.json",
+       "claim": "conservative",
+       "relation": "same"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "barsukow_uzh_notes:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "a fully discrete cell entropy inequality (9.2) for every entropy, with a numerical entropy flux; no claim kind (selects_entropy_solution is a consequence only together with convergence, Theorem 9.1)"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "convergence of every conservative consistent monotone method"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every conservative consistent monotone method is TVD"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "claim-kind-missing"
+     ],
+     "note": "the Godunov flux is an E-flux (9.13); E-fluxes have no claim kind"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every E-method of the viscous form with D^Godunov <= D <= 1/2, conditional on convergence"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:12",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "Lax-Wendroff and Beam-Warming (c > 0) for linear advection are each von Neumann stable for every small enough CFL number and consistent to order at least 2",
+     "narrowing": "c narrowed to c = 1, so Beam-Warming is its c > 0 branch (the c <= 0 branch is the mirror image); 'conditionally stable' read as stable on some CFL range (0, nu0] (stable_for_small_cfl); other reading, not taken: it also asserts instability for some CFL numbers; 'second order accurate' as consistency order at least 2 at fixed dt/dx (the notes' Definition 6.3)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/barsukow-lax-wendroff-advection.json",
+       "claim": "stable_for_small_cfl",
+       "relation": "same"
+      },
+      {
+       "spec": "outside_v2/specs/barsukow-lax-wendroff-advection.json",
+       "claim": "consistent_order_p",
+       "relation": "same"
+      },
+      {
+       "spec": "outside_v2/specs/barsukow-beam-warming-advection.json",
+       "claim": "stable_for_small_cfl",
+       "relation": "same"
+      },
+      {
+       "spec": "outside_v2/specs/barsukow-beam-warming-advection.json",
+       "claim": "consistent_order_p",
+       "relation": "same"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "barsukow_uzh_notes:13",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the slope method (10.16) for linear advection with a slope s_i = (d_x q)(x_i) + O(dx) is stable and second order; instance: c = 1, central slope, stable for small CFL and consistent to order >= 2",
+     "narrowing": "c narrowed to c = 1 (branch c > 0); the slope, free data of the method constrained by s_i = (d_x q)(x_i) + O(dx), narrowed to the central difference (q_{i+1} - q_{i-1})/(2 dx) (other admissible slopes give Lax-Wendroff or Beam-Warming; the statement for every admissible slope would be a class); the sentence states no CFL condition, and 'stable' is read with the standing condition of explicit schemes, as stable for every small enough CFL number (other reading, not taken: unconditional stability, which no explicit scheme of this kind has); 'second-order accurate' as consistency order at least 2",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "outside_v2/specs/barsukow-slope-fromm-advection.json",
+       "claim": "stable_for_small_cfl",
+       "relation": "same"
+      },
+      {
+       "spec": "outside_v2/specs/barsukow-slope-fromm-advection.json",
+       "claim": "consistent_order_p",
+       "relation": "same"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "barsukow_uzh_notes:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "monotonicity preserving iff a_j > 0, for every linear method"
+    }
+   ]
+  },
+  {
+   "id": "barsukow_uzh_notes:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "every TVD method is monotonicity preserving"
+    }
+   ]
+  }
+ ],
+ "specs": {
+  "gp-p1-1d-advection.json": {
+   "name": "Guermond-Popov first-order scheme (3.5)-(3.6) with viscosity (3.13), continuous P1 elements on a uniform 1D mesh (lumped mass m_i = dx, c_{i,i+-1} = +-1/2, c_ii = 0), f(u) = a u with a = 1, so lambda_max = |a| = 1 and d_{i,i+-1} = |a| ||c|| = 1/2, d_ii = -1; forward Euler: U_i^{n+1} = U_i - lam (a (U_{i+1} - U_{i-1})/2 - (1/2)(U_{i+1} - 2 U_i + U_{i-1})), the upwind scheme. CFL (4.5) in this setting: h = dx, mu_min = mu_max = 1/2 (1/(d+1), d = 1), theta_min = 1/(n_sh - 1) = 1, so 2 tau lambda_max mu_max/(h mu_min theta_min) = 2 nu <= 1, nu in [0, 1/2]",
+   "pde": {
+    "flux": "a*u"
+   },
+   "params": {
+    "a": "1"
+   },
+   "scheme": {
+    "update": "u0 - lam*(a*(up1 - um1)/2 - (up1 - 2*u0 + um1)/2)"
+   },
+   "named_claims": [
+    "positive_under_cfl",
+    "local_max_principle_under_cfl",
+    "consistent_order_p"
+   ],
+   "claims": {
+    "positive_cfl": [
+     "0",
+     "1/2"
+    ],
+    "tvd_cfl": [
+     "0",
+     "1/2"
+    ],
+    "consistent_order": 1
+   }
+  },
+  "kt-semidiscrete-minmod-theta1-advection.json": {
+   "name": "Kurganov-Tadmor semi-discrete scheme (4.2)-(4.5), scalar f(u) = a u with a = 1, local speed (4.10) a_{j+1/2} = |a| = 1, so H_{j+1/2} = u^-_{j+1/2} = u_j + (dx/2)(u_x)_j; minmod-like slopes (4.9) with theta = 1: dx (u_x)_j = minmod(theta (u_j - u_{j-1}), (u_{j+1} - u_{j-1})/2, theta (u_{j+1} - u_j)), the three-argument minmod written as minmod(a, minmod(b, c)); the forward-Euler step of the ODE system",
+   "pde": {
+    "flux": "a*u"
+   },
+   "params": {
+    "a": "1"
+   },
+   "scheme": {
+    "numerical_flux": "a*(uL + minmod(uL - uLL, minmod((uR - uLL)/2, uR - uL))/2)"
+   },
+   "named_claims": [
+    "tvd_under_cfl"
+   ],
+   "claims": {
+    "tvd_cfl": [
+     "0",
+     "1/4"
+    ]
+   }
+  },
+  "kt-semidiscrete-minmod-theta2-advection.json": {
+   "name": "As kt-semidiscrete-minmod-theta1-advection.json with theta = 2 in (4.9)",
+   "pde": {
+    "flux": "a*u"
+   },
+   "params": {
+    "a": "1"
+   },
+   "scheme": {
+    "numerical_flux": "a*(uL + minmod(2*(uL - uLL), minmod((uR - uLL)/2, 2*(uR - uL)))/2)"
+   },
+   "named_claims": [
+    "tvd_under_cfl"
+   ],
+   "claims": {
+    "tvd_cfl": [
+     "0",
+     "1/4"
+    ]
+   }
+  },
+  "chen-shu-godunov-burgers.json": {
+   "name": "Godunov flux (3.38) with the exact (entropy) Riemann solution, scalar instance: Burgers' equation f(u) = u^2/2, for which the Godunov flux is max(f(max(uL, 0)), f(min(uR, 0))); entropy U = u^2/2",
+   "pde": {
+    "flux": "u^2/2"
+   },
+   "scheme": {
+    "numerical_flux": "max(max(uL, 0)^2, min(uR, 0)^2)/2"
+   },
+   "named_claims": [
+    "entropy_stable_tadmor"
+   ],
+   "claims": {
+    "entropy_stability": {
+     "eta": "u^2/2"
+    }
+   }
+  },
+  "chen-shu-hll-rusanov-burgers.json": {
+   "name": "HLL flux (3.41) with lambda_L = -s, lambda_R = s, s = max(|uL|, |uR|) (the local Lax-Friedrichs case the source names), scalar instance: Burgers' equation f(u) = u^2/2; s >= |f'(u)| on [uL, uR], so lambda_L is not larger than the leftmost and lambda_R not smaller than the rightmost true wave speed; (3.41) gives (f_L + f_R)/2 - s (uR - uL)/2 (and f_L = 0 when s = 0); entropy U = u^2/2",
+   "pde": {
+    "flux": "u^2/2"
+   },
+   "scheme": {
+    "numerical_flux": "(uL^2 + uR^2)/4 - max(abs(uL), abs(uR))/2*(uR - uL)"
+   },
+   "named_claims": [
+    "entropy_stable_tadmor"
+   ],
+   "claims": {
+    "entropy_stability": {
+     "eta": "u^2/2"
+    }
+   }
+  },
+  "barsukow-upwind-advection.json": {
+   "name": "Upwind method (6.37) for q_t + c q_x = 0, branch c >= 0, with c = 1: q_i^{n+1} = q_i - nu (q_i - q_{i-1})",
+   "pde": {
+    "flux": "a*u"
+   },
+   "params": {
+    "a": "1"
+   },
+   "scheme": {
+    "numerical_flux": "a*uL"
+   },
+   "named_claims": [
+    "von_neumann_stable_under_cfl",
+    "consistent_order_p"
+   ],
+   "claims": {
+    "von_neumann_cfl": [
+     "0",
+     "1"
+    ],
+    "consistent_order": 1
+   }
+  },
+  "barsukow-modified-lf-burgers.json": {
+   "name": "Modified Lax-Friedrichs (9.3) as printed in Theorem 9.2, q_i^{n+1} = (q_{i-1} + 2 q_i + q_{i+1})/4 - lam (f(q_{i+1}) - f(q_{i-1}))/2, written as an update (not in flux form), scalar instance f(u) = u^2/2",
+   "pde": {
+    "flux": "u^2/2"
+   },
+   "scheme": {
+    "update": "(um1 + 2*u0 + up1)/4 - lam*(up1^2/2 - um1^2/2)/2"
+   },
+   "named_claims": [
+    "conservative"
+   ],
+   "claims": {}
+  },
+  "barsukow-lax-wendroff-advection.json": {
+   "name": "Lax-Wendroff (10.1) for q_t + c q_x = 0 with c = 1: q^{n+1} = q_i - nu (q_{i+1} - q_{i-1})/2 + nu^2 (q_{i+1} - 2 q_i + q_{i-1})/2",
+   "pde": {
+    "flux": "a*u"
+   },
+   "params": {
+    "a": "1"
+   },
+   "scheme": {
+    "update": "u0 - a*lam*(up1 - um1)/2 + a^2*lam^2*(up1 - 2*u0 + um1)/2"
+   },
+   "named_claims": [
+    "stable_for_small_cfl",
+    "consistent_order_p"
+   ],
+   "claims": {
+    "consistent_order": 2
+   }
+  },
+  "barsukow-beam-warming-advection.json": {
+   "name": "Beam-Warming (10.2), branch c > 0, with c = 1: q^{n+1} = q_i - nu (3 q_i - 4 q_{i-1} + q_{i-2})/2 + nu^2 (q_i - 2 q_{i-1} + q_{i-2})/2",
+   "pde": {
+    "flux": "a*u"
+   },
+   "params": {
+    "a": "1"
+   },
+   "scheme": {
+    "update": "u0 - a*lam*(3*u0 - 4*um1 + um2)/2 + a^2*lam^2*(u0 - 2*um1 + um2)/2"
+   },
+   "named_claims": [
+    "stable_for_small_cfl",
+    "consistent_order_p"
+   ],
+   "claims": {
+    "consistent_order": 2
+   }
+  },
+  "barsukow-slope-fromm-advection.json": {
+   "name": "Slope method (10.16), branch c > 0, with c = 1 and the central slope s_i = (q_{i+1} - q_{i-1})/(2 dx) (= (d_x q)(x_i) + O(dx^2), so the theorem's condition holds): q^{n+1} = q_i - nu (q_i - q_{i-1}) - (nu (1 - nu)/2) dx (s_i - s_{i-1})",
+   "pde": {
+    "flux": "a*u"
+   },
+   "params": {
+    "a": "1"
+   },
+   "scheme": {
+    "update": "u0 - a*lam*(u0 - um1) - a*lam*(1 - a*lam)*((up1 - um1)/2 - (u0 - um2)/2)/2"
+   },
+   "named_claims": [
+    "stable_for_small_cfl",
+    "consistent_order_p"
+   ],
+   "claims": {
+    "consistent_order": 2
+   }
+  },
+  "borges-wenoz-fd.json": {
+   "name": "WENO-Z fifth-order finite-difference reconstruction of one split flux component, eqs. (4)-(5), (8)-(10), (18)-(21) of the source (p = 1 in alpha^Z_k = d_k / beta^Z_k, tau_5 = |beta_0 - beta_2|), eps = 0 as the item's hypothesis states; a reconstruction-layer spec (claims list), to be written as the dev WENO specs are (benchmark/outside/specs/jiang-shu-weno5-js-fd.json)",
+   "layer": "reconstruction"
+  }
+ }
+}
