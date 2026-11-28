@@ -60,3 +60,19 @@ def test_headline_numbers_in_dev_results(rows):
     text = (B / "DEV_RESULTS.md").read_text()
     for needle in (f"{s['stated']} of {s['items']}", f"{s['decided']} of {s['readings']}"):
         assert needle in text
+
+
+def test_narrowing_rule_maps_a_narrowed_reading_to_the_sentence():
+    # 'for every slope' (FALSE), narrowed to one slope where the checker verifies it: WRONG as frozen,
+    # not decided (GAP) under the opt-in rule, with the instance's verdict kept
+    c = {"spec": "s.json", "claim": "tvd"}
+    r = {"field": "both", "formalization": [c], "narrowing": "one slope",
+         "narrowed": [{"param": "slope", "quantifier": "universal"}]}
+    data = {"items": [{"id": "x", "readings": [r], "unformalized": []}]}
+    items = {"x": {"property": "p", "expected_alone": "FALSE", "expected_with_hypotheses": "FALSE"}}
+    verdicts = {run_dev._key(c): {"tvd": C.VERIFIED}}
+    frozen, = run_dev.evaluate(data, items, verdicts)
+    ruled, = run_dev.evaluate(data, items, verdicts, narrowing_rule=True)
+    assert frozen["score"] == {"alone": "WRONG", "with_hypotheses": "WRONG"} and "instance_verdict" not in frozen["actual"][0]
+    assert ruled["score"] == {"alone": "GAP", "with_hypotheses": "GAP"}
+    assert (ruled["actual"][0]["instance_verdict"], ruled["actual"][0]["verdict"]) == (C.VERIFIED, C.NOT_REFUTED)

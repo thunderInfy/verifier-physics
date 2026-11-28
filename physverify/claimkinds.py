@@ -181,8 +181,7 @@ KINDS: dict[str, dict] = {
                  "linear conditions keeps every convex property forward Euler keeps, under dt <= c dt_FE",
         "quantifier": "for every alpha, beta satisfying the conditions, every convex set S, every F with forward Euler "
                       "keeping S on [0, dt_FE], every u^n in S and every dt in [0, c dt_FE]: every stage is in S",
-        # TODO: "ssp_class_preserves_meaning" (lean/PhysVerify/SSP.lean) once a Lean build checks it
-        "layers": ["schemes"], "meaning": None,
+        "layers": ["schemes"], "meaning": "ssp_class_preserves_meaning",
         "params": {"stages": {"schemes": "claims.ssp_class.stages"}, "c": {"schemes": "claims.ssp_class.c"},
                    "conditions": {"schemes": "claims.ssp_class.conditions?"},
                    "families": {"schemes": "claims.ssp_class.families?"}}},

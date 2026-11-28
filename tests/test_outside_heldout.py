@@ -99,3 +99,20 @@ def test_erratum_candidate_rests_on_an_exact_check(stored):
     assert e["with_dv_factor"]["check_status"] == "VERIFIED"
     assert all(s["A2_score"] == "ERRATUM_CANDIDATE" for s in stored["a2_sensitivity"] if s["id"] == e["id"])
     assert "tadmor_2003_acta:17" in (B / "ERRATA_PROPOSED.md").read_text()
+
+
+def test_narrowing_rule_maps_a_narrowed_reading_to_the_sentence():
+    # as in test_outside_dev: a universal sentence (FALSE) narrowed to a verified instance is WRONG as
+    # frozen and not decided (GAP) under the opt-in rule
+    c = {"spec": "s.json", "claim": "tvd"}
+    r = {"field": "both", "reading": "r", "formalization": [c], "narrowing": "one slope",
+         "narrowed": [{"param": "slope", "quantifier": "universal"}]}
+    data = {"items": [{"id": "x", "readings": [r], "unformalized": []}]}
+    items = {"x": {"source_id": "s", "expected_alone": "FALSE", "expected_with_hypotheses": "FALSE"}}
+    V = {H.key(c): {"tvd": {"verdict": "VERIFIED"}}}
+    frozen, = H.evaluate(data, items, V)
+    ruled, = H.evaluate(data, items, V, narrowing_rule=True)
+    assert frozen["score"] == {"alone": "WRONG", "with_hypotheses": "WRONG"}
+    assert "instance_verdict" not in frozen["readings"][0]
+    assert ruled["score"] == {"alone": "GAP", "with_hypotheses": "GAP"}
+    assert (ruled["readings"][0]["instance_verdict"], ruled["readings"][0]["verdict"]) == ("VERIFIED", "NOT_REFUTED")
