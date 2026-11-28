@@ -19,6 +19,10 @@ from physverify.schemes import poly as P
 ROOT = Path(__file__).resolve().parents[2]
 S = ROOT / "schemes"
 B = ROOT / "benchmark" / "scheme-claims"
+HERE = Path(__file__).resolve().parent
+# the measured Lean runs the paper reads, each named: a newer store next to them must not move the paper
+PAPER_STORE = HERE / "lean_measured_b2cafbe.json"   # the paper's pin (the held-out commit): every Lean number
+MAIN_STORE = HERE / "lean_measured_f09a5cb.json"    # the "re-measured on main" sentences only
 
 
 def _with(name: str, **claims) -> dict:
@@ -147,6 +151,7 @@ def certificate_examples() -> dict:
     out["LW recovered flux"] = r["witness"]["recovered_flux"]
     r = checks.positivity(load(S / "broken-advection-lax-friedrichs-wide-cfl.json"))
     out["LxF wide positivity"] = f"{r['status']}: {r['detail']}"
+    out["LxF wide offending value"] = r["witness"]["value"]
     r = checks.positivity(load(S / "advection-lax-friedrichs.json"))
     out["LxF positivity"] = r["status"]
     out["LxF Bernstein coefficients"] = json.dumps(r["witness"]["bernstein"])
@@ -154,21 +159,29 @@ def certificate_examples() -> dict:
     w = r["witness"]
     out["LW TV increase"] = (f"{r['status']}: u = ({', '.join(w['periodic state u^n'])}) at nu = {w['nu']}, "
                              f"TV {w['TV(u^n)']} -> {w['TV(u^{n+1})']}")
+    out["LW TV before"], out["LW TV after"] = w["TV(u^n)"], w["TV(u^{n+1})"]
     r = fixedjump.stationary_shock_rh_violation(load(S / "broken-burgers-nonconservative.json"))
     w = r["witness"]
     out["frozen jump"] = (f"{r['status']}: {w['uL']} | {w['uR']}, f(uL) = {w['f(uL)']}, f(uR) = {w['f(uR)']}, "
                           f"RH speed {w['Rankine-Hugoniot speed']}; identities {sorted(w['identities'].items())}")
+    out["frozen jump RH speed"] = w["Rankine-Hugoniot speed"]
     r = limiters.monotonicity_wide(load(S / "limiters" / "broken-advection-minmod-monotone.json"))
     out["minmod monotone"] = f"{r['status']}: {r['detail']}"
+    w = r["witness"]["counterexample"]
+    out["minmod monotone H(u)"], out["minmod monotone H(v)"] = w["H(u)"], w["H(v)"]
     r = checks.entropy_stability(load(S / "broken-burgers-roe-no-entropy-fix.json"))
     out["Roe Tadmor"] = f"{r['status']}: {r['detail']}"
+    out["Roe Tadmor Q"] = r["witness"]["counterexample"]["Q"]
     r = linear.von_neumann(load(S / "broken-advection-ftcs.json"))
     out["FTCS von Neumann"] = f"{r['status']}: 1 - |g|^2 = {r['witness']['1 - |g|^2']}; {r['detail']}"
+    out["FTCS |g|^2"] = r["witness"]["counterexample"]["|g|^2"]
     r = linear.von_neumann(load(S / "broken-advection-fake-second-order.json"))
     out["halved LW von Neumann"] = f"{r['status']}: {r['detail']}"
+    out["halved LW |g|^2"] = r["witness"]["counterexample"]["|g|^2"]
     for name in ("advection-minmod", "advection-superbee"):
         r = limiters.tvd_harten(load(S / "limiters" / f"{name}.json"))
         out[f"{name} TVD"] = f"{r['status']}: {r['detail']}"
+        out[f"{name} TVD sign cells"] = str(r["witness"]["cell_counts"]["retained (full-dimensional)"])
     return out
 
 
@@ -187,7 +200,7 @@ def _measured_lean(pairs: list):
     now was not measured. Returns ([(theorem name, record) per pair], store)."""
     from physverify.schemes import lean_cert
     ml = _measure_lean()
-    store, used, missing = ml.load_store(), [], 0
+    store, used, missing = ml.load_store(PAPER_STORE), [], 0
     for pair in pairs:
         with ml.Replay(store) as rp:
             lean_cert.certify([pair])
@@ -204,7 +217,7 @@ def lean_replay() -> dict:
     certificates for the exact scheme checks"): every theorem the judge states, with its status in
     lean_measured_b2cafbe.json (one file per theorem on the machine named there). The example specs are
     those that run measured (specs added since, e.g. schemes/ssp/, are in the later runs only). About a minute."""
-    measured = {uid for uid, s in _measure_lean().load_store()["specs"].items() if s["kind"] == "schemes"}
+    measured = {uid for uid, s in _measure_lean().load_store(PAPER_STORE)["specs"].items() if s["kind"] == "schemes"}
     paths = [p for p in sorted(S.glob("*.json")) + sorted(S.glob("*/*.json")) if str(p.relative_to(ROOT)) in measured]
     pairs = [(spec, check(spec)) for spec in map(load, paths)]
     used, store = _measured_lean(pairs)
@@ -227,6 +240,10 @@ def lean_replay() -> dict:
     out["host"] = f"{store['host']['name']} ({store['host']['machine']}, {store['host']['cpus']} vCPU, {store['host']['ram_gb']} GB)"
     out["measured"] = f"{store['measured']}, commit {store['commit'][:7]}"
     out["Lean, Mathlib"] = f"{store['key']['lean_toolchain']}, Mathlib {store['key']['mathlib_rev'][:7]}"
+    out["Lean version"] = store["key"]["lean_toolchain"].split(":v")[-1]
+    out["Mathlib rev"] = store["key"]["mathlib_rev"][:7]
+    for k in ("machine", "cpus", "ram_gb"):
+        out[f"host {k}"] = str(store["host"][k])
     labelled = [v for _, rep in pairs for v in rep["claims"] if v["guarantee"].startswith("proven (Lean")]
     out["claim verdicts with a Lean label"] = str(len(labelled))
     not_stated = sorted({(s["name"], r["check"], r["lean"]) for s, rep in pairs for r in rep["checks"]
@@ -238,7 +255,7 @@ def lean_replay() -> dict:
 def lean_replay_all() -> dict:
     """The whole measured run (lean_measured_b2cafbe.json, every spec the paper counts): distinct theorems by status,
     the run's wall time, and each theorem not accepted with its specs, its attempts and Lean's first error."""
-    store = _measure_lean().load_store()
+    store = _measure_lean().load_store(PAPER_STORE)
     used: dict = {}
     for uid, s in store["specs"].items():
         for _, h in s["theorems"]:
@@ -249,6 +266,9 @@ def lean_replay_all() -> dict:
     for s in ("accepted", "rejected", "error", "timeout"):
         out[s] = str(sum(t["status"] == s for t in th.values()))
     out["Lean seconds, sum over theorems"] = f"{sum(t['seconds'] for t in th.values()):.0f}"
+    secs = sorted(t["seconds"] for t in th.values())
+    out["Lean seconds per theorem, median"] = f"{secs[len(secs) // 2]:.1f}"
+    out["peak memory per theorem, max (GB)"] = f"{max(t['peak_rss_mb'] for t in th.values()) / 1024:.1f}"
     for name, r in store["runs"].items():
         if r["starts"] and r["ends"]:
             out[f"run {name}: wall seconds, {r['parallel']} in parallel"] = str(r["ends"][-1] - r["starts"][0])
@@ -434,6 +454,31 @@ def outside_dev() -> dict:
     for k, v in s["fields_differ_pairs"].items():
         out[f"differ {k}"] = str(v)
     out["differ, stated"] = "; ".join(f"{i}: {a} {sa}, {h} {sh}" for i, a, sa, h, sh in s["fields_differ_stated"])
+    out["instance from justification, readings"] = str(sum(
+        bool(r.get("instance_from_justification")) for e in data["items"] for r in e["readings"]))
+    for f in rd.FIELDS:     # the complement of the runner's tuned_matches, per field
+        out[f"matches not only on tuned readings {f}"] = str(sum(
+            r["score"][f] == "MATCH" and not all(x.get("tuned_on") for x in r["_e"]["readings"] if f in rd.fields_of(x))
+            for r in rows))
+    return out
+
+
+DEV_FIRST_RUN = "93b591c"   # the commit that added the dev half's readings and scored them first
+
+
+def outside_dev_first_run() -> dict:
+    """The first scoring of the dev half, before any checker addition: the scores stored in dev_readings.json at
+    commit 93b591c (read with git show; nothing is re-run)."""
+    git = subprocess.run(["git", "show", f"{DEV_FIRST_RUN}:benchmark/outside/dev_readings.json"], cwd=ROOT,
+                         capture_output=True, text=True, check=True)
+    items = json.loads(git.stdout)["items"]
+    readings = [r for e in items for r in e["readings"]]
+    out = {"commit": DEV_FIRST_RUN, "items": str(len(items)), "stated": str(sum(bool(e["readings"]) for e in items)),
+           "readings": str(len(readings)),
+           "decided": str(sum(r["actual"]["verdict"] in _run_dev().DECIDED for r in readings))}
+    for f in ("alone", "with_hypotheses"):
+        for s in ("MATCH", "WRONG"):
+            out[f"{s} {f}"] = str(sum(e["score"][f] == s for e in items))
     return out
 
 
@@ -475,7 +520,6 @@ def _outside_gaps_tex(numbers: dict | None = None) -> str:
 
 # ---------------------------------------------------------------- generated tables (main.tex inputs them)
 
-HERE = Path(__file__).resolve().parent
 LEAN_KINDS = {"schemes": "example specs", "bench": "our benchmark", "outside": "outside, dev readings",
               "variational": "update maps, variational", "kernels": "kernels"}
 
@@ -484,7 +528,7 @@ def _lean_measured_tex(store: dict | None = None) -> str:
     """The rows of the measured-run table, from lean_measured_b2cafbe.json: per spec set, the specs, the distinct
     theorems by status, and the sum of their wall times (each theorem is its own Lean process, import
     included). Theorems shared by several sets count once in the last row."""
-    store = store or _measure_lean().load_store()
+    store = store or _measure_lean().load_store(PAPER_STORE)
     out = ["% generated from lean_measured_b2cafbe.json by `paper_numbers.py --write-table`; do not edit"]
     every: set = set()
 
@@ -680,6 +724,10 @@ def outside_naive_readings() -> dict:
     for s, name in ((1, "printed (+)"), (-1, "corrected (-)")):
         out[f"tecno:04 dE/dt the identity requires, {name}"] = str(rhs - (Q(u[1], u[2], s) - Q(u[0], u[1], s)))
     out["tecno:04 dE/dt of the scheme"] = str(dE)
+    # the stored reading's stated_identity check on the printed identity: its residual at the item's witness
+    r = next(r for r in check(load(S / "identity" / "broken-entropy-balance-zero-flux-printed.json"))["checks"]
+             if r["check"] == "stated_identity")
+    out["tecno:04 stated_identity residual at (0, 0, 1)"] = r["witness"]["counterexample"]["LHS - RHS"]
     # mfa_oslo_notes:02, read as "the central scheme is not von Neumann stable": FTCS on linear advection
     spec = load(S / "broken-advection-ftcs.json")
     spec["named_claims"] = ["von_neumann_stable_under_cfl", "stable_for_small_cfl"]
@@ -691,6 +739,7 @@ def outside_naive_readings() -> dict:
     U = [(-1) ** j for j in range(8)]
     nxt = [U[j] - Fraction(1, 2) * (U[(j + 1) % 8] - U[j - 1]) for j in range(8)]
     out["mfa:02 energy before, after one step of (-1)^j at nu = 1"] = f"{sum(x * x for x in U)}, {sum(x * x for x in nxt)}"
+    out["mfa:02 energy before"], out["mfa:02 energy after"] = str(sum(x * x for x in U)), str(sum(x * x for x in nxt))
     return out
 
 
@@ -808,11 +857,12 @@ def lean_current() -> dict:
     message: the heartbeat cap, or a tactic error), and the registry's meaning theorems by status."""
     ml = _measure_lean()
     out = {}
-    for name in ("b2cafbe", "f09a5cb"):
-        store = ml.load_store(HERE / f"lean_measured_{name}.json")
+    for name, path in (("b2cafbe", PAPER_STORE), ("f09a5cb", MAIN_STORE)):
+        store = ml.load_store(path)
         used = {h for s in store["specs"].values() for _, h in s["theorems"]}
         th = [store["theorems"][h] for h in used]
         out[f"{name}: commit"] = store["commit"][:7]
+        out[f"{name}: file commit"] = store["file_commit"][:7]
         out[f"{name}: measured"] = store["measured"]
         out[f"{name}: machine"] = store["host"]["machine"]
         out[f"{name}: specs"] = str(len(store["specs"]))
@@ -849,6 +899,222 @@ def gate() -> dict:
     return {"summary": p.stdout.strip().splitlines()[-1]}
 
 
+# ---------------------------------------------------------------- the numbers in main.tex's text
+
+def _m(v: str) -> str:
+    return f"${v}$"
+
+
+def _tfrac(v: str) -> str:
+    a, b = v.split("/")
+    return f"$\\tfrac{{{a}}}{{{b}}}$"
+
+
+def _first(prefix: str):
+    """The value of the one output key that starts with prefix (keys that carry a count in their name)."""
+    return lambda o: next(v for k, v in o.items() if k.startswith(prefix))
+
+
+_CLEAN, _NO_HENRICK = "without both contaminated sources", "without henrick_aslam_powers_2005_mapped"
+# \rn{KEY} in main.tex prints NUMBERS[KEY]: (function, what to read from its output, how to print it). What to read
+# is a key of the function's output or a function of the whole output; how to print it is a format pattern or a
+# function of the value. numbers.tex holds the printed values (`--write-table`); the marker names the function.
+NUMBERS = {
+    # the held-out half of the first outside benchmark (frozen at b2cafbe)
+    "heldout.pin": ("outside_heldout", "pin"),
+    "heldout.contaminated": ("outside_heldout", "contaminated items"),
+    "heldout.subset": ("outside_heldout", "agreement: subset items"),
+    **{f"heldout.{row}.{k}": ("outside_heldout", f"{name}: {field}")
+       for row, name in (("all", "all"), ("nohenrick", _NO_HENRICK), ("clean", _CLEAN))
+       for k, field in (("items", "items"), ("stated", "stated"), ("decided", "decided_fields"),
+                        ("match", "match"), ("wrong", "wrong"))},
+    "heldout.gaps": ("outside_heldout", "clean gap entries"),
+    **{f"heldout.gaps.{k}": ("outside_heldout", f"clean gap primary {r}")
+       for k, r in (("class", "scheme-class"), ("notcheckable", "not-checkable"), ("timestepping", "time-stepping"),
+                    ("system", "system"), ("multid", "multi-d"))},
+    "heldout.agree.statable": ("outside_heldout", "agreement: same statable items"),
+    "heldout.agree.reason": ("outside_heldout", "agreement: same primary reason"),
+    "heldout.agree.kinds": ("outside_heldout", "agreement: same kinds, both formalized"),
+    # the second blind benchmark (frozen first score) and the post-hoc rule
+    "v2.frozen": ("outside_v2", "frozen"),
+    "v2.old": ("outside_v2", "OLD"),
+    "v2.new": ("outside_v2", "NEW"),
+    "v2.all.items": ("outside_v2", "all: items"),
+    "v2.contaminated.items": ("outside_v2", "contaminated: items"),
+    **{f"v2.clean.{k}": ("outside_v2", f"clean: {field}")
+       for k, field in (("items", "items"), ("stated", "stated"), ("decided", "decided_fields"), ("match", "match"),
+                        ("wrong", "wrong"), ("wrongchecker", "wrong_checker"), ("wrongreading", "wrong_reading"),
+                        ("specerror", "spec_error"))},
+    "v2.compared": ("outside_v2", "OLD -> NEW verdicts compared"),
+    "v2.changed": ("outside_v2", "OLD -> NEW verdicts changed"),
+    "v2.ssp": ("outside_v2", "SSP-relevant items"),
+    "v2.ssp.class": ("outside_v2", "SSP statable: too narrow"),
+    "v2.ssp.other": ("outside_v2", "SSP statable: other"),
+    "v2.ssp.instance": ("outside_v2", "SSP statable: instance"),
+    "v2.agree.statable": ("outside_v2", "agreement: same statable items"),
+    "v2.agree.reason": ("outside_v2", "agreement: same primary reason"),
+    "v2.agree.kinds.same": ("outside_v2", lambda o: o["agreement: same kinds, both formalized"].split("/")[0]),
+    "v2.agree.kinds.both": ("outside_v2", lambda o: o["agreement: same kinds, both formalized"].split("/")[1]),
+    "v2.errata": ("outside_v2", "errata confirmed exactly"),
+    "posthoc.decided": ("outside_v2_posthoc", "annotated: decided_fields"),
+    "posthoc.match2gap": ("outside_v2_posthoc", "moved MATCH -> GAP"),
+    "posthoc.wrong2gap": ("outside_v2_posthoc", "moved WRONG -> GAP"),
+    # the outside benchmark as collected, and its development half (tuned on)
+    "outside.items": ("outside_dev", "items, all"),
+    "outside.sources": ("outside_dev", "sources, all"),
+    "outside.heldout.items": ("outside_dev", "items, heldout"),
+    "dev.items": ("outside_dev", "items, dev"),
+    "dev.sources": ("outside_dev", "sources, dev"),
+    "dev.stated": ("outside_dev", "stated"),
+    "dev.stated.alone": ("outside_dev", "stated alone"),
+    "dev.stated.hyp": ("outside_dev", "stated with hypotheses"),
+    "dev.readings": ("outside_dev", "readings"),
+    "dev.decided": ("outside_dev", "decided"),
+    "dev.undecided": ("outside_dev", lambda o: str(int(o["readings"]) - int(o["decided"]))),
+    "dev.verified": ("outside_dev", "verdict VERIFIED"),
+    "dev.refuted": ("outside_dev", "verdict REFUTED"),
+    "dev.wrong": ("outside_dev", "wrong"),
+    "dev.tuned": ("outside_dev", "tuned readings"),
+    "dev.fields.alone": ("outside_dev", "TRUE/FALSE fields alone"),
+    "dev.fields.hyp": ("outside_dev", "TRUE/FALSE fields with_hypotheses"),
+    "dev.match.alone": ("outside_dev", "score alone MATCH"),
+    "dev.match.hyp": ("outside_dev", "score with_hypotheses MATCH"),
+    "dev.match.narrowed": ("outside_dev", "narrowed matches"),
+    "dev.match.tuned": ("outside_dev", "tuned matches"),
+    "dev.untuned.alone": ("outside_dev", "matches not only on tuned readings alone"),
+    "dev.untuned.hyp": ("outside_dev", "matches not only on tuned readings with_hypotheses"),
+    "dev.differ": ("outside_dev", "fields differ"),
+    "dev.differ.ft": ("outside_dev", "differ FALSE alone, TRUE with hypotheses"),
+    "dev.differ.stated": ("outside_dev", "fields differ, stated"),
+    "dev.fromjustification": ("outside_dev", "instance from justification, readings"),
+    "dev.first.stated": ("outside_dev_first_run", "stated"),
+    "dev.first.items": ("outside_dev_first_run", "items"),
+    "dev.first.readings": ("outside_dev_first_run", "readings"),
+    "dev.first.decided": ("outside_dev_first_run", "decided"),
+    "dev.first.match.alone": ("outside_dev_first_run", "MATCH alone"),
+    "dev.first.match.hyp": ("outside_dev_first_run", "MATCH with_hypotheses"),
+    "naive.tecno.scheme": ("outside_naive_readings", "tecno:04 dE/dt of the scheme"),
+    "naive.tecno.printed": ("outside_naive_readings", "tecno:04 dE/dt the identity requires, printed (+)", _m),
+    "naive.tecno.corrected": ("outside_naive_readings", "tecno:04 dE/dt the identity requires, corrected (-)"),
+    "naive.tecno.residual": ("outside_naive_readings", "tecno:04 stated_identity residual at (0, 0, 1)", _m),
+    "naive.mfa.before": ("outside_naive_readings", "mfa:02 energy before"),
+    "naive.mfa.after": ("outside_naive_readings", "mfa:02 energy after"),
+    # our own benchmark
+    "bench.sentences": ("bench_counts", "sentences"),
+    "bench.readings": ("bench_counts", "readings"),
+    "bench.match": ("bench_counts", "match"),
+    "bench.wrong": ("bench_counts", "WRONG"),
+    "bench.gap": ("bench_counts", "gap"),
+    "bench.match.refuted": ("bench_counts", "match REFUTED"),
+    "bench.match.re": ("bench_counts", "match REFUTED_EMPIRICALLY"),
+    "bench.gap.uf": ("bench_counts", "gap UNFORMALIZED"),
+    "bench.gap.u": ("bench_counts", "gap UNKNOWN"),
+    "bench.gap.nr": ("bench_counts", "gap NOT_REFUTED"),
+    "benchlean.decisive": ("bench_lean_labels", "decisive verdicts"),
+    "benchlean.label": ("bench_lean_labels", "decisive with a Lean label"),
+    "benchlean.percell": ("bench_lean_labels", "of which per cell"),
+    "benchlean.verified": ("bench_lean_labels", "decisive VERIFIED with a Lean label"),
+    "benchlean.refuted": ("bench_lean_labels", "decisive REFUTED with a Lean label"),
+    "benchlean.unlabelled": ("bench_lean_labels",
+                             lambda o: str(int(o["decisive verdicts"]) - int(o["decisive with a Lean label"]))),
+    "benchlean.stated": ("bench_lean_labels", "theorems stated"),
+    "benchlean.accepted": ("bench_lean_labels", "theorems accepted"),
+    "benchlean.projected": ("bench_lean_labels", "projected (every stated theorem accepted): decisive with a Lean label"),
+    "benchlean.projected.percell": ("bench_lean_labels", "projected: of which per cell"),
+    "benchlean.meaning": ("bench_lean_labels", "decisive whose claims all have a meaning theorem"),
+    "outsidelean.decided": ("outside_lean_labels", "decided readings"),
+    "outsidelean.label": ("outside_lean_labels", "decided with a Lean label"),
+    "outsidelean.percell": ("outside_lean_labels", "of which per cell"),
+    "outsidelean.pythononly": ("outside_lean_labels", "decided resting on claims with no Lean statement"),
+    # the measured Lean runs: PAPER_STORE (the pin) and MAIN_STORE (re-measured on main)
+    "lean.pin.commit": ("lean_current", "b2cafbe: commit"),
+    "lean.pin.keycommit": ("lean_current", "b2cafbe: file commit"),
+    "lean.pin.specs": ("lean_current", "b2cafbe: specs"),
+    "lean.pin.theorems": ("lean_current", "b2cafbe: theorems"),
+    "lean.pin.accepted": ("lean_current", "b2cafbe: accepted"),
+    "lean.pin.tactic": ("lean_current", "b2cafbe: tactic failure"),
+    "lean.pin.heartbeat": ("lean_current", "b2cafbe: heartbeat cap"),
+    "lean.pin.false": ("lean_current", "b2cafbe: found false"),
+    "lean.pin.timeout": ("lean_current", "b2cafbe: timeout status"),
+    "lean.main.commit": ("lean_current", "f09a5cb: commit"),
+    "lean.main.measured": ("lean_current", lambda o: f"{o['f09a5cb: measured']} at commit {o['f09a5cb: commit']}"),
+    "lean.main.machine": ("lean_current", "f09a5cb: machine", "a {}"),
+    "lean.main.specs": ("lean_current", "f09a5cb: specs"),
+    "lean.main.theorems": ("lean_current", "f09a5cb: theorems"),
+    "lean.main.accepted": ("lean_current", "f09a5cb: accepted"),
+    "lean.main.registry": ("lean_current", "f09a5cb: registry meanings accepted"),
+    "lean.examples.specs": ("lean_replay", "specs"),
+    "lean.examples.theorems": ("lean_replay", "theorems stated"),
+    "lean.examples.accepted": ("lean_replay", "accepted"),
+    "lean.run.measured": ("lean_replay", "measured"),
+    "lean.run.versions": ("lean_replay", lambda o: f"Lean {o['Lean version']} and Mathlib {o['Mathlib rev']}"),
+    "lean.run.host": ("lean_replay", lambda o: f"a {o['host machine']} machine ({o['host cpus']} vCPU, "
+                                               f"{o['host ram_gb']}\\,GB)"),
+    "lean.run.median": ("lean_replay", "Lean seconds per theorem, median", "{}\\,s"),
+    "lean.run.peak": ("lean_replay", "peak memory per theorem, max (GB)", "{}\\,GB"),
+    "lean.all.theorems": ("lean_replay_all", "theorems"),
+    "lean.all.accepted": ("lean_replay_all", "accepted"),
+    "lean.all.seconds": ("lean_replay_all", "Lean seconds, sum over theorems", "{}\\,s"),
+    "lean.all.limit": ("lean_replay_all", lambda o: f"{int(o['limit per theorem (s)']) // 60}\\,min"),
+    "lean.all.wall": ("lean_replay_all", _first("run results: wall seconds"), "{}\\,s"),
+    "lean.all.retry": ("lean_replay_all", _first("run results_retry: wall seconds"), "{}\\,s"),
+    # the worked example and the certificates
+    "rusanov.c1.state": ("rusanov_bounds", "c=1 state", _m),
+    "rusanov.c1.before": ("rusanov_bounds", "c=1 H before", _m),
+    "rusanov.c1.after": ("rusanov_bounds", "c=1 H after", _m),
+    "rusanov.third.cells": ("rusanov_bounds", "c=1/3 cells"),
+    "rusanov.third.partials": ("rusanov_bounds", "c=1/3 partials certified"),
+    "rusanov.hand.before": ("rusanov_hand_pair", "H(1, 1, -9/10)", _tfrac),
+    "rusanov.hand.after": ("rusanov_hand_pair", "H(1, 101/100, -9/10)", _tfrac),
+    "rusanov.hand.cfl": ("rusanov_hand_pair", "lam*max|u|", _m),
+    "rusanov.pair334.partial": ("rusanov_sharp_family", "dH/du_i at the checker pair", _m),
+    "rusanov.family.third": ("rusanov_sharp_family", "dH/du_i at c=1/3"),
+    "rusanov.family.334": ("rusanov_sharp_family", "dH/du_i at c=334/1000", _m),
+    "table.claims": ("table_size", "named claims"),
+    "table.rows": ("table_size", "rows"),
+    "cert.lxf.coefficient": ("certificate_examples", "LxF wide offending value", _m),
+    "cert.ftcs.g2": ("certificate_examples", "FTCS |g|^2"),
+    "cert.minmod.cells": ("certificate_examples", "advection-minmod TVD sign cells"),
+    "cert.superbee.cells": ("certificate_examples", "advection-superbee TVD sign cells"),
+    "cert.lw.tvbefore": ("certificate_examples", "LW TV before"),
+    "cert.lw.tvafter": ("certificate_examples", "LW TV after", _m),
+    "cert.jump.speed": ("certificate_examples", "frozen jump RH speed", _m),
+    "cert.minmod.hu": ("certificate_examples", "minmod monotone H(u)", _m),
+    "cert.minmod.hv": ("certificate_examples", "minmod monotone H(v)", _m),
+    "cert.roe.q": ("certificate_examples", "Roe Tadmor Q", _m),
+    "cert.halvedlw.g2": ("certificate_examples", "halved LW |g|^2", _m),
+    # the claim-kind registry
+    "kinds": ("claim_kinds", "kinds"),
+    "kinds.meaning": ("claim_kinds", "with a meaning theorem"),
+    "kinds.schemes": ("claim_kinds", "scheme kinds"),
+    "kinds.schemes.meaning": ("claim_kinds", "scheme kinds with a meaning theorem"),
+}
+NUMBERS_TEX = HERE / "numbers.tex"
+
+
+def _numbers(outputs: dict | None = None) -> dict:
+    """KEY -> (printed value, function) for every entry of NUMBERS; each function runs once (several minutes in
+    all: the benchmark's checks and the Lean labels). `outputs` may hold function outputs already computed."""
+    outputs = dict(outputs or {})
+    out = {}
+    for key, (fn, read, *fmt) in NUMBERS.items():
+        if fn not in outputs:
+            outputs[fn] = ALL[fn]()
+        v = read(outputs[fn]) if callable(read) else outputs[fn][read]
+        f = fmt[0] if fmt else "{}"
+        out[key] = (f(v) if callable(f) else f.format(v), fn)
+    return out
+
+
+def _numbers_tex(outputs: dict | None = None) -> str:
+    """numbers.tex: one \\pnset{KEY}{value}{paper_numbers.py::function} per entry of NUMBERS. main.tex inputs it
+    and prints a value only through \\rn{KEY}; tests/test_paper_numbers.py fails if the file drifts from this."""
+    out = ["% generated from the functions of paper_numbers.py by `paper_numbers.py --write-table`; do not edit"]
+    for key, (v, fn) in _numbers(outputs).items():
+        out.append(f"\\pnset{{{key}}}{{{v}}}{{paper_numbers.py::{fn}}}")
+    return "\n".join(out) + "\n"
+
+
 ALL = {k: f for k, f in list(globals().items())
        if callable(f) and not k.startswith("_") and getattr(f, "__module__", "") == __name__}
 
@@ -863,6 +1129,7 @@ if __name__ == "__main__":
         BENCH_COUNTS_TEX.write_text(_bench_counts_tex(rows))
         LEAN_TEX.write_text(_lean_measured_tex())
         V2_TOPIC_TEX.write_text(_v2_topic_tex())
+        NUMBERS_TEX.write_text(_numbers_tex({"outside_dev": outside}))
         sys.exit(0)
     for name in sys.argv[1:] or ALL:
         for k, v in ALL[name]().items():

@@ -15,11 +15,12 @@
 \setlength{\emergencystretch}{3em}
 
 % ---------------------------------------------------------------- reproducibility markers
-% \rn{value}{target} prints a number and a marker [k]; \repro{target} prints the marker alone, for a
+% \rn{KEY} prints a number and a marker [k]; \repro{target} prints the marker alone, for a
 % sentence whose numbers all come from one target. Every marker becomes a row of the table in
 % Appendix A (value, page, target). A target is FILE::FUNCTION: a pytest test under tests/, or a
-% function of papers/scheme-claims/paper_numbers.py. tests/test_paper_numbers.py checks that every
-% target resolves.
+% function of papers/scheme-claims/paper_numbers.py. The value and target of each KEY are in
+% numbers.tex, which paper_numbers.py generates (NUMBERS); no number is typed into an \rn.
+% tests/test_paper_numbers.py checks that every target resolves and that numbers.tex is current.
 \newcounter{repro}
 \makeatletter
 \newcommand{\reprorec}[2]{%
@@ -27,7 +28,10 @@
   \textsuperscript{\hyperlink{reprorow.\therepro}{\scriptsize[\therepro]}}%
   \edef\@tempa{\noexpand\addtocontents{lor}{\string\reprorow{\therepro}{\noexpand\thepage}%
     {\noexpand\unexpanded{\noexpand\unexpanded{\unexpanded{#1}}}}{\detokenize{#2}}}}\@tempa}
-\newcommand{\rn}[2]{#1\reprorec{#1}{#2}}
+\newcommand{\pnset}[3]{\@namedef{pn@#1}{{#2}{#3}}}
+\newcommand{\rn@}[2]{#1\reprorec{#1}{#2}}
+\newcommand{\rn}[1]{\@ifundefined{pn@#1}{\PackageError{main}{no generated number `#1' in numbers.tex}{}\textbf{??}}%
+  {\expandafter\expandafter\expandafter\rn@\csname pn@#1\endcsname}}
 \newcommand{\repro}[1]{\reprorec{(see text)}{#1}}
 \newtoks\reprorows
 \newcommand{\printrepro}{%
@@ -39,6 +43,7 @@
   \toprule \# & page & number & reproduced by\\ \midrule\endhead
   \the\reprorows \bottomrule\end{longtable}}}
 \makeatother
+\input{numbers.tex}
 \def\UrlBreaks{\do\/\do\.\do\:\do\_}
 \newcommand{\todo}[1]{\textcolor{red!70!black}{\textbf{[TODO: #1]}}}
 
@@ -73,30 +78,31 @@ anyone can replay. A small trusted table says how each check bears on each claim
 necessary or equivalent, with stated preconditions), so a failed sufficient check never refutes and
 a passed necessary check never verifies. The error-prone step is reading the claim, not checking it.
 Out of sample, the checker decides none of the sentences as printed, and no certificate it issued was
-false. On \rn{42}{paper_numbers.py::outside_heldout} sentences from published sources we never read while
+false. On \rn{heldout.clean.items} sentences from published sources we never read while
 building it, with expected values fixed before any run, it can state a formal reading for
-\rn{3}{paper_numbers.py::outside_heldout} and decides \rn{0}{paper_numbers.py::outside_heldout}. On a
-second blind benchmark of \rn{91}{paper_numbers.py::outside_v2} such sentences it states
-\rn{11}{paper_numbers.py::outside_v2}, every one \emph{narrowed to an instance} (the reading fixes, say,
+\rn{heldout.clean.stated} and decides \rn{heldout.clean.decided}. On a
+second blind benchmark of \rn{v2.clean.items} such sentences it states
+\rn{v2.clean.stated}, every one \emph{narrowed to an instance} (the reading fixes, say,
 one flux where the sentence speaks of every flux). Its frozen first score was
-\rn{14}{paper_numbers.py::outside_v2} matches and \rn{2}{paper_numbers.py::outside_v2} wrong fields, all
-on instances; the \rn{2}{paper_numbers.py::outside_v2} wrong fields come from one reading error, where the
+\rn{v2.clean.match} matches and \rn{v2.clean.wrong} wrong fields, all
+on instances; the \rn{v2.clean.wrong} wrong fields come from one reading error, where the
 checker's verdict was right for the instance the reader chose. Under a rule we adopted after seeing that
 score (a pass on one instance of a claim about a whole class counts only as not refuted), it decides
-\rn{0}{paper_numbers.py::outside_v2_posthoc}. These sentences are mostly about whole classes of schemes,
+\rn{posthoc.decided}. These sentences are mostly about whole classes of schemes,
 systems, two space dimensions and time stepping. What's needed next is two things: claims stated over a
 class of schemes, and readers who state the sentence rather than an instance. On the development half of the first outside benchmark, readings we wrote after
-seeing the expected values decide \rn{26}{paper_numbers.py::outside_dev} of
-\rn{27}{paper_numbers.py::outside_dev} correctly; we then tuned the checker on these sentences, and
+seeing the expected values decide \rn{dev.decided} of
+\rn{dev.readings} correctly; we then tuned the checker on these sentences, and
 before tuning it could state 9 of them. On our own benchmark it decides
-\rn{34}{paper_numbers.py::bench_counts} of \rn{44}{paper_numbers.py::bench_counts} readings correctly and
-\rn{0}{paper_numbers.py::bench_counts} wrongly; we wrote those sentences and their expected values.
+\rn{bench.match} of \rn{bench.readings} readings correctly and
+\rn{bench.wrong} wrongly; we wrote those sentences and their expected values.
 The exact checks run in Python with rational arithmetic, and the checker turns its verdicts into
-\rn{598}{paper_numbers.py::lean_current} distinct Lean theorems (measured at commit \code{b2cafbe}). Lean
-accepts \rn{596}{paper_numbers.py::lean_current}; one proof fails a tactic, one exceeds the heartbeat cap,
-and Lean finds none false. \rn{18}{paper_numbers.py::bench_lean_labels} of the
-\rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our benchmark are also proved in Lean
-(for \rn{3}{paper_numbers.py::bench_lean_labels} of them Lean proves each case separately, and exact
+\rn{lean.pin.theorems} distinct Lean theorems (measured at commit \code{\rn{lean.pin.commit}}, whose verifier
+code, \code{physverify/}, \code{lean/} and the specs, is identical to \code{\rn{lean.pin.keycommit}}'s). Lean
+accepts \rn{lean.pin.accepted}; one proof fails a tactic, one exceeds the heartbeat cap,
+and Lean finds none false. \rn{benchlean.label} of the
+\rn{benchlean.decisive} decisive verdicts on our benchmark are also proved in Lean
+(for \rn{benchlean.percell} of them Lean proves each case separately, and exact
 Python checks that the cases cover every input); the others stand on the exact Python check alone.
 \end{abstract}
 
@@ -145,24 +151,24 @@ partial is $\ge 0$ on the whole cell.
 
 At $c = 1$ the search fails and the check looks for a counterexample instead. It returns, in exact
 rational arithmetic, $\lambda = 1$ and the state $(u_{i-1}, u_i, u_{i+1})$ =
-(\rn{$39/40, 19/20, 1/40$}{paper_numbers.py::rusanov_bounds}): raising $u_i$ by
-$1/100$ lowers $H$ from \rn{$2433/3200$}{paper_numbers.py::rusanov_bounds} to
-\rn{$60481/80000$}{paper_numbers.py::rusanov_bounds}. All states lie in the CFL box, so the claim is
+(\rn{rusanov.c1.state}): raising $u_i$ by
+$1/100$ lowers $H$ from \rn{rusanov.c1.before} to
+\rn{rusanov.c1.after}. All states lie in the CFL box, so the claim is
 false. We had also found a different counterexample by hand, at
 $\lambda = 9/10$:
 \[
-H(1, 1, -\tfrac{9}{10}) = \text{\rn{$\tfrac{751}{4000}$}{tests/test_schemes.py::test_rusanov_monotone_bound_is_one_third}}
+H(1, 1, -\tfrac{9}{10}) = \text{\rn{rusanov.hand.before}}
 \;>\;
-H(1, \tfrac{101}{100}, -\tfrac{9}{10}) = \text{\rn{$\tfrac{18011}{100000}$}{tests/test_schemes.py::test_rusanov_monotone_bound_is_one_third}},
+H(1, \tfrac{101}{100}, -\tfrac{9}{10}) = \text{\rn{rusanov.hand.after}},
 \]
-with CFL number \rn{$909/1000$}{paper_numbers.py::rusanov_hand_pair}~$\le 1$. A test evaluates both
+with CFL number \rn{rusanov.hand.cfl}~$\le 1$. A test evaluates both
 values in the spec's own normal form and in an independent implementation of $\max$, and they agree.
 
 \paragraph{The sharp bound.} The same check, asked about $c = 1/3$, returns \V. (Verdicts are written in
 capitals: \V{} and \R{} are exact, \NR{} and \RE{} come from float64 studies, \U{} means undecided, and the
 benchmarks add \UF{} for a sentence no claim kind expresses; Appendix~\ref{app:glossary} lists them.) It covers the state
-space with \rn{32}{paper_numbers.py::rusanov_bounds} sign cells and certifies all
-\rn{96}{paper_numbers.py::rusanov_bounds} partial derivatives (three per cell) by Farkas identities.
+space with \rn{rusanov.third.cells} sign cells and certifies all
+\rn{rusanov.third.partials} partial derivatives (three per cell) by Farkas identities.
 On the cell $u_i \ge u_{i+1} \ge 0$, $u_i \ge u_{i-1} \ge 0$, for example, the identity for the
 middle partial is\repro{paper_numbers.py::rusanov_cell_example}
 \[
@@ -180,10 +186,10 @@ $|u_{i\pm1}| \le u_i$, both interface speeds $\alpha$ equal $u_i$, so
 \]
 At $w_i = c$, $w_{i\pm1} = -c$ this is $1 - 3c$, which is negative for every $c > 1/3$. The
 checker's pair at $c = 334/1000$ lies in this cell, where the partial is
-\rn{$-833/500000$}{tests/test_paper_numbers.py::test_rusanov_sharp_bound_is_exactly_one_third}. A test
+\rn{rusanov.pair334.partial}. A test
 evaluates the partial of the spec's own $H$ exactly along the family: it is
-\rn{0}{paper_numbers.py::rusanov_sharp_family} at $c = 1/3$ and
-\rn{$-1/500$}{paper_numbers.py::rusanov_sharp_family} at $c = 334/1000$, equal to $1 - 3c$ at every
+\rn{rusanov.family.third} at $c = 1/3$ and
+\rn{rusanov.family.334} at $c = 334/1000$, equal to $1 - 3c$ at every
 $c$ tried.\repro{tests/test_paper_numbers.py::test_rusanov_sharp_bound_is_exactly_one_third}
 We had guessed $1/2$ (Section~\ref{sec:corrected}).
 
@@ -218,16 +224,13 @@ statement contains square roots, a companion theorem \code{s0\_monotonicity\_ref
 each argument of $\sqrt{\cdot}$ is non-negative, so that Lean's convention $\sqrt{x} = 0$ for $x < 0$
 cannot be what makes the statement true. Both are accepted, and the verdict's label becomes
 ``proven (Lean)''.\repro{paper_numbers.py::lean_replay} Over the
-\rn{43}{paper_numbers.py::lean_replay} example specs the judge states
-\rn{562}{paper_numbers.py::lean_replay} theorems, and Lean accepts
-\rn{561}{paper_numbers.py::lean_replay} of them (Table~\ref{tab:leanmeasured}). These are the example specs
-alone; the same measured run, over all \rn{107}{paper_numbers.py::lean_current} specs the paper counts,
-has \rn{598}{paper_numbers.py::lean_current} distinct theorems and \rn{596}{paper_numbers.py::lean_current}
-accepted, the count the abstract gives because its Lean key is that of \code{b2cafbe}, the commit at which
-the held-out verdicts were scored and for which the Lean labels in our tables hold; re-measured on main at
-\code{\rn{f09a5cb}{paper_numbers.py::lean_current}}, the store has \rn{600}{paper_numbers.py::lean_current}
-theorems, \rn{598}{paper_numbers.py::lean_current} accepted, and the same two failures
-(Section~\ref{sec:certs}).
+\rn{lean.examples.specs} example specs the judge states \rn{lean.examples.theorems} theorems, and Lean accepts
+\rn{lean.examples.accepted} of them (Table~\ref{tab:leanmeasured}). Over all \rn{lean.pin.specs} specs the
+paper counts, the same run has \rn{lean.pin.theorems} distinct theorems, \rn{lean.pin.accepted} accepted.
+That is the count the abstract gives, because \code{\rn{heldout.pin}} is the commit at which the held-out
+verdicts were scored, and the Lean labels in our tables hold there. Re-measured on main at
+\code{\rn{lean.main.commit}}, the store has \rn{lean.main.theorems} theorems, \rn{lean.main.accepted}
+accepted, with the same two failures (Section~\ref{sec:certs}).
 
 \medskip\noindent
 That is the whole pipeline: a sentence, a formal reading, an exact check that returns a witness, a
@@ -275,19 +278,19 @@ copied verbatim from published papers, reports and lecture notes by collectors w
 checker, with expected values fixed before any checker run (Section~\ref{sec:outside}).
 \begin{itemize}
 \item \emph{The held-out half of the first outside benchmark}, scored once with the checker frozen at
-  commit \code{b2cafbe}: of \rn{42}{paper_numbers.py::outside_heldout} sentences from sources we never read
-  while building the checker, it can state \rn{3}{paper_numbers.py::outside_heldout} and decides
-  \rn{0}{paper_numbers.py::outside_heldout}. All \rn{8}{paper_numbers.py::outside_heldout} of its correct
+  commit \code{b2cafbe}: of \rn{heldout.clean.items} sentences from sources we never read
+  while building the checker, it can state \rn{heldout.clean.stated} and decides
+  \rn{heldout.clean.decided}. All \rn{heldout.all.match} of its correct
   decisions in the half are on two \emph{contaminated} sources, papers we had read while building the
   checker (Section~\ref{sec:heldout}).
-\item \emph{A second blind benchmark} of \rn{91}{paper_numbers.py::outside_v2} clean sentences: it states
-  \rn{11}{paper_numbers.py::outside_v2}, all of them narrowed to an instance. A reading
+\item \emph{A second blind benchmark} of \rn{v2.clean.items} clean sentences: it states
+  \rn{v2.clean.stated}, all of them narrowed to an instance. A reading
   \emph{narrows} a sentence when it fixes a parameter the sentence leaves free, such as one flux for
-  ``every flux''. The frozen first score counts \rn{14}{paper_numbers.py::outside_v2} correct decisions
-  on these instances and \rn{2}{paper_numbers.py::outside_v2} wrong fields from one reading error (the
+  ``every flux''. The frozen first score counts \rn{v2.clean.match} correct decisions
+  on these instances and \rn{v2.clean.wrong} wrong fields from one reading error (the
   checker's verdict is right for the instance read). Under the rule we adopted after seeing that score (an instance can only refute a universal
   sentence, can only verify an existential one, and says nothing when the quantifier is not recorded)
-  it decides \rn{0}{paper_numbers.py::outside_v2_posthoc} (Section~\ref{sec:v2}).
+  it decides \rn{posthoc.decided} (Section~\ref{sec:v2}).
 \end{itemize}
 The decisions are not the result; the coverage is. Most of these sentences are about classes of schemes,
 systems, two space dimensions and time stepping, which a spec of one scalar scheme cannot state. Two
@@ -295,16 +298,16 @@ things follow. The checker needs claims stated over a class of schemes, with the
 (Lean can carry the quantifier, and the Python checks certify that a scheme belongs to the class); and it
 needs readers who state the sentence rather than an instance of it. What the exact checks can do on such
 sentences shows elsewhere: standalone exact scripts of the same kind refute
-\rn{5}{paper_numbers.py::outside_v2} printed statements of the second benchmark when they are read without
+\rn{v2.errata} printed statements of the second benchmark when they are read without
 conditions the source leaves unstated. That is a capability, shown by scripts outside the verifier, and
 not a benchmark score.
 
 We also report two in-sample numbers, and label them as such. On the development half of the first
 outside benchmark, with readings we wrote after seeing the expected values, the checker decides
-\rn{26}{paper_numbers.py::outside_dev} of \rn{27}{paper_numbers.py::outside_dev} readings, none wrongly.
+\rn{dev.decided} of \rn{dev.readings} readings, none wrongly.
 We changed the checker after seeing these sentences, so this number measures fit, not prediction; before
-tuning it could state 9 of the \rn{99}{paper_numbers.py::outside_dev} sentences. On our own benchmark there
-are 0 wrong verdicts among \rn{44}{paper_numbers.py::bench_counts} readings; since we wrote it, that number
+tuning it could state 9 of the \rn{dev.items} sentences. On our own benchmark there
+are 0 wrong verdicts among \rn{bench.readings} readings; since we wrote it, that number
 shows less than it seems (Section~\ref{sec:trust}). The most useful in-sample finding is the pair of
 plausible readings we rejected because they would have been wrong verdicts
 (Section~\ref{sec:outside}, ``Two readings that would have been wrong''), and the places where the
@@ -395,8 +398,8 @@ caveat.\repro{tests/test_lean_caveat.py::test_lean_upgrade_keeps_the_caveat} In 
 the caveat to ``semi-discrete only''.
 
 \paragraph{The first benchmark is ours.} The main threat to validity is that we wrote the benchmark: the
-\rn{23}{paper_numbers.py::bench_counts} sentences, their
-\rn{44}{paper_numbers.py::bench_counts} readings and the expected truth values. We tried to phrase
+\rn{bench.sentences} sentences, their
+\rn{bench.readings} readings and the expected truth values. We tried to phrase
 the sentences as papers do and fixed each expected value before running the checker on it, with a
 citation or an argument, but we also built the checker. Its blind spots and ours may coincide. A
 sentence that a checker of this kind would get wrong is, almost by construction, one we would be less
@@ -521,8 +524,8 @@ scope check (linear update with coefficients in $\Delta t/\Delta x$ only, combin
 certified $\Delta t/\Delta x$, smooth data). For a nonlinear scheme the scope check returns \NA, and the
 row cannot fire.\repro{tests/test_schemes.py::test_lax_richtmyer_never_fires_for_nonlinear_schemes}
 
-\paragraph{Selected rows.} The full table has \rn{22}{paper_numbers.py::table_size} named claims
-and \rn{40}{paper_numbers.py::table_size} rows. Some of the rows used in this paper:
+\paragraph{Selected rows.} The full table has \rn{table.claims} named claims
+and \rn{table.rows} rows. Some of the rows used in this paper:
 \begin{center}\small
 \begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{4.7cm}>{\raggedright\arraybackslash}X l l@{}}
 \toprule
@@ -565,11 +568,11 @@ Bernstein basis on the interval \cite{bernstein-farouki2012}; non-negative Berns
 prove $c_k \ge 0$ on the whole interval. Lax--Friedrichs on $[-1, 1]$ has Bernstein coefficients
 $(0, 1)$ for $c_{-1}$ and $(1, 0)$ for $c_{1}$, so it is
 positive.\repro{paper_numbers.py::certificate_examples} Claimed on $[0, 11/10]$, it is \R: the
-coefficient of $u_{i+1}$, $(1 - \nu)/2$, is \rn{$-1/20$}{paper_numbers.py::certificate_examples} at
+coefficient of $u_{i+1}$, $(1 - \nu)/2$, is \rn{cert.lxf.coefficient} at
 $\nu = 11/10$. Von Neumann stability uses the same idea in two variables: $1 - |g|^2$ is a polynomial
 in $\nu$ and $z = \cos\theta$, certified by tensor Bernstein coefficients after stripping the factors
 $(1 - z)$ and $(1 + z)$. For FTCS, $1 - |g|^2 = \nu^2 z^2 - \nu^2 = -\nu^2(1 - z^2)$, so it is unstable
-for every $\nu \ne 0$; the exact witness is $|g|^2$ = \rn{2}{paper_numbers.py::certificate_examples}
+for every $\nu \ne 0$; the exact witness is $|g|^2$ = \rn{cert.ftcs.g2}
 at $\nu = 1$, $z = 0$.
 
 \paragraph{Farkas identities on sign cells.} For nonlinear and limited schemes, the update is
@@ -580,33 +583,33 @@ $p = r + \sum_j \mu_j a_j$ with $r, \mu_j \ge 0$ over the cell's defining inequa
 $a_j \ge 0$ (Farkas' lemma \cite{farkas1902}); for TVD the multipliers $\mu_j(\nu)$ are polynomials in
 $\nu$, themselves certified by Bernstein coefficients on pieces of the $\nu$-range. Harten's incremental
 form \cite{harten1983} is certified this way for the minmod and superbee flux-limited schemes
-\cite{sweby1984} on $\nu \in [0, 1]$: \rn{18}{paper_numbers.py::certificate_examples} sign cells for
-minmod and \rn{50}{paper_numbers.py::certificate_examples} for superbee, every half-cell certified.
+\cite{sweby1984} on $\nu \in [0, 1]$: \rn{cert.minmod.cells} sign cells for
+minmod and \rn{cert.superbee.cells} for superbee, every half-cell certified.
 
 \paragraph{Exact counterexamples with replay.} A refutation is always a finite object in rational
 numbers, replayed by evaluating the scheme's own expression:
 \begin{itemize}
 \item \emph{Lax--Wendroff is not TVD.} In flux-limiter form on the periodic state
   $u = (0, 0, 0, 0, 0, 1)$ at $\nu = 1/4$, one step raises the total variation from
-  \rn{2}{paper_numbers.py::certificate_examples} to
-  \rn{$33/16$}{paper_numbers.py::certificate_examples}. A test replays it with the textbook ratio form
+  \rn{cert.lw.tvbefore} to
+  \rn{cert.lw.tvafter}. A test replays it with the textbook ratio form
   of the limiter.\repro{tests/test_limiters.py::test_tv_increase_replays_with_the_textbook_formula}
 \item \emph{The frozen jump $1 \mid 0$.} For the quasilinear upwind scheme on Burgers, the four
   windows across the step $1 \mid 0$ satisfy $H(1,1,1) = H(1,1,0) = 1$ and $H(1,0,0) = H(0,0,0) = 0$ as
   identities in $\lambda$. So the computed solution is the same stationary jump on every grid. But
   $f(1) = 1/2 \ne 0 = f(0)$: the Rankine--Hugoniot speed is
-  \rn{$1/2$}{paper_numbers.py::certificate_examples}, and $1 \mid 0$ is a Lax shock
+  \rn{cert.jump.speed}, and $1 \mid 0$ is a Lax shock
   ($f'(1) > f'(0)$, $f'' \ge 0$). The limit is not a weak solution, so the scheme's shock-speed,
   weak-limit and entropy claims are all \R{}
   exactly.\repro{tests/test_fixed_jump.py::test_quasilinear_upwind_burgers_is_refuted_with_the_pair}
 \item \emph{Minmod is TVD but not monotone.} At $\nu = 1/2$,
-  $H(0, 4, 7, 8, 0)$ is \rn{$23/4$}{paper_numbers.py::certificate_examples} and
-  $H(0, 4, 7, 33/4, 0)$ is \rn{$183/32$}{paper_numbers.py::certificate_examples}, which is smaller, with both states
+  $H(0, 4, 7, 8, 0)$ is \rn{cert.minmod.hu} and
+  $H(0, 4, 7, 33/4, 0)$ is \rn{cert.minmod.hv}, which is smaller, with both states
   strictly inside one sign cell. This is the barrier of Godunov \cite{godunov1959} and of Harten, Hyman
   and Lax \cite{hartenhymanlax1976}: a monotone scheme is at most first
   order.\repro{tests/test_mono5.py::test_limited_schemes_are_not_monotone}
 \item \emph{Roe's flux without an entropy fix is not entropy stable.} At $(u_L, u_R) = (-1, 1)$,
-  Tadmor's quantity $Q$ is \rn{$-2/3$}{paper_numbers.py::certificate_examples}, that is,
+  Tadmor's quantity $Q$ is \rn{cert.roe.q}, that is,
   $[v]F - [\psi] = 2/3 > 0$, where $[\cdot]$ is the jump across the interface, $v = \eta'(u) = u$ is the
   entropy variable of $\eta = u^2/2$, $q$ its entropy flux and $\psi = vf - q$ the entropy potential. So the mathematical entropy $u^2/2$ increases across the interface,
   whereas entropy stability requires it to dissipate. (Exact, semi-discrete only.)\repro{tests/test_schemes.py::test_roe_entropy_counterexample}
@@ -642,14 +645,14 @@ counts: the example specs, our benchmark's specs, the specs of the outside bench
 and the update-map, variational and kernel files (\code{measure\_lean.py} next to the paper). The
 checker's own Lean path runs unchanged; each theorem goes into its own file, exactly as the checker
 writes it, and runs under a wall-clock limit of
-\rn{20\,min}{paper_numbers.py::lean_replay_all}. A theorem is \emph{accepted} if Lean reports no
+\rn{lean.all.limit}. A theorem is \emph{accepted} if Lean reports no
 error in it and \code{\#print axioms} shows nothing beyond \code{propext}, \code{Classical.choice} and
 \code{Quot.sound} (so \code{sorryAx} or \code{Lean.ofReduceBool} would count as a rejection),
 \emph{rejected} if Lean reports an error inside it or another axiom, and a \emph{timeout} if the limit
 is reached; timeouts depend on the machine. The run was measured on
-\rn{2026-11-28, commit 1d73a80}{paper_numbers.py::lean_replay}, with
-\rn{Lean 4.30.0-rc1 and Mathlib f369f66}{paper_numbers.py::lean_replay}, on
-\rn{a GCP e2-standard-8 machine (8 vCPU, 32\,GB)}{paper_numbers.py::lean_replay}, six theorems at a
+\rn{lean.run.measured}, with
+\rn{lean.run.versions}, on
+\rn{lean.run.host}, six theorems at a
 time. The results, with every theorem's status, axioms and time, are in
 \code{lean\_measured\_b2cafbe.json}; a test fails if the Lean project, the judges, the planners or the
 checks differ from those of the commit it names.\repro{tests/test_paper_numbers.py::test_lean_measurements_match_their_commits}
@@ -668,17 +671,17 @@ set & specs & theorems & accepted & rejected & error & timeout & Lean s \\ \midr
 \end{tabular}
 \end{table}
 
-Of the \rn{598}{paper_numbers.py::lean_replay_all} distinct theorems, Lean accepts
-\rn{596}{paper_numbers.py::lean_replay_all}. The sum of their times is
-\rn{4147\,s}{paper_numbers.py::lean_replay_all}, and the run took
-\rn{1644\,s}{paper_numbers.py::lean_replay_all} of wall time, plus one retry of
-\rn{1204\,s}{paper_numbers.py::lean_replay_all}; the median theorem takes
-\rn{4.2\,s}{paper_numbers.py::lean_replay}, and none needs more than
-\rn{2.6\,GB}{paper_numbers.py::lean_replay}. In words rather than the table's status codes: accepted
-\rn{596}{paper_numbers.py::lean_current}, tactic failure \rn{1}{paper_numbers.py::lean_current},
-exceeded the heartbeat cap \rn{1}{paper_numbers.py::lean_current}, found false
-\rn{0}{paper_numbers.py::lean_current}, wall-clock timeouts
-\rn{0}{paper_numbers.py::lean_current}.\repro{tests/test_paper_numbers.py::test_lean_status_vocabulary} Lean
+Of the \rn{lean.all.theorems} distinct theorems, Lean accepts
+\rn{lean.all.accepted}. The sum of their times is
+\rn{lean.all.seconds}, and the run took
+\rn{lean.all.wall} of wall time, plus one retry of
+\rn{lean.all.retry}; the median theorem takes
+\rn{lean.run.median}, and none needs more than
+\rn{lean.run.peak}. In words rather than the table's status codes: accepted
+\rn{lean.pin.accepted}, tactic failure \rn{lean.pin.tactic},
+exceeded the heartbeat cap \rn{lean.pin.heartbeat}, found false
+\rn{lean.pin.false}, wall-clock timeouts
+\rn{lean.pin.timeout}.\repro{tests/test_paper_numbers.py::test_lean_status_vocabulary} Lean
 refuted none of the statements; both failures are proofs the planner could not finish. They are findings
 about the planner, not about the verdicts, which do not change:\repro{paper_numbers.py::lean_replay_all}
 \begin{itemize}
@@ -690,7 +693,7 @@ about the planner, not about the verdicts, which do not change:\repro{paper_numb
   entropy check's \V{} cells, which are not replayed.
 \item \code{s0\_tvd\_harten} on \code{advection-superbee} (the TVD claim itself, through Harten's lemma)
   \emph{exceeds the heartbeat cap}. It reached the 20-minute limit; in one retry with a 60-minute limit Lean
-  stopped by itself after \rn{1204\,s}{paper_numbers.py::lean_replay_all} with
+  stopped by itself after \rn{lean.all.retry} with
   ``\code{(deterministic) timeout at `«tactic execution»', maximum number of heartbeats (4000000) has
   been reached}'', at the heartbeat cap that the judge's preamble sets. Within that cap the planner's
   proof (Harten's lemma with every limiter fact split into its sign cases) does not finish, so this is
@@ -699,12 +702,12 @@ about the planner, not about the verdicts, which do not change:\repro{paper_numb
 \end{itemize}
 Every number above is pinned at \code{b2cafbe} (\code{lean\_measured\_b2cafbe.json}), the commit at which
 the held-out verdicts were scored. After the SSP class kinds were added we re-measured on main:
-\code{lean\_measured\_f09a5cb.json}, run on \rn{2026-11-28 at commit f09a5cb}{paper_numbers.py::lean_current}
-on the same machine (\rn{a GCP e2-standard-8}{paper_numbers.py::lean_current}), has
-\rn{115}{paper_numbers.py::lean_current} specs, \rn{600}{paper_numbers.py::lean_current} distinct theorems,
-\rn{598}{paper_numbers.py::lean_current} accepted, the same two failures
+\code{lean\_measured\_f09a5cb.json}, run on \rn{lean.main.measured}
+on the same machine (\rn{lean.main.machine}), has
+\rn{lean.main.specs} specs, \rn{lean.main.theorems} distinct theorems,
+\rn{lean.main.accepted} accepted, the same two failures
 (\code{s0\_consistency\_0} and \code{s0\_tvd\_harten}), and
-\rn{12/12}{paper_numbers.py::lean_current} meaning theorems of the claim-kind registry on the standard
+\rn{lean.main.registry} meaning theorems of the claim-kind registry on the standard
 axioms only.\repro{tests/test_paper_numbers.py::test_lean_measurement_covers_every_meaning_theorem_of_the_registry}
 Not yet replayed, so these verdicts keep the exact-Python
 label: consistency of a flux recovered from an update (no spec in the corpus needs it), the cells of the
@@ -725,11 +728,11 @@ main. The counts:\repro{paper_numbers.py::bench_counts}
 \end{tabular}
 \end{center}
 The expected-true matches are all \V; the expected-false ones are
-\rn{16}{paper_numbers.py::bench_counts} \R{} and \rn{1}{paper_numbers.py::bench_counts} \RE. One
+\rn{bench.match.refuted} \R{} and \rn{bench.match.re} \RE. One
 more reading (C18, reading 4) is ``unsettled'' and not scored. The
-\rn{9}{paper_numbers.py::bench_counts} gaps by verdict:
-\rn{4}{paper_numbers.py::bench_counts} \UF, \rn{1}{paper_numbers.py::bench_counts} \U,
-\rn{4}{paper_numbers.py::bench_counts} \NR. A run takes under a minute:
+\rn{bench.gap} gaps by verdict:
+\rn{bench.gap.uf} \UF, \rn{bench.gap.u} \U,
+\rn{bench.gap.nr} \NR. A run takes under a minute:
 \begin{center}\small
 \code{uv run python -m physverify.schemes.bench benchmark/scheme-claims/}
 \end{center}
@@ -774,8 +777,8 @@ verify the true version of the sentence.
 
 The benchmark of Section~\ref{sec:bench} cannot tell us how the checker does on claims as published
 papers make them, because we wrote it. The outside benchmark (\code{benchmark/outside/}) is made of
-\rn{176}{paper_numbers.py::outside_dev} sentences copied verbatim from
-\rn{15}{paper_numbers.py::outside_dev} published papers, technical reports and lecture notes on
+\rn{outside.items} sentences copied verbatim from
+\rn{outside.sources} published papers, technical reports and lecture notes on
 schemes for conservation laws; the full list is in \code{SOURCES.md}.
 
 \paragraph{Design.} The rules were written down and committed before any sentence was collected.
@@ -797,9 +800,9 @@ schemes for conservation laws; the full list is in \code{SOURCES.md}.
   hypothesis the source states for it. Each is TRUE, FALSE or UNSURE (the literature we read does not
   settle it; not scored).
 \item \emph{Split by source.} A hash of the source identifier puts each source, with all its
-  sentences, into a development half (\rn{9}{paper_numbers.py::outside_dev} sources,
-  \rn{99}{paper_numbers.py::outside_dev} sentences) or a held-out half
-  (\rn{77}{paper_numbers.py::outside_dev} sentences). Splitting by sentence would let a source's
+  sentences, into a development half (\rn{dev.sources} sources,
+  \rn{dev.items} sentences) or a held-out half
+  (\rn{outside.heldout.items} sentences). Splitting by sentence would let a source's
   phrasing leak from one half to the other.
 \item \emph{Freeze and errata.} The expected values were frozen at the split (\code{FROZEN.md}). A
   correction after the freeze goes to \code{ERRATA.md} with the old and new values. Proposals arising
@@ -827,15 +830,15 @@ now.\repro{tests/test_outside_dev.py::test_stored_verdicts_and_scores_are_what_t
 
 \paragraph{Tuned on.} The numbers below are from the current scoring of the development half, after
 checker additions made in response to its first run (Appendix~\ref{app:devhistory} gives the history).
-\rn{9}{paper_numbers.py::outside_dev} readings use claim kinds chosen because they cover these items, so
+\rn{dev.tuned} readings use claim kinds chosen because they cover these items, so
 the checker is \emph{tuned on} them. We changed the checker after seeing these items, so these numbers
 measure fit, not prediction.
 
 
 \paragraph{How much can be stated.} The checker can state a formal reading for
-\rn{22}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} of the
-\rn{99}{paper_numbers.py::outside_dev} development sentences (\rn{19}{paper_numbers.py::outside_dev}
-for the field alone, \rn{20}{paper_numbers.py::outside_dev} with hypotheses). By property
+\rn{dev.stated} of the
+\rn{dev.items} development sentences (\rn{dev.stated.alone}
+for the field alone, \rn{dev.stated.hyp} with hypotheses). By property
 tag:\repro{paper_numbers.py::outside_dev}
 \begin{center}\small
 \begin{tabular}{@{}lrlr@{}}
@@ -844,27 +847,27 @@ property & stated / items & property & stated / items \\ \midrule
 \input{outside_property_table.tex}
 \end{tabular}
 \end{center}
-All \rn{27}{paper_numbers.py::outside_dev} readings narrow their sentence.
+All \rn{dev.readings} readings narrow their sentence.
 
-\paragraph{How much is decided.} \rn{26}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results}
-of the \rn{27}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} readings are decided:
-\rn{18}{paper_numbers.py::outside_dev} \V{} and \rn{8}{paper_numbers.py::outside_dev} \R, all exact
-(rational arithmetic; in the measured Lean run, \rn{9}{paper_numbers.py::outside_lean_labels} of the
-26 also carry a Lean label, \rn{1}{paper_numbers.py::outside_lean_labels} of them per cell). The
-\rn{1}{paper_numbers.py::outside_dev} undecided reading is \code{tecno:02}'s (expected UNSURE):
+\paragraph{How much is decided.} \rn{dev.decided}
+of the \rn{dev.readings} readings are decided:
+\rn{dev.verified} \V{} and \rn{dev.refuted} \R, all exact
+(rational arithmetic; in the measured Lean run, \rn{outsidelean.label} of the
+26 also carry a Lean label, \rn{outsidelean.percell} of them per cell). The
+\rn{dev.undecided} undecided reading is \code{tecno:02}'s (expected UNSURE):
 \code{stated\_identity} verifies its entropy-conservation clause, but its second-order clause has no
 claim kind, so the conjunction is \U. In the first run the two readings of one sentence of Harten's
 report \cite{harten1983} (a three-point scheme with viscosity $Q(x) = x^2 + 1/4$ on linear advection)
 were \U{} because of checker limits, not hard cases: one coefficient, $(\nu - 1/2)^2/2$, has a double
 root inside the $\nu$-interval, which no Bernstein test certifies unless a cut lands on the root, and
 the TVD check certified Harten's form only with the upwind split. The checker fix described in Appendix~\ref{app:devhistory} decides both. Counting the fields that have a TRUE or FALSE expectation, the checker decides
-\rn{16}{paper_numbers.py::outside_dev} of \rn{68}{paper_numbers.py::outside_dev} alone and
-\rn{17}{paper_numbers.py::outside_dev} of \rn{67}{paper_numbers.py::outside_dev} with hypotheses; all
-\rn{33}{paper_numbers.py::outside_dev} matches are on narrowed readings, and
-\rn{14}{paper_numbers.py::outside_dev} of them (not the \rn{14}{paper_numbers.py::outside_v2} frozen matches of Section~\ref{sec:v2}) rest
+\rn{dev.match.alone} of \rn{dev.fields.alone} alone and
+\rn{dev.match.hyp} of \rn{dev.fields.hyp} with hypotheses; all
+\rn{dev.match.narrowed} matches are on narrowed readings, and
+\rn{dev.match.tuned} of them (not the \rn{v2.clean.match} frozen matches of Section~\ref{sec:v2}) rest
 only on readings made with the checker tuned on these items.
 
-\paragraph{Wrong verdicts.} \rn{0}{tests/test_outside_dev.py::test_no_wrong_verdict_and_every_gap_reading_is_explained}
+\paragraph{Wrong verdicts.} \rn{dev.wrong}
 in both fields, and no \IC. This zero says little. The readings that reached the checker are the
 easy kind: linear schemes, a CFL range, one smooth extremum, one rational identity, a convex
 combination, finitely many polyhedral branches, a scaling of one polynomial.
@@ -887,10 +890,10 @@ high-order reconstruction, two-dimensional meshes and theorems over classes of s
 cannot say any of these today.
 
 \paragraph{Alone against with hypotheses.} The two expected values differ on
-\rn{30}{paper_numbers.py::outside_dev} of the \rn{99}{paper_numbers.py::outside_dev} items (FALSE alone
-and TRUE with hypotheses on \rn{15}{paper_numbers.py::outside_dev}). Almost always the dropped hypothesis
+\rn{dev.differ} of the \rn{dev.items} items (FALSE alone
+and TRUE with hypotheses on \rn{dev.differ.ft}). Almost always the dropped hypothesis
 is a CFL bound, a smoothness condition or convergence of the scheme.
-\rn{9}{paper_numbers.py::outside_dev} of the 30 are stated, and the checker gets every scored field of
+\rn{dev.differ.stated} of the 30 are stated, and the checker gets every scored field of
 those nine right. On a dropped CFL bound it is reliable: the reading with the hypothesis verifies on
 the stated range and the reading without it is refuted on $[0, 2]$, both exactly. A dropped ``away from
 extrema'' is half covered: the unqualified order claim is refuted at a smooth extremum, but the
@@ -913,24 +916,24 @@ shortened.\repro{paper_numbers.py::outside_naive_readings}
   journal's own erratum links. See \code{benchmark/outside/notes/tecno04-transcription.md}.} At
   $f \equiv 0$, $D = 1$, $\Delta x = 1$ and
   $(u_{i-1}, u_i, u_{i+1}) = (0, 0, 1)$, the scheme gives $\tfrac{d}{dt}E(u_i) =
-  \rn{0}{paper_numbers.py::outside_naive_readings}$; the identity with $+\tfrac12$ requires
-  \rn{$-1/2$}{paper_numbers.py::outside_naive_readings}, and with $-\tfrac12$ it requires
-  \rn{0}{paper_numbers.py::outside_naive_readings}. Read as ``the scheme (3.2) is entropy stable'', the
+  \rn{naive.tecno.scheme}$; the identity with $+\tfrac12$ requires
+  \rn{naive.tecno.printed}, and with $-\tfrac12$ it requires
+  \rn{naive.tecno.corrected}. Read as ``the scheme (3.2) is entropy stable'', the
   sentence becomes \code{entropy\_stable\_tadmor} on Burgers' equation with the entropy-conservative
   flux and $D = 1$, and the checker returns \V{} (exact; semi-discrete only). That verdict is correct
   about the scheme. It is scored wrong because the sentence's content includes the printed formula,
   which in the first run no named claim looked at. The stored reading now uses the
   \code{stated\_identity} kind, which decides the printed identity directly: with the printed sign it
   is \R, with residual $\tfrac12(u_{i+1}^2 - 2u_i^2 + u_{i-1}^2)$, which is
-  \rn{$1/2$}{tests/test_stated_identity.py::test_tecno04_witness_and_residual} at $(0, 0, 1)$; with the
+  \rn{naive.tecno.residual} at $(0, 0, 1)$; with the
   sign of Lemma~3.2 it is \V.\repro{tests/test_stated_identity.py::test_residual_is_the_sign_flip}
 \item \emph{Energy growth} (Mishra, Fjordholm and Abgrall \cite{mishranotes2023}, Lemma~2.3; item
   \code{mfa:02}, FALSE). ``The energy grows at every time step for any choice of $\Delta x$, $\Delta t$'',
   for the centred scheme on linear advection. Read as ``the centred scheme is not von Neumann stable'', it
   is \V: the checker refutes von Neumann stability on $[0, 1]$ and for every small CFL number, both
   exactly. The literal sentence is false. On an even periodic grid $U_j = (-1)^j$ is a fixed point, and
-  its energy goes from \rn{8}{paper_numbers.py::outside_naive_readings} to
-  \rn{8}{paper_numbers.py::outside_naive_readings} in one step at $\nu = 1$. This expected value
+  its energy goes from \rn{naive.mfa.before} to
+  \rn{naive.mfa.after} in one step at $\nu = 1$. This expected value
   measures a literal reading, and \code{ERRATA\_PROPOSED.md} discusses it and leaves it as it is.
 \end{itemize}
 The two cases show where outside claims go wrong: in reading the claim, not in checking it. A named
@@ -942,22 +945,22 @@ choosing a reading by the property the paper means would get a confident, exact,
 
 \paragraph{The formaliser was not blind.} The sentences and expected values were fixed blind, but we
 wrote the readings having read every expected value and justification. In
-\rn{3}{paper_numbers.py::outside_dev} readings the instance is taken from the counterexample in the
+\rn{dev.fromjustification} readings the instance is taken from the counterexample in the
 item's justification; they are flagged \code{instance\_from\_justification} in
 \code{dev\_readings.json} (two items from Zhang and Shu's maximum-principle paper and one from
 Fjordholm, Mishra and Tadmor). The rule that class theorems are never narrowed, not even to a refuting
 instance, was fixed before classifying, so that this could not turn into choosing FALSE items to refute.
 For the last two checker additions the checker itself was chosen by these items, not only the readings:
-their \rn{9}{paper_numbers.py::outside_dev} readings are flagged \code{tuned\_on}, and the survey that chose
+their \rn{dev.tuned} readings are flagged \code{tuned\_on}, and the survey that chose
 them names the items behind each claim kind.
 
 \subsection{The held-out half: blind readers, one frozen run}\label{sec:heldout}
 
 The held-out half was formalised by two readers who saw only the sentence, the scheme, the hypotheses
 and their locations (\code{heldout\_stripped.jsonl}): not the expected values and not the collector's
-property tag. Reader A1 read all \rn{77}{paper_numbers.py::outside_heldout} sentences, and only A1's
-readings count; reader A2 read a subset of \rn{24}{paper_numbers.py::outside_heldout} for agreement.
-The checker was frozen at commit \code{\rn{b2cafbe}{paper_numbers.py::outside_heldout}} before anything
+property tag. Reader A1 read all \rn{heldout.all.items} sentences, and only A1's
+readings count; reader A2 read a subset of \rn{heldout.subset} for agreement.
+The checker was frozen at commit \code{\rn{heldout.pin}} before anything
 ran, the readings were committed before the run, and the run was scored once
 (\code{HELDOUT\_RESULTS.md}).\repro{tests/test_outside_heldout.py::test_results_md_is_generated_from_the_verdicts_json}
 No checker bug was found while scoring, so there is no re-score.
@@ -966,7 +969,7 @@ No checker bug was found while scoring, so there is no re-score.
 checker, so that its sentences may have shaped what the checker can say. Two of the six held-out
 sources are: Henrick, Aslam and Powers 2005 (we built the mapped-WENO weights from it) and Tadmor's 2003
 survey (cited as a source of the entropy-stability check in our own benchmark; we cannot show which pages
-were read, so we treat it as read). Their \rn{35}{paper_numbers.py::outside_heldout} sentences are
+were read, so we treat it as read). Their \rn{heldout.contaminated} sentences are
 reported apart.
 
 \paragraph{The funnel.} Each sentence has two expected fields (alone, with hypotheses), so decisions are
@@ -976,15 +979,15 @@ counted in fields:\repro{paper_numbers.py::outside_heldout}
 \toprule
 held-out sentences & sentences & stated & decided & matched & wrong \\
  & & & fields & & \\ \midrule
-all &\rn{77}{paper_numbers.py::outside_heldout} & \rn{11}{paper_numbers.py::outside_heldout}
-  & \rn{8}{paper_numbers.py::outside_heldout} & \rn{8}{paper_numbers.py::outside_heldout}
-  & \rn{0}{paper_numbers.py::outside_heldout} \\
-without Henrick 2005 (Tadmor 2003 as clean) &\rn{66}{paper_numbers.py::outside_heldout}
-  & \rn{5}{paper_numbers.py::outside_heldout} & \rn{4}{paper_numbers.py::outside_heldout}
-  & \rn{4}{paper_numbers.py::outside_heldout} & \rn{0}{paper_numbers.py::outside_heldout} \\
-clean (both removed) &\rn{42}{paper_numbers.py::outside_heldout}
-  & \rn{3}{paper_numbers.py::outside_heldout} & \rn{0}{paper_numbers.py::outside_heldout}
-  & \rn{0}{paper_numbers.py::outside_heldout} & \rn{0}{paper_numbers.py::outside_heldout} \\
+all &\rn{heldout.all.items} & \rn{heldout.all.stated}
+  & \rn{heldout.all.decided} & \rn{heldout.all.match}
+  & \rn{heldout.all.wrong} \\
+without Henrick 2005 (Tadmor 2003 as clean) &\rn{heldout.nohenrick.items}
+  & \rn{heldout.nohenrick.stated} & \rn{heldout.nohenrick.decided}
+  & \rn{heldout.nohenrick.match} & \rn{heldout.nohenrick.wrong} \\
+clean (both removed) &\rn{heldout.clean.items}
+  & \rn{heldout.clean.stated} & \rn{heldout.clean.decided}
+  & \rn{heldout.clean.match} & \rn{heldout.clean.wrong} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -995,11 +998,11 @@ formal part is \V. The 42-sentence row is the result for \emph{this} checker ver
 gaps, so the next version is measured on a fresh blind benchmark (Section~\ref{sec:v2}), not on this one.
 
 \paragraph{Why so little is stated.} Each unformalised field of a clean sentence has one entry (for one
-field or both) with a primary reason. Of the \rn{39}{paper_numbers.py::outside_heldout} entries,
-\rn{22}{paper_numbers.py::outside_heldout} are statements about a class of schemes (every SSP method,
-every scheme with a property), \rn{8}{paper_numbers.py::outside_heldout} are not checkable as stated,
-\rn{4}{paper_numbers.py::outside_heldout} need time stepping beyond one update,
-\rn{4}{paper_numbers.py::outside_heldout} are about systems and \rn{1}{paper_numbers.py::outside_heldout}
+field or both) with a primary reason. Of the \rn{heldout.gaps} entries,
+\rn{heldout.gaps.class} are statements about a class of schemes (every SSP method,
+every scheme with a property), \rn{heldout.gaps.notcheckable} are not checkable as stated,
+\rn{heldout.gaps.timestepping} need time stepping beyond one update,
+\rn{heldout.gaps.system} are about systems and \rn{heldout.gaps.multid}
 is two-dimensional.\repro{paper_numbers.py::outside_heldout}
 
 \paragraph{Four confounds.} The step from the development half to this one is not a pure generalisation
@@ -1012,9 +1015,9 @@ verdict-relevant parameters inherited this way. (4) The sources are new, so a ga
 blind readers, a less informative view and checker-informed specs.
 
 \paragraph{Reader agreement.} On A2's subset, the two readers made the same stated-or-not decision on
-\rn{22/24}{paper_numbers.py::outside_heldout} sentences, gave the same primary reason on
-\rn{31/40}{paper_numbers.py::outside_heldout} fields both left unformalised, and chose the same claim
-kinds and quantifiers on \rn{4/4}{paper_numbers.py::outside_heldout} fields both formalised. On those
+\rn{heldout.agree.statable} sentences, gave the same primary reason on
+\rn{heldout.agree.reason} fields both left unformalised, and chose the same claim
+kinds and quantifiers on \rn{heldout.agree.kinds} fields both formalised. On those
 fields A2's readings score as A1's.
 
 \paragraph{An erratum candidate.} One held-out sentence, on Tadmor's scheme (6.14) (item
@@ -1028,31 +1031,31 @@ literally. The second-order part is not checked.
 
 \subsection{A second blind benchmark}\label{sec:v2}
 
-The second outside benchmark (\code{benchmark/outside\_v2/}) has \rn{95}{paper_numbers.py::outside_v2}
+The second outside benchmark (\code{benchmark/outside\_v2/}) has \rn{v2.all.items}
 sentences from nine further sources, collected blind under the same rules and frozen
-(\code{FROZEN.md}, commit \code{\rn{63337e1}{paper_numbers.py::outside_v2}}) before any reading was
+(\code{FROZEN.md}, commit \code{\rn{v2.frozen}}) before any reading was
 written. All of it is held out; there is no development half. One source, Borges et al.'s WENO-Z paper,
 turned out to be contaminated (the repository had a WENO-Z spec from it), so its
-\rn{4}{paper_numbers.py::outside_v2} sentences are reported apart and the clean set has
-\rn{91}{paper_numbers.py::outside_v2}. Its topic list was written by the team on 2026-11-28 into the
+\rn{v2.contaminated.items} sentences are reported apart and the clean set has
+\rn{v2.clean.items}. Its topic list was written by the team on 2026-11-28 into the
 collector's brief, \emph{after} we had seen the gaps of the first held-out run, with time stepping first.
 So the mix of topics is not independent of the checker's development, and we report coverage per topic
 as well as in total, so that a mix heavy in one kind of claim cannot carry the headline.
 
 \paragraph{The frozen first score.} Two readers worked blind; reader A1's readings count. The checker ran at
-two pins, \code{\rn{b2cafbe}{paper_numbers.py::outside_v2}} (the first held-out pin) and
-\code{\rn{3792caf}{paper_numbers.py::outside_v2}} (after the SSP time-stepping kind was added), each in an
-isolated process. Of the \rn{91}{paper_numbers.py::outside_v2} clean sentences, A1 stated
-\rn{11}{paper_numbers.py::outside_v2}, every one narrowed to an instance. The checker decided
-\rn{16}{paper_numbers.py::outside_v2} fields: \rn{14}{paper_numbers.py::outside_v2} match, all on
+two pins, \code{\rn{v2.old}} (the first held-out pin) and
+\code{\rn{v2.new}} (after the SSP time-stepping kind was added), each in an
+isolated process. Of the \rn{v2.clean.items} clean sentences, A1 stated
+\rn{v2.clean.stated}, every one narrowed to an instance. The checker decided
+\rn{v2.clean.decided} fields: \rn{v2.clean.match} match, all on
 instances, so none of the printed class claims was verified as printed;
-\rn{0}{paper_numbers.py::outside_v2} wrong verdicts by the checker; and
-\rn{2}{paper_numbers.py::outside_v2} fields wrong through one reading error. In
+\rn{v2.clean.wrongchecker} wrong verdicts by the checker; and
+\rn{v2.clean.wrongreading} fields wrong through one reading error. In
 \code{barsukow\_uzh\_notes:13} A1 narrowed ``for every slope with $s_i = (\partial_x q)(x_i) +
 O(\Delta x)$'' (expected FALSE) to the central slope, on which the statement holds, and the checker's \V{}
-is right for that instance. \rn{4}{paper_numbers.py::outside_v2} fields are spec errors (two specs the
-checker could not run). Between the two pins \rn{0}{paper_numbers.py::outside_v2} of the
-\rn{17}{paper_numbers.py::outside_v2} named verdicts changed, as expected: no reading of A1's names the
+is right for that instance. \rn{v2.clean.specerror} fields are spec errors (two specs the
+checker could not run). Between the two pins \rn{v2.changed} of the
+\rn{v2.compared} named verdicts changed, as expected: no reading of A1's names the
 one claim kind the range adds.\repro{tests/test_outside_v2_scores.py::test_headline_numbers_come_from_the_verdict_files}
 Per topic (the collector's description of each source), clean and contaminated:\repro{paper_numbers.py::outside_v2}
 \begin{center}\small
@@ -1062,13 +1065,13 @@ topic & sentences & stated & match & wrong \\ \midrule
 \input{v2_topic_table.tex}
 \end{tabular}
 \end{center}
-Of the \rn{11}{paper_numbers.py::outside_v2} SSP-relevant sentences, \rn{5}{paper_numbers.py::outside_v2}
-need a claim over a class of methods, \rn{4}{paper_numbers.py::outside_v2} are about systems or two
-dimensions, and \rn{2}{paper_numbers.py::outside_v2} were statable as instances. The readers agreed on the
-stated-or-not decision for \rn{18/22}{paper_numbers.py::outside_v2} sentences and on the primary reason for
-\rn{27/33}{paper_numbers.py::outside_v2} fields both left unformalised; on the
-\rn{4}{paper_numbers.py::outside_v2} fields both formalised they chose the same claim kinds
-\rn{0}{paper_numbers.py::outside_v2} times (they differ in the relation of a component, \SUF{} against
+Of the \rn{v2.ssp} SSP-relevant sentences, \rn{v2.ssp.class}
+need a claim over a class of methods, \rn{v2.ssp.other} are about systems or two
+dimensions, and \rn{v2.ssp.instance} were statable as instances. The readers agreed on the
+stated-or-not decision for \rn{v2.agree.statable} sentences and on the primary reason for
+\rn{v2.agree.reason} fields both left unformalised; on the
+\rn{v2.agree.kinds.both} fields both formalised they chose the same claim kinds
+\rn{v2.agree.kinds.same} times (they differ in the relation of a component, \SUF{} against
 \EQV, and in extra components).
 
 \paragraph{Confounds.} Besides the topic list: the readers reused or opened specs written with access to
@@ -1079,7 +1082,7 @@ errata rows built on it, was written after the freeze. \code{V2\_RESULTS.md} lis
 \paragraph{What exact checks can do here (not a score).} Re-deriving the expected values after the freeze,
 we found printed statements that fail when read without conditions the source leaves unstated.
 Standalone exact scripts (\code{errata\_checks.py}, rational arithmetic, outside the verifier) confirm
-\rn{5}{paper_numbers.py::outside_v2} of them with explicit counterexamples: one forward-Euler step of a
+\rn{v2.errata} of them with explicit counterexamples: one forward-Euler step of a
 central scheme that raises the maximum, a two-stage Runge--Kutta method with a negative coefficient that
 increases the total variation, and a sum-preserving map whose flux form forces a discontinuous numerical
 flux, so that it is not conservative in the source's own sense.\repro{paper_numbers.py::outside_v2} Exact checks of this kind refute printed statements read without
@@ -1103,10 +1106,10 @@ table as everything else (\code{physverify/schemes/narrowing.py}; stated in both
 The rule is opt-in for future runs. A1's readings record no quantifier, so as written the rule gives \U{} for
 every one; annotating the quantifiers by hand gives the same scores, because every parameter A1 narrowed is
 universal in its sentence. Under the rule the frozen first score moves
-\rn{14}{paper_numbers.py::outside_v2_posthoc} matches to gaps (\NR), and the reading error
+\rn{posthoc.match2gap} matches to gaps (\NR), and the reading error
 \code{barsukow\_uzh\_notes:13} moves from wrong to a gap in both fields
-(\rn{2}{paper_numbers.py::outside_v2_posthoc}): the checker decides
-\rn{0}{paper_numbers.py::outside_v2_posthoc} fields.\repro{tests/test_narrowing.py::test_v2_p_row_under_the_rule}
+(\rn{posthoc.wrong2gap}): the checker decides
+\rn{posthoc.decided} fields.\repro{tests/test_narrowing.py::test_v2_p_row_under_the_rule}
 This is the cost of scoring instance evidence honestly: a blind reader who narrows a universal sentence can
 only refute it.
 
@@ -1173,7 +1176,7 @@ speed (commit
 
 \paragraph{A spec that was more broken than we meant.} We wrote Lax--Wendroff with its diffusion term
 halved as a test for the order check. The exact von Neumann check showed it is also unstable:
-$|g|^2$ is \rn{$5/4$}{paper_numbers.py::certificate_examples} at $\nu = 1$, $\cos\theta = 0$. And FTCS
+$|g|^2$ is \rn{cert.halvedlw.g2} at $\nu = 1$, $\cos\theta = 0$. And FTCS
 at $\Delta t/\Delta x = 1/2$ to $T = 1/4$ shows order 1 in the refinement study (\NR); only the exact
 check sees the instability.\repro{tests/test_schemes.py::test_ftcs_study_can_miss_the_instability}
 
@@ -1354,10 +1357,11 @@ current main (commit \code{9e906e7}). The merge gate is
 
 \section{History of the development half}\label{app:devhistory}
 
-The first run of the development half (Section~\ref{sec:dev}) gave readings for 9 of the 99 sentences
-and decided 12 of its 14 readings, with none wrong; counting the fields with a TRUE or FALSE
-expectation, it decided 7 alone and 6 with hypotheses, and the checker before the tuned claim kinds
-decided 9 and 10. The checker additions made after that run, in order. A checker fix added an
+The first run of the development half (Section~\ref{sec:dev}) gave readings for \rn{dev.first.stated} of the
+\rn{dev.first.items} sentences and decided \rn{dev.first.decided} of its \rn{dev.first.readings} readings, with
+none wrong; counting the fields with a TRUE or FALSE expectation, it decided \rn{dev.first.match.alone} alone and
+\rn{dev.first.match.hyp} with hypotheses, and the checker before the tuned claim kinds decided
+\rn{dev.untuned.alone} and \rn{dev.untuned.hyp}. The checker additions made after that run, in order. A checker fix added an
 exact test for non-negativity of a polynomial in one variable (square-free part and Sturm count) to
 the positivity check, and a row for the linear TVD equivalence (a linear update with
 $\sum_k c_k = 1$ is TVD for all data iff every $c_k \ge 0$); together they closed the two checker gaps
@@ -1465,38 +1469,38 @@ readings these last kinds made possible are the ones flagged \code{tuned\_on}.
 \paragraph{Claim kinds.} Table~\ref{tab:kinds} is generated from the registry
 \code{physverify/claimkinds.py} (\code{paper\_numbers.py --write-table}), and a test fails if the
 table in the paper drifts from it.\repro{tests/test_paper_numbers.py::test_claim_kind_table_matches_the_registry}
-Of the \rn{43}{paper_numbers.py::claim_kinds} kinds, \rn{12}{paper_numbers.py::claim_kinds} have a
-Lean meaning theorem; of the \rn{25}{paper_numbers.py::claim_kinds} kinds used for schemes, only
-\rn{4}{paper_numbers.py::claim_kinds} do (\code{conservative}, \code{positive\_under\_cfl},
+Of the \rn{kinds} kinds, \rn{kinds.meaning} have a
+Lean meaning theorem; of the \rn{kinds.schemes} kinds used for schemes, only
+\rn{kinds.schemes.meaning} do (\code{conservative}, \code{positive\_under\_cfl},
 \code{ssp\_preserves} and \code{ssp\_class\_preserves}).
 
 A Lean \emph{label} on a verdict is a different thing: it says that the certificate behind the verdict
 was replayed by the kernel, against a statement the judge wrote from the spec. In the measured Lean
 run (Section~\ref{sec:certs}, Table~\ref{tab:leanmeasured}), of the
-\rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our own benchmark,
-\rn{18}{paper_numbers.py::bench_lean_labels} carry a Lean label
-(\rn{7}{paper_numbers.py::bench_lean_labels} \V{} and \rn{11}{paper_numbers.py::bench_lean_labels} \R;
-\rn{3}{paper_numbers.py::bench_lean_labels} of the 18 with the per-cell label). The labels are those
+\rn{benchlean.decisive} decisive verdicts on our own benchmark,
+\rn{benchlean.label} carry a Lean label
+(\rn{benchlean.verified} \V{} and \rn{benchlean.refuted} \R;
+\rn{benchlean.percell} of the 18 with the per-cell label). The labels are those
 of \code{lean\_cert.relabel\_claims}, the checker's own rule, applied to the measured statuses, so the
 paper and the code cannot disagree on them: a verdict carries the label if one of its deciding checks,
 together with the exact checks that check's row requires, has all its theorems accepted. Each such row
 decides the verdict on its own, so the other deciding checks may stay exact Python. The other
-\rn{16}{paper_numbers.py::bench_lean_labels} have no deciding check that is replayed with all its premises
+\rn{benchlean.unlabelled} have no deciding check that is replayed with all its premises
 (truncation order, von Neumann stability, the frozen jump, the Lipschitz and scope checks of the shock
 rows, consistency of a recovered flux, the entropy check's \V{} cells) or are empirical (one \RE), and keep
 their exact-Python or empirical label. We count a \V{} reading if all its components carry a Lean label, and a \R{}
 reading if one of its refuting components does. The judge states
-\rn{405}{paper_numbers.py::bench_lean_labels} theorems for the benchmark's specs, and Lean accepts
-\rn{403}{paper_numbers.py::bench_lean_labels}; the two others are the two failures above.
+\rn{benchlean.stated} theorems for the benchmark's specs, and Lean accepts
+\rn{benchlean.accepted}; the two others are the two failures above.
 Taking every stated theorem as accepted, as an earlier version of this paper did, gives the same
-\rn{18}{paper_numbers.py::bench_lean_labels}, but with \rn{2}{paper_numbers.py::bench_lean_labels} per
+\rn{benchlean.projected}, but with \rn{benchlean.projected.percell} per
 cell: superbee's TVD verdict (C21) has only the per-cell label in the measured run. On the outside
-benchmark, \rn{9}{paper_numbers.py::outside_lean_labels} of the
-\rn{26}{paper_numbers.py::outside_lean_labels} decided dev readings carry a Lean label
-(\rn{1}{paper_numbers.py::outside_lean_labels} of them per cell);
-\rn{11}{paper_numbers.py::outside_lean_labels} rest on claim kinds checked in Python only
+benchmark, \rn{outsidelean.label} of the
+\rn{outsidelean.decided} decided dev readings carry a Lean label
+(\rn{outsidelean.percell} of them per cell);
+\rn{outsidelean.pythononly} rest on claim kinds checked in Python only
 (reconstruction order, the scaling limiter, ENO), which have no Lean statement.
-Only \rn{5}{paper_numbers.py::bench_lean_labels} of the 34 verdicts rest
+Only \rn{benchlean.meaning} of the 34 verdicts rest
 entirely on claim kinds with a meaning theorem. For the rest, even a Lean-labelled verdict says that a
 certificate is correct, while the step from the certificate to the claim's English gloss is ours.
 
