@@ -400,7 +400,7 @@ def _write(store: dict, path: Path, collected: bool = False) -> None:
     store.setdefault("runs", {})
     order = ["commit", "file_commit", "file_commit_note", "measured", "key", "host", "limits", "summary", "runs",
              "registry", "specs", "theorems"]
-    path.write_text(json.dumps({k: store[k] for k in order}, indent=1, ensure_ascii=False) + "\n")
+    path.write_text(json.dumps({k: store[k] for k in order if k in store}, indent=1, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":
