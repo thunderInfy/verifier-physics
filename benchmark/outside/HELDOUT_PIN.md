@@ -17,4 +17,8 @@ for the reader-agreement pass. Readers see only `heldout_stripped.jsonl`.
 
 ## Readings commit
 
-(recorded by phase B)
+Recorded by phase B (each is the last commit touching its file; `run_heldout.py` and
+`tests/test_outside_heldout.py` assert the file at HEAD is byte-identical to it):
+
+- `heldout_readings.json` (reader A1, 77 items): `2774e571164a245189a89a1fe7584340ddc3aac7`
+- `heldout_readings_a2.json` (reader A2, 24-item subset): `0d16ffeda6c295d35c21f03c905998fd3086cd58`

@@ -23,3 +23,12 @@ the expected values alone; otherwise no reading gave a verdict against an expect
 - `mfa_oslo_notes:15` (FALSE both): the time-continuity bound holds if C_F is the Lipschitz constant for the max
   norm on (a, b) and fails for the l1 and Euclidean conventions. The justification already says so and points out
   that the notes use the l1 convention for Q on p. 57, so FALSE stands.
+
+## Heldout half (phase B)
+
+Proposals only, as above; `items.jsonl` is unchanged. From the heldout scorer (`HELDOUT_RESULTS.md`, erratum
+candidate); the item is never scored.
+
+| id | field | current | proposed | reason |
+|---|---|---|---|---|
+| `tadmor_2003_acta:17` | both (justification text; the expected values are unchanged) | UNSURE / UNSURE | UNSURE / UNSURE, with the justification noting the scalar case below | Under reader A2's reading (N = 1, Burgers f = u^2/2, U = u^2/2, the scheme (6.14) as printed: numerical flux (f(uL) + f(uR))/2 - (1/8)[a(uR) - a(uL)]^+, without the <l, Dv> factor that the bound (6.13) carries), the statement as printed fails semi-discrete entropy stability: the exact check (`entropy_stable_tadmor`, Fraction arithmetic) gives Q = -1/6 < 0 at (uL, uR) = (0, 2); by hand Q = D^2 (1/8 - D/12) for D = uR - uL > 0, negative exactly when D > 3/2. With the <l, Dv> factor of (6.13) on the viscosity term it holds (exact check VERIFIED; Q = D^3/24 for D > 0). What changes the outcome is that factor. The second-order part is not checked. The hand calculation and the threshold 3/2 are reader A2's (reported with its pass and quoted in the phase B brief; heldout_readings_a2.json records only the reading as printed); the checker run is phase B's (`specs/a2/`). |

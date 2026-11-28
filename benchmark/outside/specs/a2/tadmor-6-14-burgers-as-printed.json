@@ -1,0 +1,19 @@
+{
+ "name": "Scheme (6.14) as printed, read by A2 for N = 1 and Burgers: numerical flux (f(uL) + f(uR))/2 - (1/8)[a(uR) - a(uL)]^+ with a(u) = u, no <l, Dv> factor on the viscosity term; entropy pair (u^2/2, u^3/3)",
+ "source": "tadmor_2003_acta:17, written by the scorer (phase B) word for word from reader A2's spec_needed in heldout_readings_a2.json; [x]^+ = max(x, 0) written (x + sqrt(x^2))/2 (as in scheme-claims/specs/burgers-godunov.json). Used only for the erratum candidate, never scored",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2/2 + uR^2/2)/2 - ((uR - uL) + sqrt((uR - uL)^2))/2/8"
+ },
+ "named_claims": [
+  "entropy_stable_tadmor"
+ ],
+ "claims": {
+  "entropy_stability": {
+   "eta": "u^2/2",
+   "q": "u^3/3"
+  }
+ }
+}

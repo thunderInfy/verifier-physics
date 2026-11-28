@@ -1,0 +1,19 @@
+{
+ "name": "Variant of scheme (6.14) for N = 1 and Burgers with the <l, Dv> factor of the bound (6.13) on the viscosity term: (f(uL) + f(uR))/2 - (1/8)[a(uR) - a(uL)]^+ (uR - uL), a(u) = u, v = u; entropy pair (u^2/2, u^3/3)",
+ "source": "tadmor_2003_acta:17, written by the scorer (phase B) to say what changes the outcome of the erratum candidate; not a reading by either reader, never scored",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2/2 + uR^2/2)/2 - ((uR - uL) + sqrt((uR - uL)^2))/2/8*(uR - uL)"
+ },
+ "named_claims": [
+  "entropy_stable_tadmor"
+ ],
+ "claims": {
+  "entropy_stability": {
+   "eta": "u^2/2",
+   "q": "u^3/3"
+  }
+ }
+}
