@@ -1,6 +1,7 @@
 {
  "commit": "16025b98b9ed1fba435ed7cef2d252eb367ed968",
- "file_commit": "16025b98b9ed1fba435ed7cef2d252eb367ed968",
+ "file_commit": "fee9d14d8626f2608916cf28ccb9829cf0898d62",
+ "file_commit_note": "collected and ingested at commit (16025b9, on the branch before the merge); the merge rebased it to file_commit (fee9d14 on main), whose Lean key trees (measure_lean.KEY_PATHS, toolchain, Mathlib) are the same; a test checks the trees against the first-parent history",
  "measured": "2026-11-28",
  "key": {
   "lean_toolchain": "leanprover/lean4:v4.30.0-rc1",

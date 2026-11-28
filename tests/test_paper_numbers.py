@@ -256,21 +256,26 @@ def _measure_lean():
 
 
 def test_lean_measurements_match_their_commits():
-    """Every measured run, lean_measured_<commit>.json, is named after a commit it records (`file_commit`;
-    `commit` is where it was collected), each commit it names is in the repository and has the Lean key the
-    run was measured with (git object ids of measure_lean.KEY_PATHS, the toolchain and the Mathlib rev), and
-    it names its host; every theorem it uses has a measured status on that host, and an accepted one only
-    the standard axioms. The paper's numbers come from one of them, measure_lean.PAPER_STORE."""
+    """Every measured run, lean_measured_<commit>.json, is named after the commit it records as `file_commit`
+    (informational; `commit` is where it was collected, possibly on a branch a merge rebased away). What ties
+    it to the code is its Lean key (git tree ids of measure_lean.KEY_PATHS, the toolchain and the Mathlib
+    rev): some commit on HEAD's first-parent history has exactly those trees (`commit_with_key`), so it is
+    an ancestor of HEAD by construction. It names its host; every theorem it uses has a measured status on
+    that host, and an accepted one only the standard axioms. The paper's numbers come from one of them,
+    measure_lean.PAPER_STORE."""
     from physverify.lean_backend import STD_AXIOMS
     ml = _measure_lean()
     paths = ml.store_paths()
     assert ml.PAPER_STORE in paths
+    git = lambda *a: subprocess.run(["git", *a], cwd=ROOT, capture_output=True).returncode
     for p in paths:
         store = json.loads(p.read_text())
         assert p.name == f"lean_measured_{store['file_commit'][:7]}.json", p.name
-        for c in {store["commit"], store["file_commit"]}:
-            assert subprocess.run(["git", "cat-file", "-e", f"{c}^{{commit}}"], cwd=ROOT).returncode == 0, (p.name, c)
-            assert ml.lean_key(c) == store["key"], f"{p.name}: the code at {c[:7]} is not the code it measured"
+        c = ml.commit_with_key(store["key"])
+        assert c is not None, f"{p.name}: no commit on HEAD's first-parent history has the code it measured"
+        assert git("merge-base", "--is-ancestor", c, "HEAD") == 0, (p.name, c)
+        if git("merge-base", "--is-ancestor", store["file_commit"], "HEAD") == 0:
+            assert ml.lean_key(store["file_commit"]) == store["key"], (p.name, "file_commit has other code")
         assert all(s["key"] == store["key"] for s in store["specs"].values()), p.name
         assert {"name", "machine", "cpus", "ram_gb"} <= set(store["host"]), p.name
         used = {h for s in store["specs"].values() for _, h in s["theorems"]}

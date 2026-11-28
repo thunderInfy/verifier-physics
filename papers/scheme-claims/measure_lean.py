@@ -67,6 +67,19 @@ def lean_key(rev: str = "HEAD") -> dict:
             "trees": {p: _git("rev-parse", f"{rev}:{p}") for p in KEY_PATHS}}
 
 
+def commit_with_key(key: dict, rev: str = "HEAD", cap: int = 300) -> str | None:
+    """The commit on `rev`'s first-parent history where the code a store measured (its key's trees) begins:
+    the oldest commit of the run of commits whose KEY_PATHS trees are exactly key["trees"], or None. A rebase
+    keeps the trees of unchanged code, so a store collected on a branch is found again on main after the merge
+    (its `commit` may then be unreachable; `file_commit` only names the file). Cheap: only the commits that
+    touch KEY_PATHS (at most `cap`) are compared, each with one rev-parse."""
+    for c in _git("log", "--first-parent", f"-n{cap}", "--format=%H", rev, "--", *KEY_PATHS).split():
+        trees = dict(zip(KEY_PATHS, _git("rev-parse", *(f"{c}:{p}" for p in KEY_PATHS)).split()))
+        if trees == key["trees"]:
+            return c if lean_key(c) == key else None
+    return None
+
+
 def store_path(rev: str = "HEAD") -> Path:
     return HERE / f"lean_measured_{_git('rev-parse', '--short=7', rev)}.json"
 
@@ -391,7 +404,8 @@ def summary(store: dict) -> dict:
 
 def _write(store: dict, path: Path, collected: bool = False) -> None:
     """Save the store; `collected`: the commit and Lean key are those of this collect run. `file_commit` is
-    the commit the file is named after: `commit` unless set by hand (b2cafbe, see file_commit_note there)."""
+    the commit the file is named after, informational: `commit` unless set by hand (b2cafbe, fee9d14: see
+    file_commit_note there). What ties a store to the code is its key's trees (`commit_with_key`)."""
     if collected or "commit" not in store:
         store["commit"], store["key"] = _git("rev-parse", "HEAD"), lean_key()
     store.setdefault("file_commit", store["commit"])
