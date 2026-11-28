@@ -1,0 +1,7 @@
+{
+ "name": "A2, barsukow_uzh_notes:07, from spec_needed: modified Lax-Friedrichs, eq. (9.10), flux form, Burgers f(u) = u^2/2, monotone CFL bound 1/2",
+ "pde": {"flux": "u^2/2"},
+ "scheme": {"numerical_flux": "(uL^2/2 + uR^2/2)/2 - (uR - uL)/(4*lam)"},
+ "named_claims": ["monotone_under_cfl"],
+ "claims": {"monotone_cfl": "1/2"}
+}

@@ -1,0 +1,28 @@
+{
+ "name": "Guermond-Popov first-order scheme (3.5)-(3.6) with viscosity (3.13), continuous P1 elements on a uniform 1D mesh (lumped mass m_i = dx, c_{i,i+-1} = +-1/2, c_ii = 0), f(u) = a u with a = 1, so lambda_max = |a| = 1 and d_{i,i+-1} = |a| ||c|| = 1/2, d_ii = -1; forward Euler: U_i^{n+1} = U_i - lam (a (U_{i+1} - U_{i-1})/2 - (1/2)(U_{i+1} - 2 U_i + U_{i-1})), the upwind scheme. CFL (4.5) in this setting: h = dx, mu_min = mu_max = 1/2 (1/(d+1), d = 1), theta_min = 1/(n_sh - 1) = 1, so 2 tau lambda_max mu_max/(h mu_min theta_min) = 2 nu <= 1, nu in [0, 1/2]",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "update": "u0 - lam*(a*(up1 - um1)/2 - (up1 - 2*u0 + um1)/2)"
+ },
+ "named_claims": [
+  "positive_under_cfl",
+  "local_max_principle_under_cfl",
+  "consistent_order_p"
+ ],
+ "claims": {
+  "positive_cfl": [
+   "0",
+   "1/2"
+  ],
+  "tvd_cfl": [
+   "0",
+   "1/2"
+  ],
+  "consistent_order": 1
+ }
+}

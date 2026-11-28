@@ -1,0 +1,20 @@
+{
+ "kind": "reconstruction",
+ "name": "WENO-Z fifth-order finite-difference reconstruction of one split flux component, eqs. (4)-(5), (8)-(10), (18)-(21) of the source (p = 1 in alpha^Z_k = d_k / beta^Z_k, tau_5 = |beta_0 - beta_2|), eps = 0 as the item's hypothesis states; written as the dev WENO specs are (benchmark/outside/specs/jiang-shu-weno5-js-fd.json), with weights of kind z. Translation choices in TRANSLATION.md",
+ "source": "borges_costa_don_2006_wenoz, as the reader view (stripped.jsonl) prints it; v_k = f_{i+k}, the reconstruction is h_{i+1/2}",
+ "reconstruction": {
+  "data": "point_values",
+  "target": "primitive",
+  "point": "1/2",
+  "candidates": ["(2*vm2 - 7*vm1 + 11*v0)/6", "(-vm1 + 5*v0 + 2*vp1)/6", "(2*v0 + 5*vp1 - vp2)/6"],
+  "weights": {
+   "kind": "z",
+   "d": ["1/10", "6/10", "3/10"],
+   "beta": ["13/12*(vm2 - 2*vm1 + v0)^2 + 1/4*(vm2 - 4*vm1 + 3*v0)^2",
+            "13/12*(vm1 - 2*v0 + vp1)^2 + 1/4*(vm1 - vp1)^2",
+            "13/12*(v0 - 2*vp1 + vp2)^2 + 1/4*(3*v0 - 4*vp1 + vp2)^2"],
+   "tau": [0, 2],
+   "q": 1
+  }
+ }
+}

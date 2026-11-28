@@ -1,0 +1,13 @@
+{
+ "name": "Modified Lax-Friedrichs (9.3) as printed in Theorem 9.2, q_i^{n+1} = (q_{i-1} + 2 q_i + q_{i+1})/4 - lam (f(q_{i+1}) - f(q_{i-1}))/2, written as an update (not in flux form), scalar instance f(u) = u^2/2",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "update": "(um1 + 2*u0 + up1)/4 - lam*(up1^2/2 - um1^2/2)/2"
+ },
+ "named_claims": [
+  "conservative"
+ ],
+ "claims": {}
+}

@@ -1,0 +1,17 @@
+{
+ "name": "Godunov flux (3.38) with the exact (entropy) Riemann solution, scalar instance: Burgers' equation f(u) = u^2/2, for which the Godunov flux is max(f(max(uL, 0)), f(min(uR, 0))); entropy U = u^2/2",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "max(max(uL, 0)^2, min(uR, 0)^2)/2"
+ },
+ "named_claims": [
+  "entropy_stable_tadmor"
+ ],
+ "claims": {
+  "entropy_stability": {
+   "eta": "u^2/2"
+  }
+ }
+}

@@ -1,0 +1,21 @@
+{
+ "name": "Kurganov-Tadmor semi-discrete scheme (4.2)-(4.5), scalar f(u) = a u with a = 1, local speed (4.10) a_{j+1/2} = |a| = 1, so H_{j+1/2} = u^-_{j+1/2} = u_j + (dx/2)(u_x)_j; minmod-like slopes (4.9) with theta = 1: dx (u_x)_j = minmod(theta (u_j - u_{j-1}), (u_{j+1} - u_{j-1})/2, theta (u_{j+1} - u_j)), the three-argument minmod written as minmod(a, minmod(b, c)); the forward-Euler step of the ODE system",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + minmod(uL - uLL, minmod((uR - uLL)/2, uR - uL))/2)"
+ },
+ "named_claims": [
+  "tvd_under_cfl"
+ ],
+ "claims": {
+  "tvd_cfl": [
+   "0",
+   "1/4"
+  ]
+ }
+}

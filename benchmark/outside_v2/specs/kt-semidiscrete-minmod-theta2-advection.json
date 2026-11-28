@@ -1,0 +1,21 @@
+{
+ "name": "As kt-semidiscrete-minmod-theta1-advection.json with theta = 2 in (4.9)",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + minmod(2*(uL - uLL), minmod((uR - uLL)/2, 2*(uR - uL)))/2)"
+ },
+ "named_claims": [
+  "tvd_under_cfl"
+ ],
+ "claims": {
+  "tvd_cfl": [
+   "0",
+   "1/4"
+  ]
+ }
+}

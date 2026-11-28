@@ -1,0 +1,19 @@
+{
+ "name": "Beam-Warming (10.2), branch c > 0, with c = 1: q^{n+1} = q_i - nu (3 q_i - 4 q_{i-1} + q_{i-2})/2 + nu^2 (q_i - 2 q_{i-1} + q_{i-2})/2",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "update": "u0 - a*lam*(3*u0 - 4*um1 + um2)/2 + a^2*lam^2*(u0 - 2*um1 + um2)/2"
+ },
+ "named_claims": [
+  "stable_for_small_cfl",
+  "consistent_order_p"
+ ],
+ "claims": {
+  "consistent_order": 2
+ }
+}

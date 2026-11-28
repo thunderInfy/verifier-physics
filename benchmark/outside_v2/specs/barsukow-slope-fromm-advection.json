@@ -1,0 +1,19 @@
+{
+ "name": "Slope method (10.16), branch c > 0, with c = 1 and the central slope s_i = (q_{i+1} - q_{i-1})/(2 dx) (= (d_x q)(x_i) + O(dx^2), so the theorem's condition holds): q^{n+1} = q_i - nu (q_i - q_{i-1}) - (nu (1 - nu)/2) dx (s_i - s_{i-1})",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "update": "u0 - a*lam*(u0 - um1) - a*lam*(1 - a*lam)*((up1 - um1)/2 - (u0 - um2)/2)/2"
+ },
+ "named_claims": [
+  "stable_for_small_cfl",
+  "consistent_order_p"
+ ],
+ "claims": {
+  "consistent_order": 2
+ }
+}

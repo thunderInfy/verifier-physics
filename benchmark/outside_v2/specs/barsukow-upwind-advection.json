@@ -1,0 +1,23 @@
+{
+ "name": "Upwind method (6.37) for q_t + c q_x = 0, branch c >= 0, with c = 1: q_i^{n+1} = q_i - nu (q_i - q_{i-1})",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL"
+ },
+ "named_claims": [
+  "von_neumann_stable_under_cfl",
+  "consistent_order_p"
+ ],
+ "claims": {
+  "von_neumann_cfl": [
+   "0",
+   "1"
+  ],
+  "consistent_order": 1
+ }
+}

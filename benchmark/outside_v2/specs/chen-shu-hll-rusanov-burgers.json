@@ -1,0 +1,17 @@
+{
+ "name": "HLL flux (3.41) with lambda_L = -s, lambda_R = s, s = max(|uL|, |uR|) (the local Lax-Friedrichs case the source names), scalar instance: Burgers' equation f(u) = u^2/2; s >= |f'(u)| on [uL, uR], so lambda_L is not larger than the leftmost and lambda_R not smaller than the rightmost true wave speed; (3.41) gives (f_L + f_R)/2 - s (uR - uL)/2 (and f_L = 0 when s = 0); entropy U = u^2/2",
+ "pde": {
+  "flux": "u^2/2"
+ },
+ "scheme": {
+  "numerical_flux": "(uL^2 + uR^2)/4 - max(abs(uL), abs(uR))/2*(uR - uL)"
+ },
+ "named_claims": [
+  "entropy_stable_tadmor"
+ ],
+ "claims": {
+  "entropy_stability": {
+   "eta": "u^2/2"
+  }
+ }
+}
