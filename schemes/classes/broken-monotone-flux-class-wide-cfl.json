@@ -1,0 +1,6 @@
+{
+ "name": "BROKEN: the monotone-flux class with lam (L1 + L2) <= 2 claimed TVD (twice the CFL bound)",
+ "named_claims": ["tvd_monotone_class"],
+ "claims": {"tvd_monotone_class": {"conditions": ["a_lo >= 0", "a_hi <= L1", "b_lo >= -L2", "b_hi <= 0",
+                                                  "lam >= 0", "lam*(L1 + L2) <= 2"]}}
+}

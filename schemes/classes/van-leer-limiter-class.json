@@ -1,0 +1,6 @@
+{
+ "name": "The van Leer limiter phi(r) = (r + |r|)/(1 + |r|), as the one-member class phi = 2r/(1 + r) on r > 0 and phi = 0 on r <= 0, is TVD for 0 <= nu <= 1",
+ "named_claims": ["tvd_limiter_class"],
+ "claims": {"tvd_limiter_class": {"pieces": [{"on": "(0, inf)", "lo": "2*r/(1 + r)", "hi": "2*r/(1 + r)"}],
+                                  "zero_for_nonpositive_r": true, "nu_max": "1"}}
+}

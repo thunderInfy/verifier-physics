@@ -1,0 +1,6 @@
+{
+ "name": "POST-HOC: every 3-point conservative scheme whose flux is non-decreasing in its first argument, non-increasing in its second, with difference quotients bounded by L1 and L2 and lam (L1 + L2) <= 1, is TVD (the reading of barsukow_uzh_notes:09; see benchmark/outside/posthoc_tvd.py)",
+ "named_claims": ["tvd_monotone_class"],
+ "claims": {"tvd_monotone_class": {"conditions": ["a_lo >= 0", "a_hi <= L1", "b_lo >= -L2", "b_hi <= 0",
+                                                  "lam >= 0", "lam*(L1 + L2) <= 1"]}}
+}

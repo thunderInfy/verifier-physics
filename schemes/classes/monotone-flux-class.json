@@ -1,0 +1,6 @@
+{
+ "name": "Every 3-point conservative scheme with 0 <= dF/da <= L1, -L2 <= dF/db <= 0 and lam (L1 + L2) <= 1 is TVD (monotone, so TVD)",
+ "named_claims": ["tvd_monotone_class"],
+ "claims": {"tvd_monotone_class": {"conditions": ["a_lo >= 0", "a_hi <= L1", "b_lo >= -L2", "b_hi <= 0",
+                                                  "lam >= 0", "lam*(L1 + L2) <= 1"]}}
+}

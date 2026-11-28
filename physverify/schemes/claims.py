@@ -48,6 +48,7 @@ GUARANTEE.update({"stationary_rh_violation": EXACT, "stationary_shock_rh_violati
 GUARANTEE.update({"stated_identity": EXACT})  # identity.py
 GUARANTEE.update({"ssp": EXACT, "ssp_linear": EXACT, "ssp_violation": EXACT})  # ssp.py
 GUARANTEE.update({"ssp_class": EXACT, "ssp_coefficient": EXACT})  # ssp_class.py
+GUARANTEE.update({"monotone_class": EXACT, "limiter_class": EXACT})  # harten_class.py
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -79,7 +80,7 @@ _LAX_RICHTMYER = ("Lax-Richtmyer equivalence: consistent of order p plus stable 
                   "in the discrete l2 norm (von Neumann stability is l2 stability), which gives the same order in "
                   "L1 on the unit periodic grid by Cauchy-Schwarz; the L-infinity order is not covered. Asymptotic: it "
                   "says nothing about the error constant, and gives order at least p; also needs the von Neumann "
-                  "check and the structural scope check (linear update, combined refinement at a stable dt/dx, "
+                  "check and the structural scope check (linear update, combined refinement at a dt/dx inside the claimed von Neumann range, "
                   "consistency order = claimed order, smooth data) to pass")
 
 _HARTEN = ("Harten's lemma (1983): an update u_i - C_{i-1/2} Delta_{i-1/2} + D_{i+1/2} Delta_{i+1/2} with C, D >= 0 "
@@ -276,6 +277,22 @@ CLAIMS["ssp_class_preserves"] = (   # classes of methods (ssp_class.py)
 CLAIMS["ssp_coefficient"] = (
     "the SSP coefficient of the stated method stands in the stated relation to a value or to another method's",
     (("ssp_coefficient", EQUIVALENT, _SSP_C),))
+_TVD_MONO = ("decided both ways: VERIFIED when the conditions imply every hypothesis of "
+             "PhysVerify.Harten.tvd_monotone_class_meaning (a Farkas certificate per hypothesis over the conditions and "
+             "their pairwise products, replayed exactly); REFUTED only with a linear flux of the class and periodic "
+             "rational data whose TV rises in one step (Fractions); anything else is UNKNOWN")
+_TVD_LIM = ("VERIFIED when the bounds imply every hypothesis of PhysVerify.Harten.tvd_limiter_class_meaning (Sweby's "
+            "region at nu_max = 1) on every piece, by Sturm sequences; Sweby's region is sufficient only, so a class "
+            "outside it is UNKNOWN unless a limiter of the class and periodic rational data raise TV in one step "
+            "(REFUTED, Fractions)")
+CLAIMS["tvd_monotone_class"] = (   # classes of schemes (harten_class.py)
+    "every three-point conservative scheme whose flux has difference quotients within the stated bounds, under the "
+    "stated conditions on the bounds and lam, is TVD",
+    (("monotone_class", EQUIVALENT, _TVD_MONO),))
+CLAIMS["tvd_limiter_class"] = (
+    "every flux-limited (Sweby) scheme for linear advection whose limiter meets the stated bounds is TVD for "
+    "0 <= nu <= nu_max",
+    (("limiter_class", EQUIVALENT, _TVD_LIM),))
 claimkinds.require("schemes", CLAIMS)            # one reading per name, shared with the other layers
 
 # (relation, outcome) -> polarity of the evidence for the claim

@@ -185,6 +185,23 @@ KINDS: dict[str, dict] = {
         "params": {"stages": {"schemes": "claims.ssp_class.stages"}, "c": {"schemes": "claims.ssp_class.c"},
                    "conditions": {"schemes": "claims.ssp_class.conditions?"},
                    "families": {"schemes": "claims.ssp_class.families?"}}},
+    "tvd_monotone_class": {
+        "gloss": "every three-point conservative scheme whose flux F has difference quotients (dF/da, dF/db) in "
+                 "[a_lo, a_hi] x [b_lo, b_hi], with the stated polynomial conditions on those bounds and lam = dt/dx, "
+                 "is TVD",
+        "quantifier": "for every (lam, a_lo, a_hi, b_lo, b_hi) satisfying the conditions, every F with those bounds and "
+                      "every periodic state: TV(u^{n+1}) <= TV(u^n)",
+        "layers": ["schemes"], "meaning": "tvd_monotone_class_meaning",
+        "params": {"conditions": {"schemes": "claims.tvd_monotone_class.conditions"}}},
+    "tvd_limiter_class": {
+        "gloss": "every flux-limited (Sweby) scheme for linear advection whose limiter phi(r) meets the stated "
+                 "piecewise bounds is TVD for 0 <= nu <= nu_max",
+        "quantifier": "for every phi with lo(r) <= phi(r) <= hi(r) on each stated piece (and phi = 0 on r <= 0 if "
+                      "stated), every nu in [0, nu_max] and every periodic state: TV(u^{n+1}) <= TV(u^n)",
+        "layers": ["schemes"], "meaning": "tvd_limiter_class_meaning",
+        "params": {"pieces": {"schemes": "claims.tvd_limiter_class.pieces"},
+                   "nu_max": {"schemes": "claims.tvd_limiter_class.nu_max"},
+                   "zero_for_nonpositive_r": {"schemes": "claims.tvd_limiter_class.zero_for_nonpositive_r?"}}},
     "ssp_coefficient": {
         "gloss": "the SSP coefficient C of an explicit Runge-Kutta method (its radius of absolute monotonicity) "
                  "stands in the stated relation (=, <=, >=, <, >) to a value or to another method's C",

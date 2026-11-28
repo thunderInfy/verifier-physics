@@ -33,6 +33,11 @@ so `C i` plays `C_{i+1/2}` and `D (i-1)` plays `D_{i-1/2}`. Then, with `Δu_i = 
 * `monotone_tvd`: a three-point conservative scheme whose update is nondecreasing in each
   argument is TVD (no Lipschitz bound is needed on a finite periodic grid: the difference
   quotients below are just numbers, with `x / 0 = 0` where the data are flat).
+* `tvd_monotone_class_meaning`: every such scheme whose flux has difference quotients in stated
+  bounds is TVD, for any class whose conditions imply `0 ≤ λ`, `0 ≤ λ aLo`, `λ bHi ≤ 0`,
+  `λ (aHi - bLo) ≤ 1` (through `monotone3_of_bounds`).
+* `tvd_limiter_class_meaning`: the flux-limited scheme is TVD for `0 ≤ ν ≤ νmax ≤ 1` and every
+  limiter `φ` with `φ = 0` on `r ≤ 0` and `0 ≤ φ ≤ 2`, `νmax φ(r) ≤ 2r` on `r > 0`.
 -/
 
 namespace PhysVerify.Harten
@@ -227,5 +232,136 @@ theorem monotone_tvd (F : α → α → α) (lam : α) (hmono : Monotone3 F lam)
         le_rfl (by linarith) le_rfl
       simp only [consH] at this
       linarith
+
+/-! ### Classes of schemes: the scheme is a variable
+
+The claim kinds `tvd_monotone_class` and `tvd_limiter_class` (physverify/schemes/harten_class.py)
+state TVD for every scheme of a class given by conditions on its flux or its limiter. The theorems
+below take the class as a predicate `K` and need only that `K` implies their hypotheses; the
+checker decides that implication exactly. -/
+
+/-- The flux's difference quotients in each argument lie in `[aLo, aHi]` and `[bLo, bHi]` (bounds
+on `∂F/∂a`, `∂F/∂b` for a differentiable `F`, by the mean value theorem; here no derivative is
+needed). -/
+def FluxBounds (F : α → α → α) (aLo aHi bLo bHi : α) : Prop :=
+  (∀ a a' b, a ≤ a' → aLo * (a' - a) ≤ F a' b - F a b ∧ F a' b - F a b ≤ aHi * (a' - a)) ∧
+  (∀ a b b', b ≤ b' → bLo * (b' - b) ≤ F a b' - F a b ∧ F a b' - F a b ≤ bHi * (b' - b))
+
+/-- Bounds on the difference quotients and a CFL relation make the scheme monotone. -/
+theorem monotone3_of_bounds {F : α → α → α} {lam aLo aHi bLo bHi : α}
+    (hF : FluxBounds F aLo aHi bLo bHi) (hl : 0 ≤ lam) (ha : 0 ≤ lam * aLo) (hb : lam * bHi ≤ 0)
+    (hab : lam * (aHi - bLo) ≤ 1) : Monotone3 F lam := by
+  intro a b c a' b' c' h1 h2 h3
+  obtain ⟨hA, hB⟩ := hF
+  have e1 := (hB b' c c' h3).2
+  have e2 := (hA b b' c h2).2
+  have e3 := (hA a a' b' h1).1
+  have e4 := (hB a b b' h2).1
+  have f1 := mul_le_mul_of_nonneg_left e1 hl
+  have f2 := mul_le_mul_of_nonneg_left e2 hl
+  have f3 := mul_le_mul_of_nonneg_left e3 hl
+  have f4 := mul_le_mul_of_nonneg_left e4 hl
+  have g1 := mul_nonneg (sub_nonneg.mpr hab) (sub_nonneg.mpr h2)
+  have g2 := mul_nonneg (neg_nonneg.mpr hb) (sub_nonneg.mpr h3)
+  have g3 := mul_nonneg ha (sub_nonneg.mpr h1)
+  simp only [consH]
+  nlinarith [f1, f2, f3, f4, g1, g2, g3]
+
+/-- **Every monotone-flux scheme of a class is TVD.** If the conditions `K` on `(λ, aLo, aHi, bLo,
+bHi)` imply `0 ≤ λ`, `0 ≤ λ aLo`, `λ bHi ≤ 0` and `λ (aHi - bLo) ≤ 1`, then every three-point
+conservative scheme whose flux has difference quotients in those bounds is TVD. -/
+theorem tvd_monotone_class_meaning {K : α → α → α → α → α → Prop}
+    (hK : ∀ lam aLo aHi bLo bHi, K lam aLo aHi bLo bHi →
+      0 ≤ lam ∧ 0 ≤ lam * aLo ∧ lam * bHi ≤ 0 ∧ lam * (aHi - bLo) ≤ 1)
+    {F : α → α → α} {lam aLo aHi bLo bHi : α} (hk : K lam aLo aHi bLo bHi)
+    (hF : FluxBounds F aLo aHi bLo bHi) (u : ZMod N → α) : TV (consStep F lam u) ≤ TV u := by
+  obtain ⟨h1, h2, h3, h4⟩ := hK _ _ _ _ _ hk
+  exact monotone_tvd F lam (monotone3_of_bounds hF h1 h2 h3 h4) u
+
+/-- The smoothness ratio `r_j = Δu_{j-1} / Δu_j` (with `x / 0 = 0`). -/
+def ratio (u : ZMod N → α) (j : ZMod N) : α := (u j - u (j - 1)) / (u (j + 1) - u j)
+
+/-- `λ` times the flux-limited (Sweby) flux at `j + 1/2` for `u_t + a u_x = 0`, `a > 0`, Courant
+number `ν`: upwind plus the limited anti-diffusive part, `ν u_j + ν(1-ν)/2 φ(r_j) Δu_j`. -/
+def limFlux (φ : α → α) (ν : α) (u : ZMod N → α) (j : ZMod N) : α :=
+  ν * u j + ν * (1 - ν) / 2 * (φ (ratio u j) * (u (j + 1) - u j))
+
+/-- One step of the flux-limited scheme: `v i = u i - (G i - G (i-1))`, `G = λ F`. -/
+def limStep (φ : α → α) (ν : α) (u : ZMod N → α) (i : ZMod N) : α :=
+  u i - (limFlux φ ν u i - limFlux φ ν u (i - 1))
+
+/-- Its incremental-form coefficient `D j` (`C = 0`). -/
+def limD (φ : α → α) (ν : α) (u : ZMod N → α) (j : ZMod N) : α :=
+  ν + ν * (1 - ν) / 2 *
+    (φ (ratio u (j + 1)) * (u (j + 1 + 1) - u (j + 1)) / (u (j + 1) - u j) - φ (ratio u j))
+
+omit [NeZero N] in
+lemma limStep_form (φ : α → α) (hφ0 : φ 0 = 0) (ν : α) (u : ZMod N → α) (i : ZMod N) :
+    limStep φ ν u i = hartenStep u (fun _ => 0) (limD φ ν u) i := by
+  have hq := div_mul_of_zero (x := φ (ratio u (i - 1 + 1)) * (u (i - 1 + 1 + 1) - u (i - 1 + 1)))
+    (d := u (i - 1 + 1) - u (i - 1)) (fun h => by
+      have : ratio u (i - 1 + 1) = 0 := by simp only [ratio, add_sub_cancel_right, h, zero_div]
+      rw [this, hφ0, zero_mul])
+  simp only [sub_add_cancel] at hq
+  simp only [limStep, limFlux, hartenStep, limD, sub_add_cancel]
+  linear_combination (ν * (1 - ν) / 2) * hq
+
+omit [NeZero N] in
+lemma lim_q_bounds {φ : α → α} {νmax : α} (hneg : ∀ r ≤ 0, φ r = 0)
+    (hpos : ∀ r, 0 < r → 0 ≤ φ r ∧ φ r ≤ 2 ∧ νmax * φ r ≤ 2 * r) (u : ZMod N → α) (j : ZMod N) :
+    0 ≤ φ (ratio u (j + 1)) * (u (j + 1 + 1) - u (j + 1)) / (u (j + 1) - u j) ∧
+      νmax * (φ (ratio u (j + 1)) * (u (j + 1 + 1) - u (j + 1)) / (u (j + 1) - u j)) ≤ 2 := by
+  have hr : ratio u (j + 1) = (u (j + 1) - u j) / (u (j + 1 + 1) - u (j + 1)) := by
+    simp only [ratio, add_sub_cancel_right]
+  rw [hr]
+  set a := u (j + 1) - u j
+  set b := u (j + 1 + 1) - u (j + 1)
+  by_cases ha : a = 0
+  · simp [ha]
+  by_cases hb : b = 0
+  · simp [hb, hneg 0 le_rfl]
+  have hq : φ (a / b) * b / a = φ (a / b) / (a / b) := (div_div_eq_mul_div _ _ _).symm
+  rw [hq]
+  rcases le_or_gt (a / b) 0 with h | h
+  · simp [hneg _ h]
+  · obtain ⟨p0, -, p2⟩ := hpos _ h
+    refine ⟨div_nonneg p0 h.le, ?_⟩
+    rw [mul_div_assoc', div_le_iff₀ h]
+    linarith
+
+lemma lim_p_bounds {φ : α → α} {νmax : α} (hneg : ∀ r ≤ 0, φ r = 0)
+    (hpos : ∀ r, 0 < r → 0 ≤ φ r ∧ φ r ≤ 2 ∧ νmax * φ r ≤ 2 * r) (r : α) : 0 ≤ φ r ∧ φ r ≤ 2 := by
+  rcases le_or_gt r 0 with h | h
+  · rw [hneg r h]; norm_num
+  · exact ⟨(hpos r h).1, (hpos r h).2.1⟩
+
+/-- **Every flux-limited scheme of a class is TVD.** If the conditions `K` on the limiter imply
+`φ r = 0` for `r ≤ 0` and `0 ≤ φ r ≤ 2`, `νmax φ r ≤ 2 r` for `r > 0` (Sweby's region
+`0 ≤ φ ≤ min(2r, 2)` when `νmax = 1`), with `νmax ≤ 1`, then the scheme with any limiter in the
+class is TVD for every `ν ∈ [0, νmax]`. -/
+theorem tvd_limiter_class_meaning {K : (α → α) → Prop} {νmax : α} (hm : νmax ≤ 1)
+    (hK : ∀ φ, K φ → (∀ r ≤ 0, φ r = 0) ∧ ∀ r, 0 < r → 0 ≤ φ r ∧ φ r ≤ 2 ∧ νmax * φ r ≤ 2 * r)
+    {φ : α → α} (hφ : K φ) {ν : α} (h0 : 0 ≤ ν) (h1 : ν ≤ νmax) (u : ZMod N → α) :
+    TV (limStep φ ν u) ≤ TV u := by
+  obtain ⟨hneg, hpos⟩ := hK φ hφ
+  have hform : limStep φ ν u = hartenStep u (fun _ => 0) (limD φ ν u) :=
+    funext (limStep_form φ (hneg 0 le_rfl) ν u)
+  rw [hform]
+  have hk : 0 ≤ ν * (1 - ν) / 2 := by
+    have : 0 ≤ 1 - ν := by linarith
+    exact div_nonneg (mul_nonneg h0 this) (by norm_num)
+  refine harten_tvd u _ _ (fun _ => le_rfl) (fun j => ?_) (fun j => ?_)
+  · obtain ⟨q0, -⟩ := lim_q_bounds hneg hpos u j
+    obtain ⟨-, p2⟩ := lim_p_bounds hneg hpos (ratio u j)
+    simp only [limD]
+    nlinarith [mul_nonneg hk q0, mul_nonneg hk (sub_nonneg.mpr p2), sq_nonneg ν]
+  · obtain ⟨q0, q2⟩ := lim_q_bounds hneg hpos u j
+    obtain ⟨p0, -⟩ := lim_p_bounds hneg hpos (ratio u j)
+    set q := φ (ratio u (j + 1)) * (u (j + 1 + 1) - u (j + 1)) / (u (j + 1) - u j)
+    have hνq : ν * q ≤ 2 := le_trans (mul_le_mul_of_nonneg_right h1 q0) q2
+    have h1ν : 0 ≤ (1 - ν) / 2 := by linarith
+    have f := mul_le_mul_of_nonneg_left hνq h1ν
+    simp only [limD]
+    nlinarith [mul_nonneg hk p0, f]
 
 end PhysVerify.Harten

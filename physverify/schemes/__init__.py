@@ -13,9 +13,10 @@ import json
 from pathlib import Path
 
 from . import checks, claims, convergence, entropy, fixedjump, identity, limiters, linear, shock, shockspeed, ssp, systems
-from . import ssp_class
+from . import harten_class, ssp_class
 
-CLASS_ONLY = {"ssp_class_preserves": ssp_class.ssp_class, "ssp_coefficient": ssp_class.ssp_coefficient}
+CLASS_ONLY = {"ssp_class_preserves": ssp_class.ssp_class, "ssp_coefficient": ssp_class.ssp_coefficient,
+              "tvd_monotone_class": harten_class.monotone_class, "tvd_limiter_class": harten_class.limiter_class}
 
 
 def load(path) -> dict:
@@ -25,7 +26,7 @@ def load(path) -> dict:
 def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) -> dict:
     names = spec.get("named_claims", [])
     claims.validate(names)
-    if names and set(names) <= set(CLASS_ONLY):          # claims about Runge-Kutta coefficients alone: no scheme
+    if names and set(names) <= set(CLASS_ONLY):          # claims about a class (coefficients, fluxes, limiters): no scheme
         out = [f(spec) for n, f in CLASS_ONLY.items() if n in names]
         return {"checks": out, "claims": claims.judge(names, out)}
     if systems.is_system(spec):

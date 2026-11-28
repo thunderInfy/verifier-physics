@@ -1,0 +1,7 @@
+{
+ "name": "BROKEN: every limiter with 0 <= phi <= min(2r, 3) (the cap 2 misread as 3), phi = 0 for r <= 0, claimed TVD for 0 <= nu <= 1",
+ "named_claims": ["tvd_limiter_class"],
+ "claims": {"tvd_limiter_class": {"pieces": [{"on": "(0, 3/2]", "lo": "0", "hi": "2*r"},
+                                             {"on": "[3/2, inf)", "lo": "0", "hi": "3"}],
+                                  "zero_for_nonpositive_r": true, "nu_max": "1"}}
+}

@@ -1,0 +1,7 @@
+{
+ "name": "Every flux-limited scheme with a limiter in Sweby's region (0 <= phi <= min(2r, 2), phi = 0 for r <= 0) is TVD for 0 <= nu <= 1",
+ "named_claims": ["tvd_limiter_class"],
+ "claims": {"tvd_limiter_class": {"pieces": [{"on": "(0, 1]", "lo": "0", "hi": "2*r"},
+                                             {"on": "[1, inf)", "lo": "0", "hi": "2"}],
+                                  "zero_for_nonpositive_r": true, "nu_max": "1"}}
+}

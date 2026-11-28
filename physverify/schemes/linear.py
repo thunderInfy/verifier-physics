@@ -387,7 +387,7 @@ def lax_richtmyer_scope(spec: dict) -> dict:
     otherwise. Periodicity is implicit in the convergence studies (they step with np.roll on the periodic
     unit interval, and advection-sine is periodic there), so only an explicit non-periodic
     `test.boundary` in the spec makes this NOT_APPLICABLE."""
-    claim = "Lax-Richtmyer applies: linear constant-coefficient scheme, combined refinement at a stable dt/dx, smooth data"
+    claim = "Lax-Richtmyer applies: linear constant-coefficient scheme, combined refinement at a dt/dx inside the claimed von Neumann range, smooth data"
     got, bad = coefficients(spec, "lax_richtmyer_scope", claim)
     if bad:
         return result("lax_richtmyer_scope", NOT_APPLICABLE, claim, bad["detail"])
