@@ -1,0 +1,1474 @@
+{
+ "about": "Formal readings of the heldout half of the outside benchmark, reader pass A1, written blind: from heldout_stripped.jsonl only (sentence, scheme, hypotheses, location), before any checker run and without the expected values or justifications. Same format as dev_readings.json, less the fields a checker run or an expected value fills (actual, score, gap, gap_closed, tuned_on, found_by); instance_from_justification is false throughout, since the reader never saw a justification. Specs are those of specs/; where a reading needs a variant, `override` gives it (the WENO5M readings switch the weights kind of jiang-shu-weno5-js-fd.json to 'm'). One entry per heldout item, in heldout_stripped.jsonl order.",
+ "items": [
+  {
+   "id": "shu1997_icase_notes:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "'high order accurate' fixes no order and 'designed for problems with ... discontinuities' has no mathematical content; the sentence is about every ENO and WENO scheme of every order k. With the hypotheses the content would be (2k-1)-th order of every WENO reconstruction in smooth regions, a family over k with no eps scaling stated"
+    }
+   ]
+  },
+  {
+   "id": "shu1997_icase_notes:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 4.1: every RK method (4.8) with alpha, beta >= 0 is TVD under c = min alpha/beta; a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L (as dev mfa_oslo_notes:20)"
+    }
+   ]
+  },
+  {
+   "id": "shu1997_icase_notes:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 4.2: the same with L~ for negative beta, c = min alpha/|beta|; a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L (as dev mfa_oslo_notes:20)"
+    }
+   ]
+  },
+  {
+   "id": "shu1997_icase_notes:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 4.3: every multistep method (4.23) with alpha, beta >= 0 is TVD under c = min alpha/beta; a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L (as dev mfa_oslo_notes:20)"
+    }
+   ]
+  },
+  {
+   "id": "shu1997_icase_notes:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 4.4: the multistep version with L~ for negative beta; a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L (as dev mfa_oslo_notes:20)"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "time-stepping",
+      "reconstruction"
+     ],
+     "note": "a report of numerical examples ('we illustrate', 'can generate oscillations', existential), with a two-stage RK on a minmod MUSCL spatial operator for Burgers' equation"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 1.1; a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 1.2 (L~ for negative beta); a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:04",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the two-stage method (3.2) is TVD under CFL coefficient c = 1, and it is the optimal (largest c) second-order two-stage method (1.8) with alpha_ik, beta_ik >= 0",
+     "narrowing": "L narrowed to the first-order upwind operator for u_t + u_x = 0, L(u)_i = -(u_i - u_{i-1})/dx (linear, its Euler forward step TVD under dt <= dx); the norm narrowed to the total variation. The spec ssp-rk2-upwind-advection.json writes exactly this method: U* = U + dt L(U), U^{n+1} = (U + U* + dt L(U*))/2 = (1/2)u^n + (1/2)u^(1) + (1/2)dt L(u^(1))",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "unformalized": "'optimal': no two-stage second-order method of the family (3.1) with alpha, beta >= 0 has c > 1; a claim about every method of a family (and about the CFL coefficient (1.9) of an RK method, which has no claim kind)"
+      },
+      {
+       "spec": "ssp-rk2-upwind-advection.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "bridge": "for a linear update u_i^{n+1} = sum_k c_k u_{i+k} with sum_k c_k = 1, TVD iff every c_k >= 0: the differences evolve with the same c_k, and the l1 norm of that convolution is sum_k |c_k| (as in dev harten_1982_highres:05); the upwind Euler step is TVD exactly for nu = dt/dx in [0, 1], so Dt_1 = dx and 'TVD under CFL coefficient c = 1' is 'TVD for nu in [0, 1]'"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "the three-stage method (3.3) is TVD with c = 1 and optimal among third-order three-stage methods with alpha, beta >= 0: three stages of a two-point upwind step need u_{i-3}, outside the five-point stencil, and optimality over the family has no claim kind"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "every four-stage fourth-order RK method with c > 0 has a negative beta_ik: a statement about all methods of a family; no claim kind for the signs of RK coefficients"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "a summary: optimal methods of orders 2 and 3 have c = 1 (optimality over a family), and for order 4 'the best method we can find' has no definite content"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "a three-stage low-storage method (4.1)-(4.3) (c_2 = 0.924574, decimal) with CFL coefficient 0.32: three stages exceed the five-point stencil, and 'third order with two storage units' and the CFL coefficient of an RK method have no claim kind"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_1998_tvdrk:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "no general four-stage fourth-order RK method is TVD (in the sense of Lemma 1.1) without L~: a statement about every method of the family"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "abstract: 'have proved very useful' has no mathematical content; the rest is the SSP property of every method of the class (Lemmas 2.1-2.3)"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 2.1; a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 2.2; a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Lemma 2.3 (multistep); a theorem about every Runge-Kutta or multistep method with the stated coefficient signs and every operator L"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "Proposition 3.1: the largest CFL coefficient over all m-stage mth-order SSP RK methods with nonnegative coefficients is 1 (linear L): a bound over a family of methods; no claim kind for an RK CFL coefficient"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:06",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "for m = 2 the scheme (3.1)-(3.2) (alpha_{2,1} = 1/2!, alpha_{2,0} = 1/2) is a second-order linear RK method and is SSP with c = 1, i.e. strongly stable for dt <= dt_FE",
+     "narrowing": "L narrowed to the first-order upwind operator for u_t + u_x = 0, L(u)_i = -(u_i - u_{i-1})/dx (linear, its Euler forward step TVD under dt <= dx); the norm narrowed to the total variation. The spec ssp-rk2-upwind-advection.json writes exactly this method: U* = U + dt L(U), U^{n+1} = (U + U* + dt L(U*))/2 = (1/2)u^n + (1/2)u^(1) + (1/2)dt L(u^(1)); m narrowed to 2 (the sentence is for every m; for m = 2, (3.1)-(3.2) give u^(1) = u + dt L u, u^(2) = (1/2) u + (1/2)(u^(1) + dt L u^(1)), the method of the spec; m >= 3 stages of the upwind step need u_{i-3}, outside the five-point stencil)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "unformalized": "mth order of the linear RK method (agreement with exp(dt L) up to (dt L)^m): no claim kind for the temporal order of an RK method (consistent_order_p of the full scheme measures the spatial order of the instance)"
+      },
+      {
+       "spec": "ssp-rk2-upwind-advection.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "bridge": "for a linear update u_i^{n+1} = sum_k c_k u_{i+k} with sum_k c_k = 1, TVD iff every c_k >= 0: the differences evolve with the same c_k, and the l1 norm of that convolution is sum_k |c_k| (as in dev harten_1982_highres:05); the upwind Euler step is TVD exactly for nu = dt/dx in [0, 1], so Dt_1 = dx and 'TVD under CFL coefficient c = 1' is 'TVD for nu in [0, 1]'"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "time-stepping",
+      "variable-coefficients",
+      "claim-kind-missing"
+     ],
+     "note": "classical RK4 for coercive ODE systems d/dt u = L(t)u with time-dependent L, variable steps and an exponential energy bound (3.16): no claim kind for such an estimate, and L(t) varies"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:08",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the two-stage method (4.1) is SSP with CFL coefficient c = 1, and it is the optimal second-order method (2.9) with beta_{i,k} >= 0",
+     "narrowing": "L narrowed to the first-order upwind operator for u_t + u_x = 0, L(u)_i = -(u_i - u_{i-1})/dx (linear, its Euler forward step TVD under dt <= dx); the norm narrowed to the total variation. The spec ssp-rk2-upwind-advection.json writes exactly this method: U* = U + dt L(U), U^{n+1} = (U + U* + dt L(U*))/2 = (1/2)u^n + (1/2)u^(1) + (1/2)dt L(u^(1)); the source's L is nonlinear, the instance is linear (an instance of the claim for every L)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "unformalized": "'optimal': no second-order two-stage method (2.9) with beta >= 0 has c > 1, for nonlinear L; a claim about every method of a family, and no claim kind for an RK CFL coefficient"
+      },
+      {
+       "spec": "ssp-rk2-upwind-advection.json",
+       "claim": "positive_under_cfl",
+       "relation": "same",
+       "bridge": "for a linear update u_i^{n+1} = sum_k c_k u_{i+k} with sum_k c_k = 1, TVD iff every c_k >= 0: the differences evolve with the same c_k, and the l1 norm of that convolution is sum_k |c_k| (as in dev harten_1982_highres:05); the upwind Euler step is TVD exactly for nu = dt/dx in [0, 1], so Dt_1 = dx and 'TVD under CFL coefficient c = 1' is 'TVD for nu in [0, 1]'"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "the three-stage method (4.2) with c = 1, optimal: three upwind stages need u_{i-3}, outside the five-point stencil; optimality over the family has no claim kind"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "every four-stage fourth-order SSP RK method with c > 0 has a negative beta: a statement about all methods of a family; no claim kind for RK coefficient signs"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "no member of the hybrid family (4.5) is fourth order with all alpha >= 0: a statement over a parametric family of two-step two-stage methods"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:12",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "Proposition 5.1: nonexistence of m-step mth-order SSP methods with beta >= 0 and of m-step SSP methods of order m + 1, a statement about every multistep method"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:13",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "the optimal c over all two-step second-order SSP methods is 1/2: a bound over a family; a two-step method also needs two time levels, which a one-step update cannot hold"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "optimal c over all three-step second-order methods with beta >= 0 is 1/2: as item 13"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "optimal c over all four-step third-order methods with beta >= 0 is 1/3: as item 13"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:16",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "Harten's lemma for the implicit scheme (6.1) with any coefficients C, D >= 0 (functions of u^n and/or u^{n+1}); implicit in time"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:17",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "no implicit RK method (6.7) of order >= 2 has all alpha >= 0: a statement over a family of methods"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:18",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "time-stepping",
+      "claim-kind-missing"
+     ],
+     "note": "no implicit multistep method (6.16) of order >= 2 has all alpha >= 0: as item 17"
+    }
+   ]
+  },
+  {
+   "id": "gottlieb_shu_tadmor_2001_ssp:19",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "scheme-class",
+      "time-stepping"
+     ],
+     "note": "concluding remark ('we have systematically studied'); the content is the SSP property of every method of the classes"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "high-order DG schemes with the positivity limiter for the Euler equations (density and pressure), with SSP time stepping"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "reconstruction"
+     ],
+     "note": "accuracy of the density-and-pressure positivity limiter for Euler states; 'easy to implement' has no mathematical content. A density-only scalar instance would drop the pressure step (2.10)-(2.11), which the sentence includes"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "time-stepping"
+     ],
+     "note": "every SSP high-order time discretisation keeps positivity of the limited Euler scheme"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "reconstruction"
+     ],
+     "note": "Theorem 2.1 for Euler states: G is the set rho > 0, p > 0 of the 3x3 Euler system; the scalar analogue is cell_average_max_principle (dev zhang_shu_2011_survey:04), but G is not an interval [m, M]"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "reconstruction"
+     ],
+     "note": "Lemma 2.5: the pressure step of the limiter puts every Gauss-Lobatto value in G^eps, a set of Euler states defined by the pressure p(rho, m, E)"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "multi-d",
+      "system",
+      "reconstruction"
+     ],
+     "note": "2D Euler on rectangular meshes, Theorem 3.1"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "arbitrarily high order FV/DG positivity preserving schemes for 1D Euler; 'improved the general framework in [20]' is a comparison with the literature"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "reconstruction"
+     ],
+     "note": "the linear scaling limiter keeps high order accuracy and positivity of density and pressure (Euler); 'efficient and easy implementation' has no mathematical content"
+    }
+   ]
+  },
+  {
+   "id": "zhang_shu_2010_euler_positivity:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "reconstruction",
+      "time-stepping"
+     ],
+     "note": "positivity of Euler cell averages for DG or FV (ENO, WENO) schemes with the limiter under 'suitable' CFL conditions and SSP time stepping; 'small additional computational cost' has no mathematical content"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:01",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system"
+     ],
+     "note": "abstract: 'two main advantages', 'distinguish between different families of waves', 'sharp resolution of shock discontinuities' have no definite mathematical content; systems with path-dependent fluxes (6.3)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "fully discrete entropy stability of every forward-Euler scheme whose dissipation is large enough for (7.19) under a 'suitable' CFL condition, for systems; no claim kind for a fully discrete entropy inequality"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:03",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "'optimal CFL conditions' is not defined; the result covers every scheme in viscosity form (8.1) under (8.8)/(8.10), and a fully discrete cell entropy inequality has no claim kind"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "Theorem 3.1: entropy stable iff (3.10), for every conservative scheme (3.5) of a system (as dev tadmor_1987_viscosity:02)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:05",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class"
+     ],
+     "note": "Corollary 4.1: entropy stable iff more viscosity than the entropy conservative scheme, for every scalar scheme (4.3) (as dev tadmor_1987_viscosity:02, :04)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "Lemma 4.5: second order (local truncation error on a variable mesh) of every scheme (4.3) with Q/Dv Lipschitz; semi-discrete order has no claim kind"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "Corollary 5.1: every essentially three-point scheme (5.1) for systems, entropy stable iff (5.6)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:08",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "Theorem 5.3: every scheme (5.22) whose viscosity matrix satisfies (5.23)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:09",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "Theorem 5.4: every essentially H-symmetric scheme (5.24) satisfying (5.27)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:10",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "Theorem 5.7: every Roe-type scheme whose viscosity function p satisfies (5.35)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "Theorem 5.9: every Roe-type scheme whose viscosity function p satisfies (5.40), with Const and eps_k free"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:12",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the flux (6.3) gives an entropy conservative scheme, d/dt U(u_nu) + (F*_{nu+1/2} - F*_{nu-1/2})/dx = 0 with F* = v_bar g* - psi_bar, and g* is consistent, g*(v, v) = f(u(v))",
+     "narrowing": "a scalar law (N = 1, one vector r^1 = 1, l^1 = 1), Burgers' equation f = u^2/2 with the entropy U = u^2/2, so v = u and psi = v g(v) - F = u^3/6; then (6.1) is the straight path from v_nu to v_{nu+1} and (6.3) is g* = (psi(v_{nu+1}) - psi(v_nu))/(v_{nu+1} - v_nu) = (uL^2 + uL uR + uR^2)/6, the flux of the spec (dev fjordholm_mishra_tadmor_2012_tecno:02 uses the same spec for the same property); the sentence is for systems and any basis {r^j}, and its truth is the same on this instance (the scalar flux is the unique entropy conservative two-point flux)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "tecno-entropy-conservative-burgers.json",
+       "claim": "stated_identity",
+       "relation": "same",
+       "bridge": "entropy conservation of a semi-discrete conservative scheme with two-point flux g* is the cell identity v_i (g*_{i+1/2} - g*_{i-1/2}) = F*_{i+1/2} - F*_{i-1/2} with F* = v_bar g* - psi_bar, which the spec's entropy_balance identity states"
+      },
+      {
+       "spec": "tecno-entropy-conservative-burgers.json",
+       "override": {
+        "named_claims": [
+         "stated_identity",
+         "consistent"
+        ]
+       },
+       "claim": "consistent",
+       "relation": "same",
+       "bridge": "'consistent with (2.5)': g*(u, u) = f(u), the limit of the difference quotient at v_{nu+1} = v_nu, written as the polynomial (u^2 + u^2 + u^2)/6 = u^2/2"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "tadmor_2003_acta:13",
+   "readings": [
+    {
+     "field": "both",
+     "reading": "the scheme (6.8) is entropy conservative",
+     "narrowing": "a scalar law (N = 1, r^1 = 1, l^1 = 1), Burgers' equation with U = u^2/2 (v = u, B(v) = g'(v) = v): then (6.8) has the flux (f(u_nu) + f(u_{nu+1}))/2 - Q* Dv/2 with Q* = int_{-1/2}^{1/2} 2 xi (v_bar + xi Dv) d xi = Dv/6, i.e. (uL^2 + uR^2)/4 - (uR - uL)^2/12 = (uL^2 + uL uR + uR^2)/6, the flux of the spec; the sentence is for systems and any path, and its truth is the same on this instance",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "tecno-entropy-conservative-burgers.json",
+       "claim": "stated_identity",
+       "relation": "same",
+       "bridge": "as tadmor_2003_acta:12: entropy conservation is the cell identity with F* = v_bar g* - psi_bar; the flux of (6.8) for N = 1 and Burgers reduces to the spec's flux by the computation in the narrowing"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "tadmor_2003_acta:14",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system"
+     ],
+     "note": "Theorem 6.3: every scheme (6.10) whose amplitudes q satisfy (6.9)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:15",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "second-order accuracy of the semi-discrete scheme (6.10), (6.12) has no claim kind; the entropy-stability conjunct in a scalar narrowing depends on the normalisation of r^j and l^j in (6.12) (only <l^j, r^k> = delta_jk and the direction of r^j are fixed), which changes the size of q relative to Q*, so no scalar instance is forced by the text"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:16",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system"
+     ],
+     "note": "'keeping the sharpness of shock profiles' has no definite content; 'no artificial dissipation in shocks' is a property of the ( )^+ in (6.12) for systems"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:17",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "as item 15 for (6.14): semi-discrete second order has no claim kind, and the scalar reduction of the term [a_j(u^{j+1}) - a_j(u^j)]^+ l^j depends on the normalisation of l^j, which the sentence leaves open (with |l| = 1 the added viscosity is O(Du) in the flux, with l = 1/Dv it is O(1/Du))"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:18",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system"
+     ],
+     "note": "as item 16, for the scheme (6.14)"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:19",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "time-stepping"
+     ],
+     "note": "Corollary 7.4: for every essentially three-point flux g, the implicit Crank-Nicolson scheme (7.22)-(7.23) is entropy stable iff the semi-discrete one is"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:20",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "claim-kind-missing"
+     ],
+     "note": "Corollary 8.1: a fully discrete cell entropy inequality for every scalar scheme (8.1) whose p satisfies (8.8), for every convex entropy pair; no claim kind for a fully discrete entropy inequality"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:21",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "Corollary 8.2: as item 20 for symmetric systems with the quadratic entropy"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:22",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "Theorem 9.1: every five-point scheme (9.5)-(9.7) with any secondary viscosity Q** is entropy conservative, and third order when Q**(v, v, v) = B(v); semi-discrete order has no claim kind"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:23",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "Lemma A1: an inequality for the Roe-type viscosity of any viscosity function p and any Roe matrix satisfying (A.4), with an unspecified Const; no claim kind for such an inequality"
+    }
+   ]
+  },
+  {
+   "id": "tadmor_2003_acta:24",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "system",
+      "claim-kind-missing"
+     ],
+     "note": "Lemma A2: an upper bound on <Dv, Q* Dv> with an unspecified Const and arbitrary eps_k, for any system with a Roe matrix satisfying (A.4); stated_identity covers identities, not inequalities"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:01",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "WENO5M is fifth order for smooth f, at points where f' != 0 and at first-order critical points (f' = 0, f'' != 0), eps = 0",
+     "narrowing": "'convergence' / 'order' read as the truncation order of the flux difference (f^_{j+1/2} - f^_{j-1/2})/dx against f'(x_j) at one grid point, as the source's Taylor analysis does; one split flux component (v_k = f_{j+k}, the spec's f^_{j+1/2}); eps = 0 written eps = '0' (the item's hypothesis 'eps = 0 in the analysis'); 'fifth order' read as 'at least 5' at generic points and at n_cp = 1 (the hypotheses exclude n_cp = 2, where they state rate 2); 'new' and 'is developed' dropped (no content)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "generic",
+        "eps": "0"
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 1
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      }
+     ]
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": [
+      "alone"
+     ],
+     "reasons": [
+      "family_unspecified"
+     ],
+     "note": "the bare sentence does not fix how eps scales with dx; the order at critical points depends on it (with eps negligible against beta_k the weights see the critical point, with eps fixed they tend to the ideal weights on fine grids, as the item's own hypotheses note), so the alone field is left to the owner of the expected value (team rule for eps-family choices, as dev jiang_shu_1995_weno:02, :05); and the bare 'fifth-order' does not say which critical points it covers (with eps = 0 the hypotheses give rate 2 at n_cp = 2)"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:02",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "necessary and sufficient conditions (29) on the weights of every fifth-order WENO scheme on these stencils, plus a comparison with the literature ('one more condition than previously published'); no claim kind for conditions on weights"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:03",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "the WENO5 scheme of Jiang and Shu, at a critical point (f' = 0), with eps = 0, is third order and, in general, not fourth order: the flux difference error is O(dx^3) for every such f and not O(dx^4) for every such f",
+     "narrowing": "'convergence' / 'order' read as the truncation order of the flux difference (f^_{j+1/2} - f^_{j-1/2})/dx against f'(x_j) at one grid point, as the source's Taylor analysis does; one split flux component (v_k = f_{j+k}, the spec's f^_{j+1/2}); eps = 0 written eps = '0' (the item's hypothesis 'eps = 0 in the analysis'); the critical point narrowed to n_cp = 1 (f' = 0, f'' != 0), the generic critical point; the item's hypothesis writes 'f' = 0 and f''' != 0', which also admits f'' = 0 (n_cp = 2), not used here; 'in general, only third order' read as 'at least 3, and not at least 4 for every f in the regime' (the second component negated)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 3,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 1
+       }
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 4,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 1
+       },
+       "negated": true
+      }
+     ]
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": [
+      "alone"
+     ],
+     "reasons": [
+      "family_unspecified"
+     ],
+     "note": "the bare sentence does not fix how eps scales with dx; the order at critical points depends on it (with eps negligible against beta_k the weights see the critical point, with eps fixed they tend to the ideal weights on fine grids, as the item's own hypotheses note), so the alone field is left to the owner of the expected value (team rule for eps-family choices, as dev jiang_shu_1995_weno:02, :05); Jiang and Shu recommend eps = 10^-6, a fixed constant"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:04",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "'determine the order of the scheme in a non-trivial way' has no definite content, and the role of 'the level of grid resolution' is a pre-asymptotic, numerical observation (Tables 2-3); the asymptotic part (order depends on the eps family) is in items 03 and 05"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:05",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "WENO5M (the mapped modification of WENO5) has the optimal order 5 at points where f' != 0 and at first-order critical points, eps = 0",
+     "narrowing": "'convergence' / 'order' read as the truncation order of the flux difference (f^_{j+1/2} - f^_{j-1/2})/dx against f'(x_j) at one grid point, as the source's Taylor analysis does; one split flux component (v_k = f_{j+k}, the spec's f^_{j+1/2}); eps = 0 written eps = '0' (the item's hypothesis 'eps = 0 in the analysis'); 'optimal order' read as 5 = 2r - 1, the order of the linear scheme; 'near critical points' read as at a critical point of order n_cp = 1 (the hypothesis), plus generic points; 'simple' and 'sufficient' dropped (no content beyond the order)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "generic",
+        "eps": "0"
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 1
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      }
+     ]
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": [
+      "alone"
+     ],
+     "reasons": [
+      "family_unspecified"
+     ],
+     "note": "the bare sentence does not fix how eps scales with dx; the order at critical points depends on it (with eps negligible against beta_k the weights see the critical point, with eps fixed they tend to the ideal weights on fine grids, as the item's own hypotheses note), so the alone field is left to the owner of the expected value (team rule for eps-family choices, as dev jiang_shu_1995_weno:02, :05); the bare sentence also does not bound the order of the critical points"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:06",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "scheme-class",
+      "reconstruction",
+      "claim-kind-missing"
+     ],
+     "note": "a statement about the published conditions for every fifth-order WENO scheme (they are not necessary and sufficient); no claim kind for conditions on weights"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:07",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "reconstruction"
+     ],
+     "note": "the higher-order schemes are not defined in this source (Balsara and Shu [9]), and 'similarly afflicted' has no definite content beyond 'their order drops near critical points'"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:08",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "for r = 3, the Jiang-Shu weights do not satisfy (29) near critical points, and in the worst case, a critical point of order n_cp = r - 1 = 2, the scheme is of order r - 1 = 2 and not 3",
+     "narrowing": "'convergence' / 'order' read as the truncation order of the flux difference (f^_{j+1/2} - f^_{j-1/2})/dx against f'(x_j) at one grid point, as the source's Taylor analysis does; one split flux component (v_k = f_{j+k}, the spec's f^_{j+1/2}); eps = 0 written eps = '0' (the item's hypothesis 'eps = 0 in the analysis'); r narrowed to 3 (the only r whose scheme this source defines; the sentence is for r <= 6); 'worst case' read as the critical point of order n_cp = r - 1 (the hypothesis); '(r - 1)th order' read as 'at least r - 1 and not at least r'",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "unformalized": "'do not satisfy this incomplete set of criteria in the neighborhood of critical points': no claim kind for the order of the weights (omega_k - d_k = O(dx^2))"
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 2,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 2
+       }
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 3,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 2
+       },
+       "negated": true
+      }
+     ]
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": [
+      "alone"
+     ],
+     "reasons": [
+      "family_unspecified"
+     ],
+     "note": "the bare sentence does not fix how eps scales with dx; the order at critical points depends on it (with eps negligible against beta_k the weights see the critical point, with eps fixed they tend to the ideal weights on fine grids, as the item's own hypotheses note), so the alone field is left to the owner of the expected value (team rule for eps-family choices, as dev jiang_shu_1995_weno:02, :05); 'former algorithms' is not defined by the bare sentence"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:09",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "for r = 3, the mapped weights (one application) give the full order 2r - 1 = 5 at points where f' != 0 and at critical points of order 1 <= n_cp < r - 1, i.e. n_cp = 1, eps = 0",
+     "narrowing": "'convergence' / 'order' read as the truncation order of the flux difference (f^_{j+1/2} - f^_{j-1/2})/dx against f'(x_j) at one grid point, as the source's Taylor analysis does; one split flux component (v_k = f_{j+k}, the spec's f^_{j+1/2}); eps = 0 written eps = '0' (the item's hypothesis 'eps = 0 in the analysis'); r narrowed to 3 (WENO5M, the scheme this source writes out; the sentence is for every r); one application of the mapping; 'even for very small eps' read as eps -> 0, written eps = 0 (the hypothesis)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "generic",
+        "eps": "0"
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 1
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      }
+     ]
+    },
+    {
+     "field": "alone",
+     "reading": "for r = 3, the mapped weights give order 5 in the neighbourhood of every critical point where f' = 0, whatever its order (n_cp = 1 and n_cp = 2 are the critical orders below the stencil's reach), for eps -> 0",
+     "narrowing": "'convergence' / 'order' read as the truncation order of the flux difference (f^_{j+1/2} - f^_{j-1/2})/dx against f'(x_j) at one grid point, as the source's Taylor analysis does; one split flux component (v_k = f_{j+k}, the spec's f^_{j+1/2}); eps = 0 written eps = '0' (the item's hypothesis 'eps = 0 in the analysis'); r narrowed to 3; the bare sentence says 'critical points where f' = 0' with no bound on their order, so n_cp = 1 and 2 are both read in; 'even for very small eps' fixes the family eps negligible, written eps = 0 (another reading would take 'very small' as a fixed tiny constant, under which fine grids see the ideal weights; the text's 'even for' supports the limit better)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 1
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 2
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      }
+     ]
+    }
+   ],
+   "unformalized": []
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:10",
+   "readings": [
+    {
+     "field": "with_hypotheses",
+     "reading": "WENO5M is fifth order on smooth solutions (generic points and first-order critical points, eps = 0), and with embedded discontinuities its accuracy gain over WENO5 is more modest",
+     "narrowing": "'convergence' / 'order' read as the truncation order of the flux difference (f^_{j+1/2} - f^_{j-1/2})/dx against f'(x_j) at one grid point, as the source's Taylor analysis does; one split flux component (v_k = f_{j+k}, the spec's f^_{j+1/2}); eps = 0 written eps = '0' (the item's hypothesis 'eps = 0 in the analysis'); 'true fifth-order convergence' read as at least 5 at generic points and at n_cp = 1 (the hypotheses)",
+     "instance_from_justification": false,
+     "formalization": [
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "generic",
+        "eps": "0"
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      },
+      {
+       "spec": "jiang-shu-weno5-js-fd.json",
+       "override": {
+        "reconstruction": {
+         "weights": {
+          "kind": "m"
+         }
+        }
+       },
+       "claim": "reconstruction_order_p",
+       "relation": "same",
+       "params": {
+        "p": 5,
+        "form": "flux_difference",
+        "regime": "critical",
+        "eps": "0",
+        "n_cp": 1
+       },
+       "bridge": "WENO5M is the spec jiang-shu-weno5-js-fd.json (candidates (15), ideal weights 1/10, 6/10, 3/10 (21), indicators (37), the same formulas as the source prints) with the weights kind switched to 'm': the js weights mapped by g_k (43) and renormalised (44), (46); the power in (30) taken as 2, the value of the Jiang-Shu scheme the source modifies (the stripped scheme field does not print it)"
+      },
+      {
+       "unformalized": "'the improvement in accuracy is more modest when flows with embedded discontinuities are considered': a numerical comparison (Table 9), not-checkable"
+      }
+     ]
+    }
+   ],
+   "unformalized": [
+    {
+     "fields": [
+      "alone"
+     ],
+     "reasons": [
+      "family_unspecified",
+      "not-checkable"
+     ],
+     "note": "the bare sentence does not fix how eps scales with dx; the order at critical points depends on it (with eps negligible against beta_k the weights see the critical point, with eps fixed they tend to the ideal weights on fine grids, as the item's own hypotheses note), so the alone field is left to the owner of the expected value (team rule for eps-family choices, as dev jiang_shu_1995_weno:02, :05); the second clause is a numerical comparison"
+    }
+   ]
+  },
+  {
+   "id": "henrick_aslam_powers_2005_mapped:11",
+   "readings": [],
+   "unformalized": [
+    {
+     "fields": "both",
+     "reasons": [
+      "not-checkable",
+      "system",
+      "reconstruction"
+     ],
+     "note": "observed convergence rates for Euler flows with discontinuities (Sod problem, Table 9)"
+    }
+   ]
+  }
+ ]
+}
