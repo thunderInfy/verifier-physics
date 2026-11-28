@@ -1,6 +1,6 @@
 """TVD claims about a class of schemes (physverify/schemes/harten_class.py): the flux or the limiter is a
 variable. Every outcome of both kinds, the replay of certificates and counterexamples, and the example specs
-in schemes/classes. No Lean (the class theorems are in lean/PhysVerify/Harten.lean)."""
+in benchmark/classes (class specs: no scheme, so not under schemes/). No Lean (the class theorems are in lean/PhysVerify/Harten.lean)."""
 
 from fractions import Fraction
 from pathlib import Path
@@ -177,7 +177,7 @@ EXPECTED = {"monotone-flux-class": "VERIFIED", "broken-monotone-flux-class-wide-
 
 def test_example_specs():
     got = {p.stem: schemes.check(schemes.load(p))["claims"][0]["verdict"]
-           for p in sorted((ROOT / "schemes/classes").glob("*.json"))}
+           for p in sorted((ROOT / "benchmark/classes").glob("*.json"))}
     assert got == EXPECTED
 
 
