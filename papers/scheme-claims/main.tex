@@ -71,27 +71,30 @@ positive or negative verdict comes with a certificate: an exact identity (a tele
 Farkas combination, non-negative Bernstein coefficients) or an exact rational counterexample that
 anyone can replay. A small trusted table says how each check bears on each claim (sufficient,
 necessary or equivalent, with stated preconditions), so a failed sufficient check never refutes and
-a passed necessary check never verifies. We evaluate it twice. On an outside benchmark of verbatim
-sentences from published sources, with expected values fixed before any checker run, only the
-development half has been run so far: the checker can state a formal reading for
-\rn{22}{paper_numbers.py::outside_dev} of its \rn{99}{paper_numbers.py::outside_dev} sentences, every one
-of them narrowed to an instance. It decides \rn{26}{paper_numbers.py::outside_dev} of the
-\rn{27}{paper_numbers.py::outside_dev} readings and gets none wrong (re-scored after five checker
-additions, the last two of them claim kinds chosen by how many of these sentences they cover, so the checker
-is tuned on them; the first run gave 9, and 12 of 14). Most of these sentences are about
-high-order reconstruction, two space dimensions or whole classes of schemes, which the checker cannot
-yet express. Two naive readings that we rejected would have been wrong verdicts; they show that the
-error-prone step is reading the claim, not checking it. On our own benchmark of
-\rn{23}{paper_numbers.py::bench_counts} sentences, split into \rn{44}{paper_numbers.py::bench_counts}
-formal readings, the checker decides \rn{34}{paper_numbers.py::bench_counts} correctly, leaves
-\rn{9}{paper_numbers.py::bench_counts} undecided and \rn{1}{paper_numbers.py::bench_counts} unscored,
-and gives \rn{0}{paper_numbers.py::bench_counts} wrong verdicts; we wrote those sentences and their
-expected values ourselves (Section~\ref{sec:trust}). The exact checks run in Python with rational
-arithmetic, and many of their verdicts are replayed in the Lean proof assistant. In a measured run
-over every spec this paper counts, the judge states \rn{598}{paper_numbers.py::lean_replay_all}
-distinct theorems; Lean accepts \rn{596}{paper_numbers.py::lean_replay_all} and rejects
-\rn{2}{paper_numbers.py::lean_replay_all} (planner proofs that fail; no verdict changes). \rn{18}{paper_numbers.py::bench_lean_labels} of the
-\rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our benchmark carry a Lean label.
+a passed necessary check never verifies. The error-prone step is reading the claim, not checking it.
+Out of sample, the checker decides none of the sentences as printed, and it certifies nothing wrong.
+On \rn{42}{paper_numbers.py::outside_heldout} sentences from published sources we never read while
+building it, with expected values fixed before any run, it can state a formal reading for
+\rn{3}{paper_numbers.py::outside_heldout} and decides \rn{0}{paper_numbers.py::outside_heldout}. On a
+second blind benchmark of \rn{91}{paper_numbers.py::outside_v2} such sentences it states
+\rn{11}{paper_numbers.py::outside_v2}, every one \emph{narrowed to an instance} (the reading fixes, say,
+one flux where the sentence speaks of every flux), and once an instance's verdict is allowed to bear on the
+sentence only as its quantifier permits, it decides \rn{0}{paper_numbers.py::outside_v2_posthoc}. These
+sentences are mostly about whole classes of schemes, systems, two space dimensions and time stepping. The
+result points to two things: claims stated over a class of schemes, and readers who state the sentence
+rather than an instance. On the development half of the first outside benchmark, readings we wrote after
+seeing the expected values decide \rn{26}{paper_numbers.py::outside_dev} of
+\rn{27}{paper_numbers.py::outside_dev} correctly; we then tuned the checker on these sentences, and
+before tuning it could state 9 of them. On our own benchmark it decides
+\rn{34}{paper_numbers.py::bench_counts} of \rn{44}{paper_numbers.py::bench_counts} readings correctly and
+\rn{0}{paper_numbers.py::bench_counts} wrongly; we wrote those sentences and their expected values.
+The exact checks run in Python with rational arithmetic, and the checker turns its verdicts into
+\rn{598}{paper_numbers.py::lean_current} distinct Lean theorems (measured at commit \code{b2cafbe}). Lean
+accepts \rn{596}{paper_numbers.py::lean_current}; one proof fails a tactic, one exceeds the heartbeat cap,
+and Lean finds none false. \rn{18}{paper_numbers.py::bench_lean_labels} of the
+\rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our benchmark are also proved in Lean
+(\rn{3}{paper_numbers.py::bench_lean_labels} of them per cell, with the cover of the cells checked in exact
+Python); the others stand on the exact Python check alone.
 \end{abstract}
 
 % ====================================================================================================
@@ -253,24 +256,45 @@ the two kinds of reasoning apart. Its parts:
 The design follows the idea of certifying algorithms \cite{mcconnell2011}: the search can be
 complicated and untrusted, as long as its output carries a witness that a simple checker can confirm.
 
-We have two benchmarks. The first we wrote ourselves (Section~\ref{sec:bench}); the second is made of
-sentences copied from \rn{15}{paper_numbers.py::outside_dev} published papers, reports and lecture
-notes by collectors who had not looked at the checker, with expected values fixed before any checker
-run (Section~\ref{sec:outside}).
-So far only its development half has been run, and the first result is about coverage: the checker
-can state a formal reading for \rn{22}{paper_numbers.py::outside_dev} of the
-\rn{99}{paper_numbers.py::outside_dev} sentences. Of the \rn{27}{paper_numbers.py::outside_dev}
-readings it decides \rn{26}{paper_numbers.py::outside_dev}, all exactly, and none of them is wrong.
-These are re-scored numbers: after the first run (9 sentences; 12 of 14 readings) we fixed two checker
-gaps it exposed, added a claim kind for printed identities and one for the order of WENO
-reconstructions, and then, choosing by coverage of these very sentences, claim kinds for a Gauss--Lobatto
-cell-average step, for ENO jumps and for the scaling limiter. The last \rn{9}{paper_numbers.py::outside_dev}
-readings are made with
-a checker tuned on the development half.
-That zero is on easy readings (linear schemes, a CFL range, a rational identity), and the more useful finding is that two
-plausible readings we rejected would have been wrong verdicts. On our own benchmark there are 0 wrong
-verdicts among \rn{44}{paper_numbers.py::bench_counts} readings; since we wrote it, that number shows
-less than it seems (Section~\ref{sec:trust}).
+\paragraph{The result out of sample.} Out of sample, at the level of the sentence, the checker decides
+none of the sentences as printed and certifies nothing wrong. We measured this twice, on sentences
+copied verbatim from published papers, reports and lecture notes by collectors who had not looked at the
+checker, with expected values fixed before any checker run (Section~\ref{sec:outside}).
+\begin{itemize}
+\item \emph{The held-out half of the first outside benchmark}, scored once with the checker frozen at
+  commit \code{b2cafbe}: of \rn{42}{paper_numbers.py::outside_heldout} sentences from sources we never read
+  while building the checker, it can state \rn{3}{paper_numbers.py::outside_heldout} and decides
+  \rn{0}{paper_numbers.py::outside_heldout}. All \rn{8}{paper_numbers.py::outside_heldout} of its correct
+  decisions in the half are on two \emph{contaminated} sources, papers we had read while building the
+  checker (Section~\ref{sec:heldout}).
+\item \emph{A second blind benchmark} of \rn{91}{paper_numbers.py::outside_v2} clean sentences: it states
+  \rn{11}{paper_numbers.py::outside_v2}, all of them narrowed to an instance. A reading
+  \emph{narrows} a sentence when it fixes a parameter the sentence leaves free, such as one flux for
+  ``every flux''. The frozen first score counts \rn{14}{paper_numbers.py::outside_v2} correct decisions
+  on these instances. Under the rule we adopted afterwards (an instance can only refute a universal
+  sentence, can only verify an existential one, and says nothing when the quantifier is not recorded)
+  it decides \rn{0}{paper_numbers.py::outside_v2_posthoc} (Section~\ref{sec:v2}).
+\end{itemize}
+The decisions are not the result; the coverage is. Most of these sentences are about classes of schemes,
+systems, two space dimensions and time stepping, which a spec of one scalar scheme cannot state. Two
+things follow. The checker needs claims stated over a class of schemes, with the scheme as a variable
+(Lean can carry the quantifier, and the Python checks certify that a scheme belongs to the class); and it
+needs readers who state the sentence rather than an instance of it. What the exact checks can do on such
+sentences shows elsewhere: standalone exact scripts of the same kind refute
+\rn{5}{paper_numbers.py::outside_v2} printed statements of the second benchmark when they are read without
+conditions the source leaves unstated. That is a capability, shown by scripts outside the verifier, and
+not a benchmark score.
+
+We also report two in-sample numbers, and label them as such. On the development half of the first
+outside benchmark, with readings we wrote after seeing the expected values, the checker decides
+\rn{26}{paper_numbers.py::outside_dev} of \rn{27}{paper_numbers.py::outside_dev} readings, none wrongly.
+We changed the checker after seeing these sentences, so this number measures fit, not prediction; before
+tuning it could state 9 of the \rn{99}{paper_numbers.py::outside_dev} sentences. On our own benchmark there
+are 0 wrong verdicts among \rn{44}{paper_numbers.py::bench_counts} readings; since we wrote it, that number
+shows less than it seems (Section~\ref{sec:trust}). The most useful in-sample finding is the pair of
+plausible readings we rejected because they would have been wrong verdicts
+(Section~\ref{sec:outside}, ``Two readings that would have been wrong''), and the places where the
+checker corrected us (Section~\ref{sec:corrected}).
 
 % ====================================================================================================
 \section{Limitations and what is trusted}\label{sec:trust}
@@ -733,9 +757,10 @@ schemes for conservation laws; the full list is in \code{SOURCES.md}.
   from the development run go to \code{ERRATA\_PROPOSED.md} for the team to decide. There are none so
   far.
 \end{itemize}
-\textbf{Only the development half has been run.} We wrote formal readings for it and ran the checker;
-the held-out half has not been formalised or run, and will be run once, later, with the checker
-commit fixed in advance. Every number below is from the development half.
+\textbf{Two halves, two kinds of number.} The development half was read by us, with the expected
+values in view, and we then tuned the checker on it: its numbers (this subsection) measure fit, not
+prediction. The held-out half was read by blind readers and scored once, with the checker frozen at a
+commit fixed in advance (Section~\ref{sec:heldout}); that is the out-of-sample number.
 
 \paragraph{Readings.} The readings (\code{dev\_readings.json}) use the components of
 Section~\ref{sec:readings}, plus negation (a reading may assert that a named claim fails). A reading
@@ -749,7 +774,9 @@ below), fixed in the README before any item was classified. The runner
 the stored verdicts and scores are what the checker gives
 now.\repro{tests/test_outside_dev.py::test_stored_verdicts_and_scores_are_what_the_checker_gives_now}
 
-\paragraph{Re-scored after four checker additions.} The numbers below are from a later scoring of
+\subsection{The development half: tuned on, non-blind readers}\label{sec:dev}
+
+\paragraph{Re-scored after the checker additions.} The numbers below are from a later scoring of
 the development half, after three changes made in response to the first run. A checker fix added an
 exact test for non-negativity of a polynomial in one variable (square-free part and Sturm count) to
 the positivity check, and a row for the linear TVD equivalence (a linear update with
@@ -782,9 +809,9 @@ accuracy clause holds without the hypothesis $\bar u \in [m, M]$, which only the
 \rn{9}{paper_numbers.py::outside_dev} readings use claim
 kinds chosen because they cover these items: the checker is \emph{tuned on} them, and the
 \rn{14}{paper_numbers.py::outside_dev} matches that rest only on them say how far the tuning reached,
-not how the checker does on unseen claims. So the development half is no longer untouched by checker
-changes made after seeing it. The first run gave
-readings for 9 of the 99 sentences and decided 12 of its 14 readings, with none wrong.
+not how the checker does on unseen claims. We changed the checker after seeing these items, so these
+numbers measure fit, not prediction. The first run gave readings for 9 of the 99 sentences and decided
+12 of its 14 readings, with none wrong.
 
 \paragraph{How much can be stated.} The checker can state a formal reading for
 \rn{22}{tests/test_outside_dev.py::test_headline_numbers_in_dev_results} of the
@@ -904,7 +931,174 @@ instance, was fixed before classifying, so that this could not turn into choosin
 For the last two checker additions the checker itself was chosen by these items, not only the readings:
 their \rn{9}{paper_numbers.py::outside_dev} readings are flagged \code{tuned\_on}, and the survey that chose
 them names the items behind each claim kind.
-The readings of the held-out half will also be written by us, so the same caveat will apply to them.
+
+\subsection{The held-out half: blind readers, one frozen run}\label{sec:heldout}
+
+The held-out half was formalised by two readers who saw only the sentence, the scheme, the hypotheses
+and their locations (\code{heldout\_stripped.jsonl}): not the expected values and not the collector's
+property tag. Reader A1 read all \rn{77}{paper_numbers.py::outside_heldout} sentences, and only A1's
+readings count; reader A2 read a subset of \rn{24}{paper_numbers.py::outside_heldout} for agreement.
+The checker was frozen at commit \code{\rn{b2cafbe}{paper_numbers.py::outside_heldout}} before anything
+ran, the readings were committed before the run, and the run was scored once
+(\code{HELDOUT\_RESULTS.md}).\repro{tests/test_outside_heldout.py::test_results_md_is_generated_from_the_verdicts_json}
+No checker bug was found while scoring, so there is no re-score.
+
+\paragraph{Contaminated sources.} A source is \emph{contaminated} if we had read it while building the
+checker, so that its sentences may have shaped what the checker can say. Two of the six held-out
+sources are: Henrick, Aslam and Powers 2005 (we built the mapped-WENO weights from it) and Tadmor's 2003
+survey (cited as a source of the entropy-stability check in our own benchmark; we cannot show which pages
+were read, so we treat it as read). Their \rn{35}{paper_numbers.py::outside_heldout} sentences are
+reported apart.
+
+\paragraph{The funnel.} Each sentence has two expected fields (alone, with hypotheses), so decisions are
+counted in fields:\repro{paper_numbers.py::outside_heldout}
+\begin{center}\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+held-out sentences & sentences & stated & decided & matched & wrong \\
+ & & & fields & & \\ \midrule
+all &\rn{77}{paper_numbers.py::outside_heldout} & \rn{11}{paper_numbers.py::outside_heldout}
+  & \rn{8}{paper_numbers.py::outside_heldout} & \rn{8}{paper_numbers.py::outside_heldout}
+  & \rn{0}{paper_numbers.py::outside_heldout} \\
+without Henrick 2005 (Tadmor 2003 as clean) &\rn{66}{paper_numbers.py::outside_heldout}
+  & \rn{5}{paper_numbers.py::outside_heldout} & \rn{4}{paper_numbers.py::outside_heldout}
+  & \rn{4}{paper_numbers.py::outside_heldout} & \rn{0}{paper_numbers.py::outside_heldout} \\
+clean (both removed) &\rn{42}{paper_numbers.py::outside_heldout}
+  & \rn{3}{paper_numbers.py::outside_heldout} & \rn{0}{paper_numbers.py::outside_heldout}
+  & \rn{0}{paper_numbers.py::outside_heldout} & \rn{0}{paper_numbers.py::outside_heldout} \\
+\bottomrule
+\end{tabular}
+\end{center}
+Every match is on a contaminated source. On the clean sentences the run measures coverage, not
+out-of-sample accuracy: the three stated sentences (two SSP Runge--Kutta statements and one TVD
+Runge--Kutta statement) each leave a part unformalised, so each conjunction is at best \U, although the
+formal part is \V. The 42-sentence row is the result for \emph{this} checker version. We will build to its
+gaps, so the next version is measured on a fresh blind benchmark (Section~\ref{sec:v2}), not on this one.
+
+\paragraph{Why so little is stated.} Each unformalised field of a clean sentence has one entry (for one
+field or both) with a primary reason. Of the \rn{39}{paper_numbers.py::outside_heldout} entries,
+\rn{22}{paper_numbers.py::outside_heldout} are statements about a class of schemes (every SSP method,
+every scheme with a property), \rn{8}{paper_numbers.py::outside_heldout} are not checkable as stated,
+\rn{4}{paper_numbers.py::outside_heldout} need time stepping beyond one update,
+\rn{4}{paper_numbers.py::outside_heldout} are about systems and \rn{1}{paper_numbers.py::outside_heldout}
+is two-dimensional.\repro{paper_numbers.py::outside_heldout}
+
+\paragraph{Four confounds.} The step from the development half to this one is not a pure generalisation
+measurement. (1) The development readers saw the expected values and the property tag; the held-out
+readers saw neither. (2) Both held-out readers opened \code{FROZEN.md}, which holds aggregate tallies of
+the held-out expected values and property tags (not per sentence). (3) The development specs were written
+with access to the checker, and A1's held-out readings reuse them with overrides, so the held-out
+formalisations inherit checker-informed choices; \code{HELDOUT\_RESULTS.md} logs, per reading, the
+verdict-relevant parameters inherited this way. (4) The sources are new, so a gap mixes new sources,
+blind readers, a less informative view and checker-informed specs.
+
+\paragraph{Reader agreement.} On A2's subset, the two readers made the same stated-or-not decision on
+\rn{22/24}{paper_numbers.py::outside_heldout} sentences, gave the same primary reason on
+\rn{31/40}{paper_numbers.py::outside_heldout} fields both left unformalised, and chose the same claim
+kinds and quantifiers on \rn{4/4}{paper_numbers.py::outside_heldout} fields both formalised. On those
+fields A2's readings score as A1's.
+
+\paragraph{An erratum candidate.} One held-out sentence, on Tadmor's scheme (6.14) (item
+\code{tadmor:17}, expected UNSURE in both fields, so never scored), was read by A2 only, as ``second order and
+semi-discretely entropy stable for $U = u^2/2$''. On that reading the checker refutes the entropy
+inequality for the scheme as printed, at $u_L = 0$, $u_R = 2$; with the factor $\langle l, \Delta v\rangle$
+that the neighbouring formula (6.13) carries on the viscosity term, it verifies
+it.\repro{paper_numbers.py::outside_heldout} We record this as an erratum candidate under our reading, with the
+expected value left UNSURE; it is not a finding about the source, whose notation we may be reading too
+literally. The second-order part is not checked.
+
+\subsection{A second blind benchmark}\label{sec:v2}
+
+The second outside benchmark (\code{benchmark/outside\_v2/}) has \rn{95}{paper_numbers.py::outside_v2}
+sentences from nine further sources, collected blind under the same rules and frozen
+(\code{FROZEN.md}, commit \code{\rn{63337e1}{paper_numbers.py::outside_v2}}) before any reading was
+written. All of it is held out; there is no development half. One source, Borges et al.'s WENO-Z paper,
+turned out to be contaminated (the repository had a WENO-Z spec from it), so its
+\rn{4}{paper_numbers.py::outside_v2} sentences are reported apart and the clean set has
+\rn{91}{paper_numbers.py::outside_v2}. Its topic list was written by the team on 2026-11-28 into the
+collector's brief, \emph{after} we had seen the gaps of the first held-out run, with time stepping first.
+So the mix of topics is not independent of the checker's development, and we report coverage per topic
+as well as in total, so that a mix heavy in one kind of claim cannot carry the headline.
+
+\paragraph{The frozen first score.} Two readers worked blind; reader A1's readings count. The checker ran at
+two pins, \code{\rn{b2cafbe}{paper_numbers.py::outside_v2}} (the first held-out pin) and
+\code{\rn{3792caf}{paper_numbers.py::outside_v2}} (after the SSP time-stepping kind was added), each in an
+isolated process. Of the \rn{91}{paper_numbers.py::outside_v2} clean sentences, A1 stated
+\rn{11}{paper_numbers.py::outside_v2}, every one narrowed to an instance. The checker decided
+\rn{16}{paper_numbers.py::outside_v2} fields: \rn{14}{paper_numbers.py::outside_v2} match, all on
+instances, so none of the printed class claims was verified as printed;
+\rn{0}{paper_numbers.py::outside_v2} wrong verdicts by the checker; and
+\rn{2}{paper_numbers.py::outside_v2} fields wrong through one reading error. In
+\code{barsukow\_uzh\_notes:13} A1 narrowed ``for every slope with $s_i = (\partial_x q)(x_i) +
+O(\Delta x)$'' (expected FALSE) to the central slope, on which the statement holds, and the checker's \V{}
+is right for that instance. \rn{4}{paper_numbers.py::outside_v2} fields are spec errors (two specs the
+checker could not run). Between the two pins \rn{0}{paper_numbers.py::outside_v2} of the
+\rn{17}{paper_numbers.py::outside_v2} named verdicts changed, as expected: no reading of A1's names the
+one claim kind the range adds.\repro{tests/test_outside_v2_scores.py::test_headline_numbers_come_from_the_verdict_files}
+Per topic (the collector's description of each source), clean and contaminated:\repro{paper_numbers.py::outside_v2}
+\begin{center}\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{8.4cm}rrrr@{}}
+\toprule
+topic & sentences & stated & match & wrong \\ \midrule
+\input{v2_topic_table.tex}
+\end{tabular}
+\end{center}
+Of the \rn{11}{paper_numbers.py::outside_v2} SSP-relevant sentences, \rn{5}{paper_numbers.py::outside_v2}
+need a claim over a class of methods, \rn{4}{paper_numbers.py::outside_v2} are about systems or two
+dimensions, and \rn{2}{paper_numbers.py::outside_v2} were statable as instances. The readers agreed on the
+stated-or-not decision for \rn{18/22}{paper_numbers.py::outside_v2} sentences and on the primary reason for
+\rn{27/33}{paper_numbers.py::outside_v2} fields both left unformalised; on the
+\rn{4}{paper_numbers.py::outside_v2} fields both formalised they chose the same claim kinds
+\rn{0}{paper_numbers.py::outside_v2} times (they differ in the relation of a component, \SUF{} against
+\EQV, and in extra components).
+
+\paragraph{Confounds.} Besides the topic list: the readers reused or opened specs written with access to
+the checker; the scorer translated A1's drafts into specs (blind to verdicts, but not a blind reader, and
+having read \code{ERRATA.md} first); and the rule for conditions a field treats as standing, with the
+errata rows built on it, was written after the freeze. \code{V2\_RESULTS.md} lists them all.
+
+\paragraph{What exact checks can do here (not a score).} Re-deriving the expected values after the freeze,
+we found printed statements that fail when read without conditions the source leaves unstated.
+Standalone exact scripts (\code{errata\_checks.py}, rational arithmetic, outside the verifier) confirm
+\rn{5}{paper_numbers.py::outside_v2} of them with explicit counterexamples: one forward-Euler step of a
+central scheme that raises the maximum, a two-stage Runge--Kutta method with a negative coefficient that
+increases the total variation, and a sum-preserving map whose flux form forces a discontinuous numerical
+flux, so that it is not conservative in the source's own sense.\repro{paper_numbers.py::outside_v2} Exact checks of this kind refute printed statements read without
+their unstated conditions. These are scripts, not verifier output, and they are not counted in any score.
+
+\subsection{Post-hoc: the narrowing polarity rule and the SSP class kinds}\label{sec:posthoc}
+
+\textbf{Everything in this subsection was written after the frozen verdicts of the second benchmark were
+seen. It is not a result.} No frozen file was changed; the scores are recomputed in memory
+(\code{benchmark/outside\_v2/posthoc.py}, \code{POSTHOC\_NARROWING.md}, \code{POSTHOC\_SSP.md}).
+
+\paragraph{The narrowing polarity rule.} A narrowed reading's verdict is about an instance. How it bears on
+the sentence depends on the sentence's quantifier over the narrowed parameter, through the same relation
+table as everything else (\code{physverify/schemes/narrowing.py}; stated in both benchmarks' READMEs):
+\begin{itemize}
+\item for a universal sentence (every flux, every slope, every CFL number in a range) the instance is
+  \NEC: it can only refute, and an instance \V{} gives \NR;
+\item for an existential sentence (stable for some small enough CFL number) it is \SUF: it can only verify;
+\item if the quantifier is not recorded, the result is \U.
+\end{itemize}
+The rule is opt-in for future runs. A1's readings record no quantifier, so as written the rule gives \U{} for
+every one; annotating the quantifiers by hand gives the same scores, because every parameter A1 narrowed is
+universal in its sentence. Under the rule the frozen first score moves
+\rn{14}{paper_numbers.py::outside_v2_posthoc} matches to gaps (\NR), and the reading error
+\code{barsukow\_uzh\_notes:13} moves from wrong to a gap in both fields
+(\rn{2}{paper_numbers.py::outside_v2_posthoc}): the checker decides
+\rn{0}{paper_numbers.py::outside_v2_posthoc} fields.\repro{tests/test_narrowing.py::test_v2_p_row_under_the_rule}
+This is the cost of scoring instance evidence honestly: a blind reader who narrows a universal sentence can
+only refute it.
+
+\paragraph{SSP class kinds.} After the first score we added two claim kinds that take a class of
+Runge--Kutta methods as the object: \code{ssp\_class\_preserves} (every method in a class given by linear
+conditions on its Shu--Osher coefficients keeps every convex property forward Euler keeps; exact linear
+programming with Farkas certificates, or an exact counterexample) and \code{ssp\_coefficient}. With them,
+2 of the 5 sentences that needed a class kind become statable, and 0 verdicts change: each new component is
+\SUF{} and \R, \NEC{} and \V, or sits beside an unformalised part.\repro{tests/test_narrowing.py::test_posthoc_ssp_verdicts}
+The kinds move the gap rather than the score, because in these sentences the class statement sits inside a
+larger one (a two-dimensional scheme, a system, a specific limited DG method).
 
 % ====================================================================================================
 \section{When the checker corrected us}\label{sec:corrected}

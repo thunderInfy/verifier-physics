@@ -191,9 +191,44 @@ def test_generated_tables_match_their_sources():
     assert (PAPER / "bench_counts_table.tex").read_text() == pn._bench_counts_tex(rows), hint
     assert (PAPER / "lean_measured_table.tex").read_text() == pn._lean_measured_tex(), hint
     assert (PAPER / "outside_property_table.tex").read_text() == pn._outside_property_tex(pn.outside_dev()), hint
+    assert (PAPER / "v2_topic_table.tex").read_text() == pn._v2_topic_tex(), hint
     tex = (PAPER / "main.tex").read_text()
-    for name in ("bench_table", "bench_counts_table", "lean_measured_table", "outside_property_table"):
+    for name in ("bench_table", "bench_counts_table", "lean_measured_table", "outside_property_table",
+                 "v2_topic_table"):
         assert "\\input{" + name + ".tex}" in tex
+
+
+def test_out_of_sample_headline():
+    """The headline of the abstract and the introduction: out of sample, at sentence level, nothing is decided
+    and nothing is certified wrong. v1 held-out (frozen at b2cafbe): on the 42 clean items 3 stated, 0 decided,
+    and every decided field of the 77 lies on a contaminated source. v2 (frozen first score): 11 of 91 clean
+    stated, 0 checker WRONG; every MATCH is on a narrowed reading, and under the narrowing polarity rule
+    (post-hoc) nothing is decided. OLD -> NEW changes no verdict."""
+    pn = _paper_numbers()
+    h = pn.outside_heldout()
+    clean = "without both contaminated sources"
+    assert (h[f"{clean}: items"], h[f"{clean}: stated"], h[f"{clean}: decided_fields"]) == ("42", "3", "0")
+    assert h["all: decided_fields"] == h["all: match"] == "8" and h["all: wrong"] == "0"
+    assert (h["all: items"], h["all: stated"]) == ("77", "11")
+    v = pn.outside_v2()
+    assert (v["clean: items"], v["clean: stated"], v["clean: wrong_checker"]) == ("91", "11", "0")
+    assert v["clean: match"] == v["clean: match_narrowed"] == "14" and v["clean: wrong_reading"] == "2"
+    assert v["OLD -> NEW verdicts changed"] == "0" and v["errata confirmed exactly"] == "5"
+    p = pn.outside_v2_posthoc()
+    assert p["annotated: decided_fields"] == p["unrecorded: decided_fields"] == "0"
+    assert p["moved MATCH -> GAP"] == "14" and p["moved WRONG -> GAP"] == "2"
+
+
+def test_lean_status_vocabulary():
+    """The paper's Lean vocabulary (accepted / tactic failure / heartbeat cap / found false) covers every theorem
+    of the pinned run (b2cafbe) and of the current one (f09a5cb), and Lean found no statement false."""
+    out = _paper_numbers().lean_current()
+    for name in ("b2cafbe", "f09a5cb"):
+        n = [int(out[f"{name}: {k}"]) for k in ("accepted", "tactic failure", "heartbeat cap", "found false")]
+        assert sum(n) == int(out[f"{name}: theorems"]) and n[1:] == [1, 1, 0], (name, n)
+        assert out[f"{name}: timeout status"] == "0"
+    assert (out["b2cafbe: theorems"], out["f09a5cb: theorems"]) == ("598", "600")
+    assert out["f09a5cb: registry meanings accepted"] == "12/12"
 
 
 def test_lean_labels_come_from_the_measured_run():

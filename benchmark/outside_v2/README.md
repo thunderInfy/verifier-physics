@@ -40,6 +40,11 @@ the conclusions.
 - `expected_with_hypotheses` adds every hypothesis the source states for the claim anywhere.
 - Unhedged performance claims with no defined property ("less dissipative", "carbuncle free") are UNSURE; hedged
   reports of the source's own experiments ("numerical examples suggest ...") are judged as reports.
+- Narrowing polarity (added after the first score; opt-in for future runs, `physverify/schemes/narrowing.py`,
+  POSTHOC_NARROWING.md): a reading narrowed to an instance bears on the sentence through the sentence's quantifier
+  over the narrowed parameter. For a universal sentence the instance is NECESSARY (it can only refute); for an
+  existential sentence it is SUFFICIENT (it can only verify); if the quantifier is not recorded, the result is
+  UNKNOWN. V2_RESULTS.md, the frozen first score, does not use it.
 - Justifications rest on the source's proof, on our own check of it, or on a counterexample we worked out and
   wrote down. Results we know but did not read in this collection are named as such, and do not by themselves turn
   an item TRUE or FALSE.

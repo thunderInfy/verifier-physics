@@ -691,6 +691,142 @@ def outside_naive_readings() -> dict:
     return out
 
 
+def _load_module(path: Path, name: str):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def outside_heldout() -> dict:
+    """The held-out half of the outside benchmark, scored once at the pin b2cafbe (benchmark/outside/
+    heldout_verdicts.json, which HELDOUT_RESULTS.md renders; tests/test_outside_heldout.py checks the record).
+    Nothing is re-run: the frozen tallies are read as stored."""
+    v = json.loads((ROOT / "benchmark" / "outside" / "heldout_verdicts.json").read_text())
+    out = {"pin": v["pin"]["checker"][:7], "contaminated sources": ", ".join(v["contaminated"]),
+           "contaminated items": str(len(v["contaminated_items"]))}
+    for row, t in v["headline"].items():
+        for k in ("items", "stated", "readings", "decided_readings", "decided_fields", "match", "wrong", "spec_error"):
+            out[f"{row}: {k}"] = str(t[k])
+    a = v["agreement"]
+    out["agreement: subset items"] = str(a["items"])
+    out["agreement: same statable items"] = f"{a['same_statable_items']}/{a['items']}"
+    out["agreement: same primary reason"] = f"{a['same_primary_reason']}/{a['both_unformalized_fields']}"
+    out["agreement: same kinds, both formalized"] = f"{a['same_kinds_quantifiers']}/{a['both_formalized_fields']}"
+    e = v["erratum_candidate"]
+    out["erratum candidate"] = (f"{e['id']} expected {e['expected']['alone']}/{e['expected']['with_hypotheses']}; "
+                                f"as printed {e['as_printed']['claim_verdict']}, with the factor "
+                                f"{e['with_dv_factor']['claim_verdict']}")
+    out["checker bugs"] = str(len(v["checker_bugs"]))
+    # the gaps: reader A1's unformalized entries (one per field or both), by primary reason, clean items only
+    from collections import Counter
+    rd, dirty = _run_dev(), set(v["contaminated_items"])
+    a1 = json.loads((ROOT / "benchmark" / "outside" / "heldout_readings.json").read_text())["items"]
+    c = Counter(rd.primary(u["reasons"]) for e in a1 if e["id"] not in dirty for u in e["unformalized"])
+    out["clean gap entries"] = str(sum(c.values()))
+    for r, n in c.most_common():
+        out[f"clean gap primary {r}"] = str(n)
+    return out
+
+
+def _v2():
+    return _load_module(ROOT / "benchmark" / "outside_v2" / "run_v2.py", "pn_run_v2")
+
+
+def outside_v2() -> dict:
+    """Bench v2's frozen first score (benchmark/outside_v2/run_v2.py `compute`, from verdicts_new.json and
+    verdicts_old.json; V2_RESULTS.md renders it): row P at NEW, clean / contaminated, per topic, the OLD -> NEW
+    verdict differences, reader agreement, the SSP split and the exact errata checks. About 10 s."""
+    from collections import Counter
+    R = _v2()
+    v = R.compute()
+    out = {"NEW": R.NEW[:7], "OLD": R.OLD[:7], "frozen": R.FROZEN}
+    for s in ("clean", "contaminated", "all"):
+        for k, x in v["headline"]["NEW/P"][s].items():
+            if not isinstance(x, dict):
+                out[f"{s}: {k}"] = str(x)
+    out["OLD/P = NEW/P"] = str(v["headline"]["OLD/P"] == v["headline"]["NEW/P"])
+    out["OLD -> NEW verdicts compared"] = str(v["pin_diff"]["verdicts"])
+    out["OLD -> NEW verdicts changed"] = str(len(v["pin_diff"]["components"]) + len(v["pin_diff"]["readings"]))
+    for t in v["by_topic"]:
+        out[f"topic {t['topic']}"] = f"{t['stated']}/{t['items']} stated, {t['match']} MATCH, {t['wrong']} WRONG"
+    a = v["agreement"]
+    out["agreement: same statable items"] = f"{a['same_statable_items']}/{a['items']}"
+    out["agreement: same primary reason"] = f"{a['same_primary_reason']}/{a['both_unformalized_fields']}"
+    out["agreement: same kinds, both formalized"] = f"{a['same_kinds_quantifiers']}/{a['both_formalized_fields']}"
+    rel = [r for r in v["ssp"]["rows"] if r["relevant"] != "no"]
+    out["SSP-relevant items"] = str(len(rel))
+    for k, n in sorted(Counter(r["statable"] for r in rel).items()):
+        out[f"SSP statable: {k}"] = str(n)
+    ok = [c for c in v["errata_checks"].values() if c["confirmed"]]
+    out["errata confirmed exactly"] = str(len(ok))
+    out["errata items"] = ", ".join(c["id"] for c in ok)
+    return out
+
+
+V2_TOPIC_TEX = Path(__file__).resolve().parent / "v2_topic_table.tex"
+
+
+def _v2_topic_tex(v: dict | None = None) -> str:
+    """Bench v2's frozen first score per source (the collector's topic for it), row P at NEW: items, stated,
+    MATCH (all on instances) and WRONG, in V2_RESULTS.md's order. main.tex inputs v2_topic_table.tex."""
+    v = v or _v2().compute()
+    dirty = set(_v2().CONTAMINATED)
+    out = ["% generated from benchmark/outside_v2/run_v2.py by `paper_numbers.py --write-table`; do not edit"]
+    for t in v["by_topic"]:
+        mark = " (contaminated)" if t["source"] in dirty else ""
+        out.append(f"{_tex(t['topic'])}{mark} & {t['items']} & {t['stated']} & {t['match']} & {t['wrong']} \\\\")
+    return "\n".join(out + ["\\bottomrule"]) + "\n"
+
+
+def outside_v2_posthoc() -> dict:
+    """POST-HOC (benchmark/outside_v2/posthoc.py; POSTHOC_NARROWING.md, POSTHOC_SSP.md; asserted in
+    tests/test_narrowing.py): row P re-scored in memory with the narrowing polarity rule, and the new SSP class
+    kinds on the posthoc specs. Not a result: written after the frozen verdicts were seen."""
+    P = _load_module(ROOT / "benchmark" / "outside_v2" / "posthoc.py", "pn_posthoc")
+    n = P.narrowing()["P"]
+    out = {}
+    for variant in ("before", "unrecorded", "annotated"):
+        for k, x in n[variant].items():
+            out[f"{variant}: {k}"] = str(x)
+    for m, k in n["moves"].items():
+        out[f"moved {m}"] = str(k)
+    out["moved items"] = ", ".join(dict.fromkeys(m["id"] for m in n["moved"]))
+    ssp = P.ssp()
+    out["posthoc SSP specs run"] = str(len(ssp))
+    out["posthoc SSP verdicts"] = "; ".join(f"{s['file']} {s['name']}: {s['verdicts']}" for s in ssp)
+    return out
+
+
+def lean_current() -> dict:
+    """The current measured Lean run (lean_measured_f09a5cb.json, the store whose Lean key is HEAD's), beside
+    the paper's pinned run (b2cafbe): distinct theorems by status, the two failures named by kind (Lean's
+    message: the heartbeat cap, or a tactic error), and the registry's meaning theorems by status."""
+    ml = _measure_lean()
+    out = {}
+    for name in ("b2cafbe", "f09a5cb"):
+        store = ml.load_store(HERE / f"lean_measured_{name}.json")
+        used = {h for s in store["specs"].values() for _, h in s["theorems"]}
+        th = [store["theorems"][h] for h in used]
+        out[f"{name}: specs"] = str(len(store["specs"]))
+        out[f"{name}: theorems"] = str(len(th))
+        out[f"{name}: accepted"] = str(sum(t["status"] == "accepted" for t in th))
+        bad = [t for t in th if t["status"] != "accepted"]
+        cap = [t for t in bad if "maximum number of heartbeats" in (t.get("message") or "")]
+        tac = [t for t in bad if t not in cap and "error:" in (t.get("message") or "")]
+        out[f"{name}: heartbeat cap"] = str(len(cap))
+        out[f"{name}: tactic failure"] = str(len(tac))
+        out[f"{name}: found false"] = str(len(bad) - len(cap) - len(tac))
+        out[f"{name}: timeout status"] = str(sum(t["status"] == "timeout" for t in th))
+        out[f"{name}: not accepted"] = ", ".join(sorted(t["name"] for t in bad)) or "none"
+        reg = store.get("registry")
+        if reg:
+            r = reg["theorems"].values()
+            out[f"{name}: registry meanings accepted"] = f"{sum(t['status'] == 'accepted' for t in r)}/{len(r)}"
+    return out
+
+
 def product_rule() -> dict:
     """The telescoping trap in its scalar form: centred quasi-linear Burgers, u_i - (lam/2) u_i (u_{i+1} - u_{i-1})."""
     spec = {"name": "centred quasi-linear Burgers", "pde": {"flux": "u^2/2"},
@@ -720,6 +856,7 @@ if __name__ == "__main__":
         BENCH_TEX.write_text(_bench_tex(rows))
         BENCH_COUNTS_TEX.write_text(_bench_counts_tex(rows))
         LEAN_TEX.write_text(_lean_measured_tex())
+        V2_TOPIC_TEX.write_text(_v2_topic_tex())
         sys.exit(0)
     for name in sys.argv[1:] or ALL:
         for k, v in ALL[name]().items():
