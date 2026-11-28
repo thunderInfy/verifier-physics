@@ -229,6 +229,8 @@ def test_lean_status_vocabulary():
         assert out[f"{name}: timeout status"] == "0"
     assert (out["b2cafbe: theorems"], out["f09a5cb: theorems"]) == ("598", "600")
     assert out["f09a5cb: registry meanings accepted"] == "12/12"
+    assert out["f09a5cb: commit"] == "f09a5cb" and out["f09a5cb: machine"] == out["b2cafbe: machine"]
+    assert out["b2cafbe: not accepted"] == out["f09a5cb: not accepted"]
 
 
 def test_lean_labels_come_from_the_measured_run():

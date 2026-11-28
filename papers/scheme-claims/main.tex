@@ -72,17 +72,20 @@ Farkas combination, non-negative Bernstein coefficients) or an exact rational co
 anyone can replay. A small trusted table says how each check bears on each claim (sufficient,
 necessary or equivalent, with stated preconditions), so a failed sufficient check never refutes and
 a passed necessary check never verifies. The error-prone step is reading the claim, not checking it.
-Out of sample, the checker decides none of the sentences as printed, and it certifies nothing wrong.
-On \rn{42}{paper_numbers.py::outside_heldout} sentences from published sources we never read while
+Out of sample, the checker decides none of the sentences as printed, and no certificate it issued was
+false. On \rn{42}{paper_numbers.py::outside_heldout} sentences from published sources we never read while
 building it, with expected values fixed before any run, it can state a formal reading for
 \rn{3}{paper_numbers.py::outside_heldout} and decides \rn{0}{paper_numbers.py::outside_heldout}. On a
 second blind benchmark of \rn{91}{paper_numbers.py::outside_v2} such sentences it states
 \rn{11}{paper_numbers.py::outside_v2}, every one \emph{narrowed to an instance} (the reading fixes, say,
-one flux where the sentence speaks of every flux), and once an instance's verdict is allowed to bear on the
-sentence only as its quantifier permits, it decides \rn{0}{paper_numbers.py::outside_v2_posthoc}. These
-sentences are mostly about whole classes of schemes, systems, two space dimensions and time stepping. The
-result points to two things: claims stated over a class of schemes, and readers who state the sentence
-rather than an instance. On the development half of the first outside benchmark, readings we wrote after
+one flux where the sentence speaks of every flux). Its frozen first score was
+\rn{14}{paper_numbers.py::outside_v2} matches and \rn{2}{paper_numbers.py::outside_v2} wrong fields, all
+on instances; the \rn{2}{paper_numbers.py::outside_v2} wrong fields come from one reading error, where the
+checker's verdict was right for the instance the reader chose. Under a rule we adopted after seeing that
+score (a pass on one instance of a claim about a whole class counts only as not refuted), it decides
+\rn{0}{paper_numbers.py::outside_v2_posthoc}. These sentences are mostly about whole classes of schemes,
+systems, two space dimensions and time stepping. What's needed next is two things: claims stated over a
+class of schemes, and readers who state the sentence rather than an instance. On the development half of the first outside benchmark, readings we wrote after
 seeing the expected values decide \rn{26}{paper_numbers.py::outside_dev} of
 \rn{27}{paper_numbers.py::outside_dev} correctly; we then tuned the checker on these sentences, and
 before tuning it could state 9 of them. On our own benchmark it decides
@@ -93,8 +96,8 @@ The exact checks run in Python with rational arithmetic, and the checker turns i
 accepts \rn{596}{paper_numbers.py::lean_current}; one proof fails a tactic, one exceeds the heartbeat cap,
 and Lean finds none false. \rn{18}{paper_numbers.py::bench_lean_labels} of the
 \rn{34}{paper_numbers.py::bench_lean_labels} decisive verdicts on our benchmark are also proved in Lean
-(\rn{3}{paper_numbers.py::bench_lean_labels} of them per cell, with the cover of the cells checked in exact
-Python); the others stand on the exact Python check alone.
+(for \rn{3}{paper_numbers.py::bench_lean_labels} of them Lean proves each case separately, and exact
+Python checks that the cases cover every input); the others stand on the exact Python check alone.
 \end{abstract}
 
 % ====================================================================================================
@@ -217,7 +220,14 @@ cannot be what makes the statement true. Both are accepted, and the verdict's la
 ``proven (Lean)''.\repro{paper_numbers.py::lean_replay} Over the
 \rn{43}{paper_numbers.py::lean_replay} example specs the judge states
 \rn{562}{paper_numbers.py::lean_replay} theorems, and Lean accepts
-\rn{561}{paper_numbers.py::lean_replay} of them (Table~\ref{tab:leanmeasured}).
+\rn{561}{paper_numbers.py::lean_replay} of them (Table~\ref{tab:leanmeasured}). These are the example specs
+alone; the same measured run, over all \rn{107}{paper_numbers.py::lean_current} specs the paper counts,
+has \rn{598}{paper_numbers.py::lean_current} distinct theorems and \rn{596}{paper_numbers.py::lean_current}
+accepted, the count the abstract gives because its Lean key is that of \code{b2cafbe}, the commit at which
+the held-out verdicts were scored and for which the Lean labels in our tables hold; re-measured on main at
+\code{\rn{f09a5cb}{paper_numbers.py::lean_current}}, the store has \rn{600}{paper_numbers.py::lean_current}
+theorems, \rn{598}{paper_numbers.py::lean_current} accepted, and the same two failures
+(Section~\ref{sec:certs}).
 
 \medskip\noindent
 That is the whole pipeline: a sentence, a formal reading, an exact check that returns a witness, a
@@ -260,7 +270,7 @@ The design follows the idea of certifying algorithms \cite{mcconnell2011}: the s
 complicated and untrusted, as long as its output carries a witness that a simple checker can confirm.
 
 \paragraph{The result out of sample.} Out of sample, at the level of the sentence, the checker decides
-none of the sentences as printed and certifies nothing wrong. We measured this twice, on sentences
+none of the sentences as printed, and no certificate it issued was false. We measured this twice, on sentences
 copied verbatim from published papers, reports and lecture notes by collectors who had not looked at the
 checker, with expected values fixed before any checker run (Section~\ref{sec:outside}).
 \begin{itemize}
@@ -274,7 +284,8 @@ checker, with expected values fixed before any checker run (Section~\ref{sec:out
   \rn{11}{paper_numbers.py::outside_v2}, all of them narrowed to an instance. A reading
   \emph{narrows} a sentence when it fixes a parameter the sentence leaves free, such as one flux for
   ``every flux''. The frozen first score counts \rn{14}{paper_numbers.py::outside_v2} correct decisions
-  on these instances. Under the rule we adopted afterwards (an instance can only refute a universal
+  on these instances and \rn{2}{paper_numbers.py::outside_v2} wrong fields from one reading error (the
+  checker's verdict is right for the instance read). Under the rule we adopted after seeing that score (an instance can only refute a universal
   sentence, can only verify an existential one, and says nothing when the quantifier is not recorded)
   it decides \rn{0}{paper_numbers.py::outside_v2_posthoc} (Section~\ref{sec:v2}).
 \end{itemize}
@@ -686,10 +697,13 @@ about the planner, not about the verdicts, which do not change:\repro{paper_numb
   a failed proof (status code \code{rejected}), not a wall-clock timeout; we did not raise the cap.
   Superbee's TVD verdict keeps the per-cell label of its sign-cell theorems, which are all accepted.
 \end{itemize}
-Every number above is pinned at \code{b2cafbe} (\code{lean\_measured\_b2cafbe.json}). The current store,
-re-measured on the same machine after the SSP class kinds were added
-(\code{lean\_measured\_f09a5cb.json}), has \rn{600}{paper_numbers.py::lean_current} distinct theorems,
-\rn{598}{paper_numbers.py::lean_current} accepted, the same two failures, and
+Every number above is pinned at \code{b2cafbe} (\code{lean\_measured\_b2cafbe.json}), the commit at which
+the held-out verdicts were scored. After the SSP class kinds were added we re-measured on main:
+\code{lean\_measured\_f09a5cb.json}, run on \rn{2026-11-28 at commit f09a5cb}{paper_numbers.py::lean_current}
+on the same machine (\rn{a GCP e2-standard-8}{paper_numbers.py::lean_current}), has
+\rn{115}{paper_numbers.py::lean_current} specs, \rn{600}{paper_numbers.py::lean_current} distinct theorems,
+\rn{598}{paper_numbers.py::lean_current} accepted, the same two failures
+(\code{s0\_consistency\_0} and \code{s0\_tvd\_harten}), and
 \rn{12/12}{paper_numbers.py::lean_current} meaning theorems of the claim-kind registry on the standard
 axioms only.\repro{tests/test_paper_numbers.py::test_lean_measurement_covers_every_meaning_theorem_of_the_registry}
 Not yet replayed, so these verdicts keep the exact-Python
@@ -813,11 +827,9 @@ now.\repro{tests/test_outside_dev.py::test_stored_verdicts_and_scores_are_what_t
 
 \paragraph{Tuned on.} The numbers below are from the current scoring of the development half, after
 checker additions made in response to its first run (Appendix~\ref{app:devhistory} gives the history).
-\rn{9}{paper_numbers.py::outside_dev} readings use claim kinds chosen because they cover these items: the
-checker is \emph{tuned on} them, and the \rn{14}{paper_numbers.py::outside_dev} matches that rest only on
-them say how far the tuning reached, not how the checker does on unseen claims. We changed the checker
-after seeing these items, so these numbers measure fit, not prediction. The first run gave readings for 9
-of the 99 sentences and decided 12 of its 14 readings, with none wrong.
+\rn{9}{paper_numbers.py::outside_dev} readings use claim kinds chosen because they cover these items, so
+the checker is \emph{tuned on} them. We changed the checker after seeing these items, so these numbers
+measure fit, not prediction.
 
 
 \paragraph{How much can be stated.} The checker can state a formal reading for
@@ -845,12 +857,12 @@ claim kind, so the conjunction is \U. In the first run the two readings of one s
 report \cite{harten1983} (a three-point scheme with viscosity $Q(x) = x^2 + 1/4$ on linear advection)
 were \U{} because of checker limits, not hard cases: one coefficient, $(\nu - 1/2)^2/2$, has a double
 root inside the $\nu$-interval, which no Bernstein test certifies unless a cut lands on the root, and
-the TVD check certified Harten's form only with the upwind split. The checker fix above decides both. Counting the fields that have a TRUE or FALSE expectation, the checker decides
+the TVD check certified Harten's form only with the upwind split. The checker fix described in Appendix~\ref{app:devhistory} decides both. Counting the fields that have a TRUE or FALSE expectation, the checker decides
 \rn{16}{paper_numbers.py::outside_dev} of \rn{68}{paper_numbers.py::outside_dev} alone and
 \rn{17}{paper_numbers.py::outside_dev} of \rn{67}{paper_numbers.py::outside_dev} with hypotheses; all
 \rn{33}{paper_numbers.py::outside_dev} matches are on narrowed readings, and
-\rn{14}{paper_numbers.py::outside_dev} of them rest only on readings made with the checker tuned on these
-items (the first run: 7 and 6; before the tuned claim kinds: 9 and 10).
+\rn{14}{paper_numbers.py::outside_dev} of them (not the \rn{14}{paper_numbers.py::outside_v2} frozen matches of Section~\ref{sec:v2}) rest
+only on readings made with the checker tuned on these items.
 
 \paragraph{Wrong verdicts.} \rn{0}{tests/test_outside_dev.py::test_no_wrong_verdict_and_every_gap_reading_is_explained}
 in both fields, and no \IC. This zero says little. The readings that reached the checker are the
@@ -1342,7 +1354,10 @@ current main (commit \code{9e906e7}). The merge gate is
 
 \section{History of the development half}\label{app:devhistory}
 
-The checker additions made after the first run of the development half (Section~\ref{sec:dev}), in order. A checker fix added an
+The first run of the development half (Section~\ref{sec:dev}) gave readings for 9 of the 99 sentences
+and decided 12 of its 14 readings, with none wrong; counting the fields with a TRUE or FALSE
+expectation, it decided 7 alone and 6 with hypotheses, and the checker before the tuned claim kinds
+decided 9 and 10. The checker additions made after that run, in order. A checker fix added an
 exact test for non-negativity of a polynomial in one variable (square-free part and Sturm count) to
 the positivity check, and a row for the linear TVD equivalence (a linear update with
 $\sum_k c_k = 1$ is TVD for all data iff every $c_k \ge 0$); together they closed the two checker gaps

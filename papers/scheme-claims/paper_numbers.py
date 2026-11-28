@@ -812,6 +812,9 @@ def lean_current() -> dict:
         store = ml.load_store(HERE / f"lean_measured_{name}.json")
         used = {h for s in store["specs"].values() for _, h in s["theorems"]}
         th = [store["theorems"][h] for h in used]
+        out[f"{name}: commit"] = store["commit"][:7]
+        out[f"{name}: measured"] = store["measured"]
+        out[f"{name}: machine"] = store["host"]["machine"]
         out[f"{name}: specs"] = str(len(store["specs"]))
         out[f"{name}: theorems"] = str(len(th))
         out[f"{name}: accepted"] = str(sum(t["status"] == "accepted" for t in th))
