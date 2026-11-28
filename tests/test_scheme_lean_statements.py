@@ -114,3 +114,35 @@ def test_guarantee_upgrades_only_when_every_theorem_is_accepted(monkeypatch):
     claims = {v["claim"]: v["guarantee"] for v in rep["claims"]}
     assert claims["conservative"] == lean_cert.LEAN and claims["consistent"] == "exact"
     assert [(v["claim"], v["verdict"]) for v in rep["claims"]] == verdicts        # verdicts never change
+
+
+def test_consistency_proof_survives_a_goal_closed_early():
+    """burgers-godunov-squared-form (max/sqrt atoms): `ring_nf; simp only [Real.sq_sqrt, ...]` closes the goal,
+    and the chain's trailing `; ring1` then failed with "No goals to be solved" (Lean rejected the theorem,
+    measured at f09a5cb). The chains are joined with `<;>`, which runs the rest on no goal without failing."""
+    spec = schemes.load(ROOT / "benchmark/scheme-claims/specs/burgers-godunov-squared-form.json")
+    r = checks.consistency(spec)
+    assert r["status"] == checks.VERIFIED
+    (_, _, proof), _ = lean_cert.obligations(spec, r, "t")
+    sq = "simp only [Real.sq_sqrt, sq_nonneg, Real.sqrt_zero]"
+    assert proof == ("intro lam h_lam q hq\n"
+                     "first | ring1 | (field_simp <;> ring1) | (ring_nf <;> done) | (ring_nf <;> simp <;> done) "
+                     f"| (simp <;> ring_nf <;> done) | (ring_nf <;> {sq} <;> ring1) "
+                     f"| (field_simp <;> ring_nf <;> {sq} <;> ring1)")
+
+
+def test_harten_proof_clears_the_context_in_closed_haves():
+    """The superbee TVD proof: the haves whose statements need nothing from the context (the |.|-split
+    facts z1, z2, hf_*) start with `clear * -` and replace the goal by its expanded linear form once, so their
+    case splits don't run beside the earlier haves (that hit the 4M-heartbeat cap at f09a5cb); the
+    nu-coefficient haves use lam and keep the context."""
+    from physverify.schemes import limiters
+    spec = schemes.load(ROOT / "schemes/limiters/advection-superbee.json")
+    r = limiters.tvd_harten(spec)
+    (_, stmt, proof), _ = lean_cert.harten_obligations(spec, r, "t")
+    haves = [l for l in proof.splitlines() if l.startswith("have ") and l.endswith(":= by")]
+    lines = proof.splitlines()
+    first = {l.split()[1]: lines[lines.index(l) + 1].strip() for l in haves}
+    closed = lambda n: n in ("z1", "z2") or n.startswith("hf_")
+    assert first and all((v == "clear * -") == closed(n) for n, v in first.items()), first
+    assert proof.count("suffices H : ") == sum(map(closed, first)) > 0

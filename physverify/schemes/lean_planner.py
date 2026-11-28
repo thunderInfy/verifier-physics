@@ -11,10 +11,16 @@ from ..expr import E, lit, parse, substitute, to_str, var, variables
 from . import checks, poly as P, univariate
 from .lean_cert import poly_lean, rat, real
 
+def _first(*alts: tuple[str, ...]) -> str:
+    """`first | ...` over tactic chains. Each chain's steps are joined by `<;>`, so a step that closes the
+    goal early leaves the rest nothing to run on (with `;` they fail with "No goals to be solved")."""
+    return "first | " + " | ".join(a[0] if len(a) == 1 else "(" + " <;> ".join(a) + ")" for a in alts)
+
+
 # `ring` falls back to `ring_nf` without failing, so the alternatives use `ring1` or end in `done`
-RING = ("first | ring1 | (field_simp; ring1) | (ring_nf; done) | (ring_nf; simp; done) | (simp; ring_nf; done) "
-        "| (ring_nf; simp only [Real.sq_sqrt, sq_nonneg, Real.sqrt_zero]; ring1) "
-        "| (field_simp; ring_nf; simp only [Real.sq_sqrt, sq_nonneg, Real.sqrt_zero]; ring1)")
+SQ = "simp only [Real.sq_sqrt, sq_nonneg, Real.sqrt_zero]"
+RING = _first(("ring1",), ("field_simp", "ring1"), ("ring_nf", "done"), ("ring_nf", "simp", "done"),
+              ("simp", "ring_nf", "done"), ("ring_nf", SQ, "ring1"), ("field_simp", "ring_nf", SQ, "ring1"))
 
 
 def _r(e, names, L):
@@ -289,13 +295,15 @@ def _combination(hyps: list, target: P.Poly, strict: bool) -> str | None:
     return "linear_combination " + (" + ".join(terms) or "0")
 
 
-def _pw(ts: list, goal: tuple, hyp: tuple | None, line: str | None = None) -> str:
+def _pw(ts: list, goal: tuple, hyp: tuple | None, line: str | None = None, names: dict | None = None) -> str:
     """Tactic text for a goal that is linear once every sqrt(t^2) is t or -t: name each square root
     (innermost first, so the outer ones are then written with those names), split on the sign of each
     t (`sqrt_sq_cases`), and close every branch by one `linear_combination` computed here: a branch
     whose signs contradict (decided exactly, in the differences p = uL - uLL, q = uR - uL) by 0 < 0,
     a leaf by the goal. goal = (kind, lhs, rhs) as polynomials in the flux arguments and _s0, ...,
-    kind "le" or "eq"; `hyp` is h : 0 < difference or difference < 0, as (c_p, c_q, kind)."""
+    kind "le" or "eq"; `hyp` is h : 0 < difference or difference < 0, as (c_p, c_q, kind). With
+    `names` (the Lean terms of the flux arguments), the goal is first replaced by its expanded form
+    (`suffices`, one ring check), so the leaves' checks see a short linear goal, not the nested one."""
     sub0 = {"uLL": P.add(P.var("uL"), P.var("_p"), -1), "uR": P.add(P.var("uL"), P.var("_q"))}
     same = {}
     if line == "p":
@@ -309,6 +317,10 @@ def _pw(ts: list, goal: tuple, hyp: tuple | None, line: str | None = None) -> st
         d = P.add(P.scale(P.var("uL"), hyp[0] - hyp[1]), P.add(P.scale(P.var("uR"), hyp[1]), P.scale(P.var("uLL"), -hyp[0])))
         base.append(("h", d if hyp[2] == ">" else P.scale(d, -1), "lt"))
     kind, lhs, rhs = goal
+    if names is not None:
+        nm = {**names, **{f"_s{k}": f"s{k}" for k in range(len(ts))}}
+        rel = "≤" if kind == "le" else "="
+        lines.append(f"suffices H : {poly_lean(lhs, nm)} {rel} {poly_lean(rhs, nm)} by linear_combination H")
     only = lambda hs: f"linarith only [{', '.join(n for n, _, _ in hs)}]"
 
     def form(poly, sig):
@@ -401,10 +413,12 @@ class _Harten:
         """`_pw` for a goal about L(x, y, z); goal(L) gives (kind, lhs, rhs) as polynomials, L with its
         square roots named."""
         ts, named = _sqrt_terms(self.L, {"uLL": x, "uL": y, "uR": z})
-        return _pw(ts, goal(P.from_expr(named)), hyp, line)
+        return _pw(ts, goal(P.from_expr(named)), hyp, line, {"uLL": x, "uL": y, "uR": z})
 
-    def have(self, name: str, stmt: str, proof: str) -> str:
-        self.haves.setdefault(name, (stmt, proof))
+    def have(self, name: str, stmt: str, proof: str, closed: bool = False) -> str:
+        """`closed`: the statement mentions nothing of the context (no lam), so the proof starts by
+        clearing it; the case splits then run about five times faster than beside the earlier haves."""
+        self.haves.setdefault(name, (stmt, "clear * -\n" + proof if closed else proof))
         return name
 
     def nonneg(self, c: list) -> str:
@@ -424,7 +438,7 @@ class _Harten:
         dp = P.scale(P.add(P.var("uR"), P.var("uL"), -1) if fam == "phi" else P.add(P.var("uL"), P.var("uLL"), -1), v)
         goal = lambda Ln: ("le", dp, Ln) if lower else ("le", Ln, dp)
         return self.have(f"hf_{fam}{'p' if s == '+' else 'm'}_{end}", f"∀ x y z : ℝ, {hyp} → {small} ≤ {big}",
-                         "intro x y z h\n" + self.pw("x", "y", "z", goal, cone))
+                         "intro x y z h\n" + self.pw("x", "y", "z", goal, cone), closed=True)
 
     def sign_goal(self, e0: list, terms: list, d: str) -> str:
         """`(0 < d → 0 ≤ Y) ∧ (d < 0 → Y ≤ 0)`-shaped goals (as left by `div_nonneg_of_sign` and
@@ -492,9 +506,11 @@ def harten_proof(spec: dict, r: dict) -> str:
     Cb = "0" if h.form == "upwind" else f"{Cnum(xs)} / (x3 - x2)"
     Db = f"{Dnum(xs)} / (x2 - x1)"
     if Bt:
-        h.have("z1", f"∀ x y : ℝ, {h.Ll('x', 'y', 'y')} = 0", "intro x y\n" + h.pw("x", "y", "y", lambda Ln: ("eq", Ln, {}), line="p"))
+        h.have("z1", f"∀ x y : ℝ, {h.Ll('x', 'y', 'y')} = 0", "intro x y\n" + h.pw("x", "y", "y", lambda Ln: ("eq", Ln, {}), line="p"),
+               closed=True)
         if h.form == "upwind":
-            h.have("z2", f"∀ y z : ℝ, {h.Ll('y', 'y', 'z')} = 0", "intro y z\n" + h.pw("y", "y", "z", lambda Ln: ("eq", Ln, {}), line="q"))
+            h.have("z2", f"∀ y z : ℝ, {h.Ll('y', 'y', 'z')} = 0", "intro y z\n" + h.pw("y", "y", "z", lambda Ln: ("eq", Ln, {}), line="q"),
+                   closed=True)
     # the form identity
     w = [f"(w {k})" for k in range(5)]
     form = ["· intro w", "  try beta_reduce"]
@@ -550,8 +566,8 @@ def _indent(s: str, k: int = 2) -> str:
 
 # ---------------------------------------------------------------- exact rational refutations
 
-STEADY = ("first | (norm_num; done) | (field_simp; ring1) | (norm_num; ring1) | (norm_num; field_simp; ring1) "
-          "| (simp; field_simp; ring1)")
+STEADY = _first(("norm_num", "done"), ("field_simp", "ring1"), ("norm_num", "ring1"), ("norm_num", "field_simp", "ring1"),
+                ("simp", "field_simp", "ring1"))
 
 
 def refutation_proof(spec: dict, r: dict) -> str:

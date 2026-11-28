@@ -193,16 +193,53 @@ def _measure_lean():
     return ml
 
 
+class _PinnedPlanner:
+    """`with _PinnedPlanner(commit):` lean_cert gets its proofs from physverify/schemes/lean_planner.py as
+    at `commit` (read from git), so the judge's statements of now meet the proofs the pinned run measured.
+    The planner is untrusted and only writes proofs; a statement changed since still misses the store."""
+
+    def __init__(self, commit: str):
+        self.commit = commit
+
+    def __enter__(self):
+        import types
+        from physverify import schemes
+        name = "physverify.schemes.lean_planner"
+        src = subprocess.run(["git", "show", f"{self.commit}:physverify/schemes/lean_planner.py"], cwd=ROOT,
+                             capture_output=True, text=True, check=True).stdout
+        mod = types.ModuleType(name)
+        mod.__package__, mod.__file__ = "physverify.schemes", f"{self.commit[:7]}:physverify/schemes/lean_planner.py"
+        exec(compile(src, mod.__file__, "exec"), mod.__dict__)
+        self.saved = sys.modules.get(name), getattr(schemes, "lean_planner", None)
+        sys.modules[name], schemes.lean_planner = mod, mod
+        return self
+
+    def __exit__(self, *exc):
+        from physverify import schemes
+        name = "physverify.schemes.lean_planner"
+        saved, attr = self.saved
+        if saved is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = saved
+        if attr is None:
+            delattr(schemes, "lean_planner")
+        else:
+            schemes.lean_planner = attr
+
+
 def _measured_lean(pairs: list):
     """Run lean_cert.certify on (spec, report) pairs with every Lean call answered by the measured run
     (lean_measured_b2cafbe.json, `measure_lean.Replay`): the labels are lean_cert's own, from the theorems' measured
-    statuses. One certify call per spec, as measure_lean.py runs them. Fails if a theorem the judge states
-    now was not measured. Returns ([(theorem name, record) per pair], store)."""
+    statuses. One certify call per spec, as measure_lean.py runs them; the proofs are the planner's at the
+    commit the run was collected at (`_PinnedPlanner`), so later planner fixes don't touch the pinned
+    numbers. Fails if a theorem the judge states now was not measured. Returns ([(theorem name, record) per
+    pair], store)."""
     from physverify.schemes import lean_cert
     ml = _measure_lean()
     store, used, missing = ml.load_store(PAPER_STORE), [], 0
     for pair in pairs:
-        with ml.Replay(store) as rp:
+        with _PinnedPlanner(store["commit"]), ml.Replay(store) as rp:
             lean_cert.certify([pair])
         missing += len(rp.pending)
         used.append([(n, store["theorems"].get(h)) for n, h in rp.used])

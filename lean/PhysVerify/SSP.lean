@@ -147,7 +147,7 @@ theorem ssp_class_preserves_meaning {K : ShuOsher 𝕜 → Prop} {c : 𝕜} (hc0
     rw [hz] at h1
     have h2 : m.β i k ≤ 0 := by
       by_contra h
-      push_neg at h
+      push Not at h
       exact absurd h1 (not_le.mpr (mul_pos hc0 h))
     exact le_antisymm h2 (hnn i k hki hi).2
   exact ssp_preserves_meaning hS hτ hFE hadm hr hdt hdtc hu h0
