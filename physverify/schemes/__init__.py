@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import checks, claims, convergence, entropy, fixedjump, identity, limiters, linear, shock, shockspeed, systems
+from . import checks, claims, convergence, entropy, fixedjump, identity, limiters, linear, shock, shockspeed, ssp, systems
 
 
 def load(path) -> dict:
@@ -63,6 +63,8 @@ def check(spec: dict, shock_grids=shock.GRIDS, rarefaction_grids=entropy.GRIDS) 
         out.append(identity.stated_identity(spec))
     if "smooth_truncation" in params or "truncation_order_smooth_data" in names:
         out += [limiters.truncation_branches(spec), limiters.truncation_smooth_data(spec)]
+    if "ssp" in params or "ssp_preserves" in names:
+        out += [ssp.ssp(spec), ssp.ssp_linear(spec), ssp.ssp_violation(spec)]
     # preconditions of the convergence rows for correct_shock_speed and limit_is_weak_solution
     out += [f(spec) for c, f in (("flux_lipschitz", shockspeed.flux_lipschitz),
                                  ("shock_scope_monotone", shockspeed.shock_scope_monotone),

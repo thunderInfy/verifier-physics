@@ -1857,6 +1857,68 @@ three bounds. The converse of `linear_tvd` (TVD only if `a, b, c ≥ 0`) needs b
 decided in Python by `physverify/schemes/linear.py::tvd_linear`, not proven here. All of these
 are periodic; the whole-line versions in the literature (finite TV on ℤ) are not formalised.
 
+### SSP time stepping
+
+`lean/PhysVerify/SSP.lean` quantifies over the time stepper. An explicit Runge-Kutta method in
+Shu-Osher form has stages `u 0 = uⁿ`, `u i = Σ_{k<i} (α i k • u k + (Δt β i k) • F (u k))`; it is
+admissible when `α, β ≥ 0`, each row of `α` sums to 1 and `β i k = 0` wherever `α i k = 0`. Any
+convex set `S` of any vector space over a linearly ordered field, any map `F`. Proven, standard
+axioms only (built on our Lean VM in 4 s).
+
+| Theorem | Hypotheses | Conclusion |
+|---|---|---|
+| `ssp_stage_mem` | `S` convex, `v + t • F v ∈ S` for `v ∈ S`, `0 ≤ t ≤ τ`; admissible arrays; `0 ≤ Δt`, `Δt β i k ≤ α i k τ` | every stage `u i ∈ S` |
+| `ssp_preserves_meaning` | the same with `c β i k ≤ α i k` (`c` an SSP coefficient of the arrays), `0 ≤ τ`, `0 ≤ Δt ≤ c τ` | every stage `u i ∈ S` |
+| `ssp_convexOn_le` | `φ` convex, `φ (v + t • F v) ≤ φ v` for `0 ≤ t ≤ τ` | `φ (u i) ≤ φ (u 0)` |
+| `ssp_nonneg`, `ssp_bounds`, `ssp_tvd` | forward Euler keeps `v ≥ 0`, `v ∈ [lo, hi]^ι`, or does not increase `Harten.TV` | the same for every stage |
+| `ssprk33_tvd` | SSPRK(3,3) (`c = 1`), forward Euler TVD up to `τ`, `0 ≤ Δt ≤ τ` | `TV (u 3) ≤ TV (u 0)` |
+
+`physverify/schemes/ssp.py` computes the SSP coefficient C of a method exactly. For a Shu-Osher form it
+reports that form's ratio `min α/β`; the coefficient of the method is that of its Butcher tableau, the
+radius of absolute monotonicity. With `K = [[A, 0], [bᵀ, 0]]`, the entries of `v(r) = (I + rK)⁻¹ e`
+and `P(r) = rK (I + rK)⁻¹` are polynomials in r (K is nilpotent), and C is the first point right of 0
+where one of them changes sign: exact root isolation (square-free decomposition, Sturm bisection),
+not an LP. A rational C is reported exactly; otherwise C comes as a rational enclosure of width
+below 2⁻⁶⁴. Both ends are certified. Below: at r = C (or a short rational just under the enclosure),
+`α = [v + P₀ | P]`, `β = P / r` is an admissible Shu-Osher form of the same method (converted back to K
+and compared) with ratio r, so the Lean lemma applies. Above: an entry is negative, and an explicit
+right-hand side `F` on `[0, ∞)` (forward-Euler admissible with `τ = 1`) makes the new step negative at
+`Δt = r`. That witness is abstract, a pointwise `F` on the real line: it shows no larger bound holds
+for the whole class, and says nothing about a particular scheme.
+
+| Method | C |
+|---|---|
+| forward Euler, SSPRK(2,2), SSPRK(3,3) | 1 (exact) |
+| SSPRK(5,4), the printed 15-digit Shu-Osher coefficients | in an exact enclosure of width < 2⁻⁶⁴ around 1.50818004918983 |
+| classical RK4 | 0: `P₂₀(r) = -r²/4` |
+| two-stage, second order, `A₂₁ = -20`, `b = (41/40, -1/40)` | 0: `P₁₀(r) = -20 r` |
+
+As printed, the last row of SSPRK(5,4)'s `α` sums to 1 + 10⁻¹⁵, so we lower its last entry by
+10⁻¹⁵. The rationals then satisfy the fourth-order conditions to 10⁻¹⁴, not exactly.
+
+The claim kind `ssp_preserves` (`claims.ssp`: `method`, `property` one of `positivity`, `tvd`,
+`max_principle`, and `cfl`) needs a semi-discrete scheme: a numerical flux free of `lam`, so that the
+update is a forward-Euler step `u_i + lam G(u)`. Three checks bear on it:
+
+- `ssp` (SUFFICIENT): C as above, then the forward-Euler certificate (`positivity`, `tvd_harten` or
+  `tvd_linear`, `tvd_harten` or `max_principle_linear`) on `[0, cfl / C]`. If C = 0 it is
+  NOT_APPLICABLE, with the class witness.
+- `ssp_linear` (EQUIVALENT, linear constant-coefficient schemes): the step is `R(ν D)`, R the
+  stability polynomial, and every shift coefficient `R_k(ν) ≥ 0` on `[0, cfl]` is decided exactly.
+  A negative coefficient comes with data that one step, computed stage by stage, breaks.
+- `ssp_violation` (NECESSARY): an exact search over periodic rational states for a step that breaks
+  the property.
+
+On `schemes/ssp/`: SSPRK(3,3) with upwind keeps positivity up to ν = 1, and MUSCL with minmod
+slopes keeps TVD and the maximum principle up to ν = 1/2. SSPRK(5,4) with MUSCL is TVD up to ν = 3/4.
+These all go through the class theorem. Upwind with SSPRK(3,3) at ν = 3/2 is REFUTED. RK4 has C = 0,
+yet upwind with RK4 is still VERIFIED by `ssp_linear`: for linear schemes only the stability
+polynomial matters, and RK4's is positive here. With MUSCL-minmod (nonlinear), RK4 and the
+negative-coefficient method stay UNKNOWN. The search tried about 9,000 exact states with ν ≤ 1/2 and
+found no TVD violation in one step, so the verifier has no concrete scheme-level witness for a
+non-SSP method. The verdicts are exact Python. The Lean theorem is the class statement; the
+instances (C, the forward-Euler certificate) are not replayed in Lean yet.
+
 ## Claim kinds
 
 Every claim name has one reading, shared by every layer that uses it, in
@@ -1898,6 +1960,7 @@ Params gives where each layer reads a parameter (see `params` in the module docs
 | `positive_depth_under_cfl` | the water depth h stays positive under the claimed CFL number (shallow water) | for all positive data and every step at which the CFL condition holds on every stencil: h_i^{n+1} > 0 | schemes | c: `claims.riemann.cfl` | gloss only |
 | `converges_to_riemann_solution` | the scheme converges in L1 to the exact (entropy) Riemann solution | on the spec's Riemann data: \|\|u_dx - u_exact\|\|_L1 -> 0 as dx -> 0 at fixed dt/dx | schemes | none | gloss only |
 | `stated_identity` | a formula the source prints (numerical entropy flux, entropy pair, viscosity coefficient Q, amplification factor g) satisfies the identity that defines it (scalar 1D laws) | for all states (and lam, nu, theta) in the stated domain with every denominator non-zero: LHS - RHS = 0, as a rational function (Laurent polynomial in z = e^{i theta} for g) | schemes | form: `claims.stated_identity.form`; eta: `claims.stated_identity.eta?`; q: `claims.stated_identity.q?`; entropy_flux: `claims.stated_identity.entropy_flux?`; dissipation: `claims.stated_identity.dissipation?`; Q: `claims.stated_identity.Q?`; g: `claims.stated_identity.g?`; let: `claims.stated_identity.let?`; domain: `claims.stated_identity.domain?` | gloss only |
+| `ssp_preserves` | an explicit Runge-Kutta method with SSP coefficient C keeps a convex property (positivity, TVD, the global maximum principle) that the spec's forward-Euler step keeps up to CFL cfl/C | for every state and every nu = a*dt/dx in [0, cfl]: every stage of the Runge-Kutta step, u^{n+1} included, has the property, given forward Euler has it on [0, cfl/C] | schemes | method: `claims.ssp.method`; property: `claims.ssp.property`; cfl: `claims.ssp.cfl` | `ssp_preserves_meaning` |
 | `del_equations` | the claimed update is the discrete Euler–Lagrange equations of L_d | for every triple (q_k, q_k+1, q_k+2) in D: DEL(L_d) = 0 iff the claimed update holds | variational | none | `del_verified_meaning` |
 | `discrete_momentum_conserved` | J(q0, q1) is constant, exactly, along every solution of the DEL equations that stays in D (a Noether momentum or any other such J) | for every N and every discrete trajectory q_0..q_N+1 in D solving the DEL: J(q_N, q_N+1) = J(q_0, q_1) | variational | none | `dmomentum_meaning` |
 | `update_conserves` | the explicit update map z' = Phi(z) conserves J exactly (for a straight-line kernel, Phi is exec prog, run by Lean: kernel_conserves_meaning) | for all z in D: J(Phi(z)) = J(z); so along every orbit in D, J(z_N) = J(z_0) | variational | none | `update_conserves_meaning` |

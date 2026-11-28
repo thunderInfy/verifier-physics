@@ -168,6 +168,14 @@ KINDS: dict[str, dict] = {
                    "g": {"schemes": "claims.stated_identity.g?"},
                    "let": {"schemes": "claims.stated_identity.let?"},
                    "domain": {"schemes": "claims.stated_identity.domain?"}}},
+    "ssp_preserves": {
+        "gloss": "an explicit Runge-Kutta method with SSP coefficient C keeps a convex property (positivity, TVD, the "
+                 "global maximum principle) that the spec's forward-Euler step keeps up to CFL cfl/C",
+        "quantifier": "for every state and every nu = a*dt/dx in [0, cfl]: every stage of the Runge-Kutta step, "
+                      "u^{n+1} included, has the property, given forward Euler has it on [0, cfl/C]",
+        "layers": ["schemes"], "meaning": "ssp_preserves_meaning",
+        "params": {"method": {"schemes": "claims.ssp.method"}, "property": {"schemes": "claims.ssp.property"},
+                   "cfl": {"schemes": "claims.ssp.cfl"}}},
     # variational integrators and explicit update maps (physverify/variational.py)
     # TODO: `consistent_order_p`, `exact_order_p` and the scheme orders stay gloss only; a Lean
     # meaning needs Taylor expansion with remainder over smooth solutions.

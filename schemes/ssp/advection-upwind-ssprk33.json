@@ -1,0 +1,24 @@
+{
+ "name": "Upwind with SSPRK(3,3), linear advection a = 1: positivity up to nu = 1",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*uL"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "ssp_preserves"
+ ],
+ "claims": {
+  "ssp": {
+   "method": "ssprk33",
+   "property": "positivity",
+   "cfl": "1"
+  }
+ }
+}

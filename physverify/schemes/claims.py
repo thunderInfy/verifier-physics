@@ -46,6 +46,7 @@ GUARANTEE = {"consistency": EXACT, "conservation": EXACT, "positivity": EXACT, "
 GUARANTEE.update({"flux_lipschitz": EXACT, "shock_scope_monotone": EXACT, "shock_scope_tvd": EXACT})  # shockspeed.py
 GUARANTEE.update({"stationary_rh_violation": EXACT, "stationary_shock_rh_violation": EXACT})  # fixedjump.py
 GUARANTEE.update({"stated_identity": EXACT})  # identity.py
+GUARANTEE.update({"ssp": EXACT, "ssp_linear": EXACT, "ssp_violation": EXACT})  # ssp.py
 
 _ORDER = ("only on the spec's smooth test problem and grids; blind to conservation (a non-conservative "
           "scheme converges at order 1 on smooth data)")
@@ -152,6 +153,20 @@ _FIXED_SHOCK = (_FIXED_JUMP + ". Used for the shock speed only when uL | uR is a
                 "stays at speed 0. A frozen expansion (f'(uL) < f'(uR)) has a rarefaction as exact solution, so it "
                 "shows a wrong limit but no shock at a wrong speed, and does not count here")
 
+_SSP = ("the SSP class theorem (PhysVerify.SSP.ssp_preserves_meaning, proven in Lean): if forward Euler keeps a "
+        "convex set S for steps up to tau, an explicit Runge-Kutta method with an admissible Shu-Osher form of "
+        "ratio r keeps every stage in S for dt <= r tau; C (the best r, the radius of absolute monotonicity of the "
+        "tableau) is computed exactly by root isolation on the entries of v(r), P(r), and the forward-Euler "
+        "certificate runs on [0, cfl / C]. Sufficient only: C = 0 (classical RK4) or an uncertified forward-Euler "
+        "step says nothing")
+_SSP_LINEAR = ("linear constant-coefficient schemes only: the Runge-Kutta step is R(nu D), R the stability "
+               "polynomial and nu D the forward-Euler operator, a linear scheme u_i' = sum_k R_k(nu) u_{i+k} with "
+               "sum_k R_k = 1; all R_k >= 0 on [0, cfl] is equivalent to positivity and to the global maximum "
+               "principle (unit data, N at least the stencil width) and to TVD (box data, N >= 2w), as for "
+               "tvd_linear")
+_SSP_VIOLATION = ("one explicit periodic rational state and a nu in (0, cfl] whose Runge-Kutta step, computed stage "
+                  "by stage in Fraction arithmetic, breaks the property")
+
 # claim -> (statement, ((check, relation, premise[, requires]), ...)). The premise is what the relation
 # rests on; it is carried into the verdict as an assumption. `requires` lists exact checks that must be
 # VERIFIED on the same spec for the row to count at all; otherwise the row gives UNKNOWN.
@@ -241,6 +256,12 @@ CLAIMS = {
     "stated_identity": ("the stated expressions satisfy the stated identity: LHS - RHS = 0 for all states in the "
                         "stated domain", (("stated_identity", EQUIVALENT, ""),)),
 }
+CLAIMS["ssp_preserves"] = (   # time stepping (ssp.py)
+    "the Runge-Kutta method of claims.ssp, applied to the spec's forward-Euler step, keeps the claimed property "
+    "(positivity, TVD or the global maximum principle) for every state and every nu = a*dt/dx in [0, cfl]",
+    (("ssp", SUFFICIENT, _SSP),
+     ("ssp_linear", EQUIVALENT, _SSP_LINEAR),
+     ("ssp_violation", NECESSARY, _SSP_VIOLATION)))
 claimkinds.require("schemes", CLAIMS)            # one reading per name, shared with the other layers
 
 # (relation, outcome) -> polarity of the evidence for the claim

@@ -1,0 +1,41 @@
+{
+ "name": "MUSCL with minmod slopes and a second-order two-stage method with negative coefficients (C = 0): TVD claimed up to nu = 1/2",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + minmod(uR - uL, uL - uLL)/2)"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "ssp_preserves"
+ ],
+ "claims": {
+  "ssp": {
+   "method": {
+    "butcher": {
+     "A": [
+      [
+       "0",
+       "0"
+      ],
+      [
+       "-20",
+       "0"
+      ]
+     ],
+     "b": [
+      "41/40",
+      "-1/40"
+     ]
+    }
+   },
+   "property": "tvd",
+   "cfl": "1/2"
+  }
+ }
+}

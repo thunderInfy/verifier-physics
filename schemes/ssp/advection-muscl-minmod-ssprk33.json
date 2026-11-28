@@ -1,0 +1,24 @@
+{
+ "name": "MUSCL with minmod slopes (semi-discrete, upwind flux) and SSPRK(3,3), linear advection a = 1: TVD up to nu = 1/2",
+ "pde": {
+  "flux": "a*u"
+ },
+ "params": {
+  "a": "1"
+ },
+ "scheme": {
+  "numerical_flux": "a*(uL + minmod(uR - uL, uL - uLL)/2)"
+ },
+ "named_claims": [
+  "consistent",
+  "conservative",
+  "ssp_preserves"
+ ],
+ "claims": {
+  "ssp": {
+   "method": "ssprk33",
+   "property": "tvd",
+   "cfl": "1/2"
+  }
+ }
+}
