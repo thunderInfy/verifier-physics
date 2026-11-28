@@ -182,7 +182,7 @@ def _measure_lean():
 
 def _measured_lean(pairs: list):
     """Run lean_cert.certify on (spec, report) pairs with every Lean call answered by the measured run
-    (lean_measured.json, `measure_lean.Replay`): the labels are lean_cert's own, from the theorems' measured
+    (lean_measured_b2cafbe.json, `measure_lean.Replay`): the labels are lean_cert's own, from the theorems' measured
     statuses. One certify call per spec, as measure_lean.py runs them. Fails if a theorem the judge states
     now was not measured. Returns ([(theorem name, record) per pair], store)."""
     from physverify.schemes import lean_cert
@@ -194,15 +194,18 @@ def _measured_lean(pairs: list):
         missing += len(rp.pending)
         used.append([(n, store["theorems"].get(h)) for n, h in rp.used])
     if missing:
-        raise RuntimeError(f"{missing} theorems are not in lean_measured.json: run measure_lean.py collect")
+        raise RuntimeError(f"{missing} theorems are not in lean_measured_b2cafbe.json: the judge now states "
+                           "theorems the paper's run did not measure")
     return used, store
 
 
 def lean_replay() -> dict:
     """The measured Lean run on the example specs (schemes/*.json, then schemes/*/*.json; README, "Lean
     certificates for the exact scheme checks"): every theorem the judge states, with its status in
-    lean_measured.json (one file per theorem on the machine named there). About a minute."""
-    paths = sorted(S.glob("*.json")) + sorted(S.glob("*/*.json"))
+    lean_measured_b2cafbe.json (one file per theorem on the machine named there). The example specs are
+    those that run measured (specs added since, e.g. schemes/ssp/, are in the later runs only). About a minute."""
+    measured = {uid for uid, s in _measure_lean().load_store()["specs"].items() if s["kind"] == "schemes"}
+    paths = [p for p in sorted(S.glob("*.json")) + sorted(S.glob("*/*.json")) if str(p.relative_to(ROOT)) in measured]
     pairs = [(spec, check(spec)) for spec in map(load, paths)]
     used, store = _measured_lean(pairs)
     th = [(p, n, t) for p, u in zip(paths, used) for n, t in u]
@@ -233,7 +236,7 @@ def lean_replay() -> dict:
 
 
 def lean_replay_all() -> dict:
-    """The whole measured run (lean_measured.json, every spec the paper counts): distinct theorems by status,
+    """The whole measured run (lean_measured_b2cafbe.json, every spec the paper counts): distinct theorems by status,
     the run's wall time, and each theorem not accepted with its specs, its attempts and Lean's first error."""
     store = _measure_lean().load_store()
     used: dict = {}
@@ -260,7 +263,7 @@ def lean_replay_all() -> dict:
 
 def _stating_lean(pairs: list) -> list:
     """Run lean_cert.certify on (spec, report) pairs without Lean: every theorem the judge states is
-    taken as accepted (the projection that lean_measured.json replaces; kept as a secondary number).
+    taken as accepted (the projection that lean_measured_b2cafbe.json replaces; kept as a secondary number).
     Returns the stated (name, statement, proof) items; the reports' labels are upgraded in place."""
     from physverify import lean_backend
     from physverify.schemes import lean_cert
@@ -311,7 +314,7 @@ def _reading_labels(data: dict, keys: list, pairs: list) -> dict:
 
 def bench_lean_labels() -> dict:
     """How many of the benchmark's decisive verdicts carry a Lean label in the measured Lean run
-    (lean_measured.json): a named-claim verdict carries one by lean_cert's own rule (`relabel_claims`,
+    (lean_measured_b2cafbe.json): a named-claim verdict carries one by lean_cert's own rule (`relabel_claims`,
     `lean_carrier`: one deciding check whose required checks' theorems were all accepted), applied to the
     measured statuses; readings by `_reading_labels`. Also the projection this replaces (every stated
     theorem taken as accepted), and the readings whose decisive named claims all have a meaning theorem in
@@ -478,11 +481,11 @@ LEAN_KINDS = {"schemes": "example specs", "bench": "our benchmark", "outside": "
 
 
 def _lean_measured_tex(store: dict | None = None) -> str:
-    """The rows of the measured-run table, from lean_measured.json: per spec set, the specs, the distinct
+    """The rows of the measured-run table, from lean_measured_b2cafbe.json: per spec set, the specs, the distinct
     theorems by status, and the sum of their wall times (each theorem is its own Lean process, import
     included). Theorems shared by several sets count once in the last row."""
     store = store or _measure_lean().load_store()
-    out = ["% generated from lean_measured.json by `paper_numbers.py --write-table`; do not edit"]
+    out = ["% generated from lean_measured_b2cafbe.json by `paper_numbers.py --write-table`; do not edit"]
     every: set = set()
 
     def row(label, specs, hs):
@@ -497,6 +500,15 @@ def _lean_measured_tex(store: dict | None = None) -> str:
         out.append(row(label, specs, hs))
     out.append("\\midrule")
     out.append(row("all, distinct theorems", list(store["specs"].values()), every))
+    # where every number comes from: the commit (and the one the file is named after), the machine, Lean
+    h, k = store["host"], store["key"]
+    same = "" if store["file_commit"] == store["commit"] else \
+        f" (Lean project, judges, planners and checks the same as at \\code{{{store['file_commit'][:7]}}})"
+    name = f"lean\\_measured\\_{store['file_commit'][:7]}.json"
+    out += ["\\midrule", "\\multicolumn{8}{@{}p{\\linewidth}@{}}{\\footnotesize Every number above: commit "
+            f"\\code{{{store['commit'][:7]}}}{same}, on {h['name']} ({h['machine']}, {h['cpus']} vCPU, "
+            f"{h['ram_gb']}\\,GB), Lean {k['lean_toolchain'].split(':v')[-1]}, Mathlib \\code{{{k['mathlib_rev'][:7]}}}; "
+            f"file \\code{{{name}}}.}} \\\\"]
     return "\n".join(out + ["\\bottomrule"]) + "\n"
 
 
@@ -601,7 +613,7 @@ def _outside_property_tex(numbers: dict | None = None) -> str:
 
 def outside_lean_labels() -> dict:
     """The outside benchmark's decided dev readings that carry a Lean label in the measured run
-    (lean_measured.json): the named-claim verdicts are labelled by lean_cert's rule on the measured
+    (lean_measured_b2cafbe.json): the named-claim verdicts are labelled by lean_cert's rule on the measured
     statuses, readings as in `_reading_labels` (VERIFIED: every component; REFUTED: one refuting component;
     a negated component keeps its named claim's label). Reconstruction, limiter and ENO claims are checked in
     Python only and have no Lean statement. About 10 s."""

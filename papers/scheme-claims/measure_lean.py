@@ -1,6 +1,10 @@
-"""Usage: uv run python papers/scheme-claims/measure_lean.py collect | ingest RESULTS [--host H] | summary
+"""Usage: uv run python papers/scheme-claims/measure_lean.py collect | ingest RESULTS | registry |
+       ingest-registry RESULTS | summary   [--store FILE]
 
-The measured Lean run behind the paper's Lean-label numbers, stored in lean_measured.json.
+A measured Lean run, stored in lean_measured_<commit>.json, one file per measured commit (the commit in
+the name and the store's `commit` field; FILE defaults to the one for HEAD). The paper's Lean-label numbers
+come from lean_measured_b2cafbe.json (PAPER_STORE), the run at the heldout pin; collected at 1d73a80, whose
+Lean key is the same.
 
 Every spec the paper's numbers draw on is run through the checker's own Lean path: `lean_cert.certify`
 for the scheme specs (schemes/, our claims benchmark, the dev readings of the outside benchmark) and
@@ -13,7 +17,11 @@ is written to lean/build_certs/measure/jobs/<sha>.lean, the exact file the check
     collect   run every spec; write the theorems not measured yet as jobs, and record the specs whose
               theorems are all measured (with their claims' labels). A spec already recorded with the
               same Lean key is skipped, so a crash only costs a restart.
-    ingest    read a results directory of lean_run_jobs.sh (run on the Lean machine) into the store
+    ingest    read a results directory of lean_run_jobs.sh (run on the Lean machine) into the store; the
+              host is read from RESULTS/host.json (written on the Lean machine) when it is there
+    registry  write lean/build_certs/measure/registry.lean: `#print axioms` of the Lean meaning theorem
+              of every claim kind that has one (physverify/claimkinds.py)
+    ingest-registry  read RESULTS/registry.{log,exit,time} of that file into the store
     summary   print the counts
 
 Loop collect -> run the jobs on the Lean machine -> ingest until collect reports no pending theorem.
@@ -35,13 +43,13 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-STORE = HERE / "lean_measured.json"
+PAPER_STORE = HERE / "lean_measured_b2cafbe.json"
 WORK = ROOT / "lean" / "build_certs" / "measure"
 # what a theorem's text and its fate depend on: the Lean project (toolchain and Mathlib rev included), the
 # judges and planners that write the statements and proofs, and the checks whose witnesses the planners use
 KEY_PATHS = ("lean", "physverify/lean_backend.py", "physverify/schemes", "physverify/tools", "physverify/variational.py",
              "physverify/kernel.py", "physverify/expr.py", "physverify/derivation.py")
-HOST = {"name": "lean-build", "machine": "GCP e2-standard-8", "cpus": 8, "ram_gb": 32}
+HOST = {"name": "lean-build", "machine": "GCP e2-standard-8", "cpus": 8, "ram_gb": 32}   # unless host.json says
 LIMIT_S = 1200          # per theorem; the README's warm full pass is about 1 s per theorem
 RETRY_S = 3600          # one retry, for the superbee TVD theorem only
 STATUSES = ("accepted", "rejected", "error", "timeout")
@@ -59,8 +67,16 @@ def lean_key(rev: str = "HEAD") -> dict:
             "trees": {p: _git("rev-parse", f"{rev}:{p}") for p in KEY_PATHS}}
 
 
-def load_store() -> dict:
-    return json.loads(STORE.read_text()) if STORE.is_file() else {"theorems": {}, "specs": {}}
+def store_path(rev: str = "HEAD") -> Path:
+    return HERE / f"lean_measured_{_git('rev-parse', '--short=7', rev)}.json"
+
+
+def store_paths() -> list[Path]:
+    return sorted(HERE.glob("lean_measured_*.json"))
+
+
+def load_store(path: Path = PAPER_STORE) -> dict:
+    return json.loads(path.read_text()) if path.is_file() else {"theorems": {}, "specs": {}}
 
 
 def sha(src: str) -> str:
@@ -193,8 +209,8 @@ def units() -> list[tuple[str, str, object]]:
 
 # ---------------------------------------------------------------- collect / ingest
 
-def collect(only: str | None = None) -> int:
-    store, key, commit = load_store(), lean_key(), _git("rev-parse", "HEAD")
+def collect(path: Path, only: str | None = None) -> int:
+    store, key, commit = load_store(path), lean_key(), _git("rev-parse", "HEAD")
     jobs = WORK / "jobs"
     jobs.mkdir(parents=True, exist_ok=True)
     pending, done, skipped = {}, 0, 0
@@ -221,7 +237,7 @@ def collect(only: str | None = None) -> int:
     for h, (src, call) in pending.items():
         (jobs / f"{h}.lean").write_text(src)
         (jobs / f"{h}.json").write_text(json.dumps(call, ensure_ascii=False))
-    _write(store, collected=True)
+    _write(store, path, collected=True)
     print(f"recorded {done}, skipped {skipped} (already recorded with this key); {len(pending)} theorems pending "
           f"in {jobs}" if pending else f"recorded {done}, skipped {skipped}; nothing pending")
     return len(pending)
@@ -264,8 +280,15 @@ def _kept(log: str) -> str:
     return "\n".join(x for x in log.splitlines() if re.search(r":\d+:\d+: error|depends on axioms|does not depend on any axioms", x))
 
 
-def ingest(results: Path, host: dict = HOST, retry: bool = False, parallel: int = 6) -> None:
-    store = load_store()
+def _host(results: Path, store: dict) -> dict:
+    """The Lean machine as RESULTS/host.json records it (written there by the run), else the store's or HOST."""
+    f = results / "host.json"
+    return json.loads(f.read_text()) if f.is_file() else store.get("host", HOST)
+
+
+def ingest(results: Path, path: Path, retry: bool = False, parallel: int = 6) -> None:
+    store = load_store(path)
+    host = store["host"] = _host(results, store)
     jobs, n = WORK / "jobs", 0
     for ex in sorted(results.glob("*.exit")):
         h = ex.stem
@@ -293,12 +316,66 @@ def ingest(results: Path, host: dict = HOST, retry: bool = False, parallel: int 
     store.setdefault("runs", {})[results.name] = {
         "host": host["name"], "parallel": parallel, "starts": stamps("start"), "ends": stamps("end"),
         "theorems": len(list(results.glob("*.exit")))}
-    _write(store)
+    _write(store, path)
     print(f"ingested {n} theorems from {results}")
 
 
-def summary(store: dict | None = None) -> dict:
-    store = store or load_store()
+# ---------------------------------------------------------------- the registry's meaning theorems
+
+def _full_names(text: str) -> dict[str, str]:
+    """name as written after `theorem` -> its full name, from the file's namespace/section/end nesting."""
+    frames, out = [], {}
+    for line in text.splitlines():
+        if m := re.match(r"(?:noncomputable )?(namespace|section)\b ?(\S*)", line):
+            frames.append((m[1], m[2]))
+        elif m := re.match(r"end\b ?(\S*)", line):
+            if frames and frames[-1][1] == m[1]:
+                frames.pop()
+        elif m := re.match(r"theorem (\S+)\s", line):
+            out[m[1]] = ".".join([n for k, n in frames if k == "namespace"] + [m[1]])
+    return out
+
+
+def meaning_theorems() -> dict[str, str]:
+    """Claim kind -> the full Lean name of its meaning theorem (physverify/claimkinds.py, `meaning`)."""
+    from physverify.claimkinds import KINDS
+    names: dict = {}
+    for p in sorted((ROOT / "lean" / "PhysVerify").rglob("*.lean")):
+        for short, full in _full_names(p.read_text()).items():
+            names.setdefault(short, []).append(full)
+    out = {}
+    for kind, k in KINDS.items():
+        if k["meaning"]:
+            (full,) = names[k["meaning"]]     # one theorem by that name, as test_claimkinds asserts it exists
+            out[kind] = full
+    return out
+
+
+def registry_source() -> str:
+    return "import PhysVerify\n" + "".join(f"#print axioms {n}\n" for n in meaning_theorems().values())
+
+
+def ingest_registry(results: Path, path: Path) -> None:
+    """The axioms of each meaning theorem, from Lean's output on registry.lean: accepted if only the
+    standard three, rejected if any other (sorryAx included), error if Lean printed nothing for it."""
+    from physverify import lean_backend as lb
+    store, log = load_store(path), (results / "registry.log").read_text(errors="replace")
+    if (results / "registry.lean").read_text() != registry_source():
+        raise ValueError("registry.lean on the Lean machine is not what `registry` writes now")
+    reg = {}
+    for kind, name in meaning_theorems().items():
+        ax = lb._axioms(name, log)
+        reg[kind] = {"theorem": name, "axioms": sorted(ax or []),
+                     "status": "error" if ax is None else "accepted" if ax <= lb.STD_AXIOMS else "rejected"}
+    wall, rss = (results / "registry.time").read_text().split()[-2:]
+    store["registry"] = {"exit": int((results / "registry.exit").read_text().strip()), "seconds": float(wall),
+                         "peak_rss_mb": round(int(rss) / 1024), "host": _host(results, store)["name"],
+                         "theorems": reg}
+    _write(store, path)
+    print(json.dumps({k: v["status"] for k, v in reg.items()}, indent=1))
+
+
+def summary(store: dict) -> dict:
     used = {h for s in store["specs"].values() for _, h in s["theorems"]}
     th = {h: store["theorems"][h] for h in used}
     out = {"specs": len(store["specs"]), "theorems": len(th),
@@ -310,25 +387,39 @@ def summary(store: dict | None = None) -> dict:
     return out
 
 
-def _write(store: dict, collected: bool = False) -> None:
-    """Save the store; `collected`: the commit and Lean key are those of this collect run."""
+def _write(store: dict, path: Path, collected: bool = False) -> None:
+    """Save the store; `collected`: the commit and Lean key are those of this collect run. `file_commit` is
+    the commit the file is named after: `commit` unless set by hand (b2cafbe, see file_commit_note there)."""
     if collected or "commit" not in store:
         store["commit"], store["key"] = _git("rev-parse", "HEAD"), lean_key()
-    store["host"] = HOST
+    store.setdefault("file_commit", store["commit"])
+    store.setdefault("host", HOST)
     store["measured"] = datetime.date.today().isoformat()
     store["limits"] = {"per_theorem_s": LIMIT_S, "retry_s": RETRY_S}
     store["summary"] = summary(store)
     store.setdefault("runs", {})
-    order = ["commit", "measured", "key", "host", "limits", "summary", "runs", "specs", "theorems"]
-    STORE.write_text(json.dumps({k: store[k] for k in order}, indent=1, ensure_ascii=False) + "\n")
+    order = ["commit", "file_commit", "file_commit_note", "measured", "key", "host", "limits", "summary", "runs",
+             "registry", "specs", "theorems"]
+    path.write_text(json.dumps({k: store[k] for k in order}, indent=1, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":
-    cmd = sys.argv[1] if len(sys.argv) > 1 else "summary"
+    args = sys.argv[1:]
+    path = store_path()
+    if "--store" in args:
+        i = args.index("--store")
+        path, args = Path(args[i + 1]), args[:i] + args[i + 2:]
+    cmd = args[0] if args else "summary"
     if cmd == "collect":
-        collect(sys.argv[2] if len(sys.argv) > 2 else None)
+        collect(path, args[1] if len(args) > 1 else None)
     elif cmd == "ingest":
-        par = sys.argv[sys.argv.index("--parallel") + 1] if "--parallel" in sys.argv else 6
-        ingest(Path(sys.argv[2]), retry="--retry" in sys.argv, parallel=int(par))
+        par = args[args.index("--parallel") + 1] if "--parallel" in args else 6
+        ingest(Path(args[1]), path, retry="--retry" in args, parallel=int(par))
+    elif cmd == "registry":
+        WORK.mkdir(parents=True, exist_ok=True)
+        (WORK / "registry.lean").write_text(registry_source())
+        print(f"wrote {WORK / 'registry.lean'}: {len(meaning_theorems())} theorems")
+    elif cmd == "ingest-registry":
+        ingest_registry(Path(args[1]), path)
     else:
-        print(json.dumps(summary(), indent=1))
+        print(json.dumps(summary(load_store(path)), indent=1))

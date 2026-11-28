@@ -1,10 +1,12 @@
 """Every reproducibility marker in the paper (papers/scheme-claims/main.tex) names a target that exists:
 a pytest test `tests/X.py::name` or a function `paper_numbers.py::name` of papers/scheme-claims/paper_numbers.py
-(static: the files are parsed). The other tests check the generated tables against their sources, the
-measured Lean run (lean_measured.json) against HEAD, and a few numbers the text derives by hand."""
+(static: the files are parsed). The other tests check the generated tables against their sources, each
+measured Lean run (lean_measured_<commit>.json) against the commit it names and one of them against HEAD,
+and a few numbers the text derives by hand."""
 import ast
 import json
 import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -112,25 +114,71 @@ def _measure_lean():
     return mod
 
 
-def test_lean_measurement_is_current_and_complete():
-    """lean_measured.json was measured with the Lean project, judges, planners and checks of HEAD (git
-    object ids of measure_lean.KEY_PATHS, the toolchain and the Mathlib rev), covers every spec the paper
-    counts, and gives every theorem a measured status; an accepted theorem uses only the standard axioms."""
+def test_lean_measurements_match_their_commits():
+    """Every measured run, lean_measured_<commit>.json, is named after a commit it records (`file_commit`;
+    `commit` is where it was collected), each commit it names is in the repository and has the Lean key the
+    run was measured with (git object ids of measure_lean.KEY_PATHS, the toolchain and the Mathlib rev), and
+    it names its host; every theorem it uses has a measured status on that host, and an accepted one only
+    the standard axioms. The paper's numbers come from one of them, measure_lean.PAPER_STORE."""
     from physverify.lean_backend import STD_AXIOMS
     ml = _measure_lean()
-    store, key = ml.load_store(), ml.lean_key()
-    stale = "lean_measured.json is stale: rerun papers/scheme-claims/measure_lean.py (see its docstring)"
-    assert store["key"] == key, stale
-    assert all(s["key"] == key for s in store["specs"].values()), stale
-    assert key["lean_toolchain"] == (ROOT / "lean/lean-toolchain").read_text().strip()
+    paths = ml.store_paths()
+    assert ml.PAPER_STORE in paths
+    for p in paths:
+        store = json.loads(p.read_text())
+        assert p.name == f"lean_measured_{store['file_commit'][:7]}.json", p.name
+        for c in {store["commit"], store["file_commit"]}:
+            assert subprocess.run(["git", "cat-file", "-e", f"{c}^{{commit}}"], cwd=ROOT).returncode == 0, (p.name, c)
+            assert ml.lean_key(c) == store["key"], f"{p.name}: the code at {c[:7]} is not the code it measured"
+        assert all(s["key"] == store["key"] for s in store["specs"].values()), p.name
+        assert {"name", "machine", "cpus", "ram_gb"} <= set(store["host"]), p.name
+        used = {h for s in store["specs"].values() for _, h in s["theorems"]}
+        assert used <= set(store["theorems"]), p.name
+        for h in used:
+            t = store["theorems"][h]
+            assert t["status"] in ml.STATUSES and t["host"] == store["host"]["name"], (p.name, h, t["name"])
+            if t["status"] == "accepted":
+                assert t["exit"] == 0 and set(t["axioms"]) <= STD_AXIOMS, (p.name, h, t["name"])
+
+
+def _current_store() -> dict:
+    ml = _measure_lean()
+    key = ml.lean_key()
+    current = [json.loads(p.read_text()) for p in ml.store_paths() if json.loads(p.read_text())["key"] == key]
+    assert current, ("no lean_measured_<commit>.json was measured with the Lean project, judges, planners and checks "
+                     "of HEAD: rerun papers/scheme-claims/measure_lean.py (see its docstring)")
+    return current[0]
+
+
+def test_lean_measurement_is_current_and_complete():
+    """A measured run has the Lean key of HEAD, covers every spec the paper counts now (the example specs,
+    schemes/ssp/ included) and names the machine it ran on: CPUs, RAM, and the Lean and Mathlib versions."""
+    ml = _measure_lean()
+    store = _current_store()
+    assert store["key"]["lean_toolchain"] == (ROOT / "lean/lean-toolchain").read_text().strip()
     assert set(store["specs"]) == {uid for uid, _, _ in ml.units()}, "a spec is not measured (or no longer counted)"
-    used = {h for s in store["specs"].values() for _, h in s["theorems"]}
-    assert used <= set(store["theorems"])
-    for h in used:
-        t = store["theorems"][h]
-        assert t["status"] in ml.STATUSES and t["host"] == store["host"]["name"], (h, t["name"])
-        if t["status"] == "accepted":
-            assert t["exit"] == 0 and set(t["axioms"]) <= STD_AXIOMS, (h, t["name"])
+    assert any(uid.startswith("schemes/ssp/") for uid in store["specs"])
+    h = store["host"]
+    assert h["cpus"] > 0 and h["ram_gb"] > 0 and h["machine"]
+    assert store["key"]["lean_toolchain"].split(":v")[-1] in h["lean_version"]
+    assert store["key"]["mathlib_rev"] == h["mathlib_rev"]
+
+
+def test_lean_measurement_covers_every_meaning_theorem_of_the_registry():
+    """The current run also ran `#print axioms` on the Lean meaning theorem of every claim kind that has one
+    (physverify/claimkinds.py; ssp_preserves's PhysVerify.SSP.ssp_preserves_meaning among them), on the same
+    machine: each depends on the standard axioms only."""
+    from physverify.claimkinds import KINDS
+    from physverify.lean_backend import STD_AXIOMS
+    ml = _measure_lean()
+    store = _current_store()
+    reg = store["registry"]
+    assert reg["exit"] == 0 and reg["host"] == store["host"]["name"]
+    assert set(reg["theorems"]) == {k for k, v in KINDS.items() if v["meaning"]}
+    assert reg["theorems"]["ssp_preserves"]["theorem"] == "PhysVerify.SSP.ssp_preserves_meaning"
+    for kind, t in reg["theorems"].items():
+        assert t["theorem"] == ml.meaning_theorems()[kind]
+        assert t["status"] == "accepted" and set(t["axioms"]) <= STD_AXIOMS, (kind, t)
 
 
 def test_generated_tables_match_their_sources():

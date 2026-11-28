@@ -1,5 +1,7 @@
 {
  "commit": "1d73a80e0d344eefb250d34cc0ba3649686009d1",
+ "file_commit": "b2cafbebed25a0aab659616eaafcd8db90c49426",
+ "file_commit_note": "collected at commit (1d73a80), ingested last at file_commit (b2cafbe, the retry of the superbee TVD theorem), the heldout pin; the Lean key (measure_lean.KEY_PATHS, toolchain, Mathlib) is the same at both, and a test checks it",
  "measured": "2026-11-28",
  "key": {
   "lean_toolchain": "leanprover/lean4:v4.30.0-rc1",

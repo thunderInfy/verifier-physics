@@ -593,15 +593,16 @@ is reached; timeouts depend on the machine. The run was measured on
 \rn{Lean 4.30.0-rc1 and Mathlib f369f66}{paper_numbers.py::lean_replay}, on
 \rn{a GCP e2-standard-8 machine (8 vCPU, 32\,GB)}{paper_numbers.py::lean_replay}, six theorems at a
 time. The results, with every theorem's status, axioms and time, are in
-\code{lean\_measured.json}; a test fails if the Lean project, the judges, the planners or the checks
-have changed since.\repro{tests/test_paper_numbers.py::test_lean_measurement_is_current_and_complete}
+\code{lean\_measured\_b2cafbe.json}; a test fails if the Lean project, the judges, the planners or the
+checks differ from those of the commit it names.\repro{tests/test_paper_numbers.py::test_lean_measurements_match_their_commits}
 Table~\ref{tab:leanmeasured} gives the counts.\repro{tests/test_paper_numbers.py::test_generated_tables_match_their_sources}
 
 \begin{table}[t]\small
 \caption{The measured Lean run, per set of specs: specs, distinct theorems, their status, and the sum of
 their wall times in seconds (each theorem is its own Lean process, so each time includes the import of
 \code{PhysVerify.Scheme} or the module it needs). Theorems shared by several sets count once
-in the last row. Generated from \code{lean\_measured.json}.}\label{tab:leanmeasured}
+in the last row. Generated from \code{lean\_measured\_b2cafbe.json}; the last line names the commit and the
+machine.}\label{tab:leanmeasured}
 \begin{tabular}{@{}lrrrrrrr@{}}
 \toprule
 set & specs & theorems & accepted & rejected & error & timeout & Lean s \\ \midrule
