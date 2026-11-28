@@ -478,10 +478,25 @@ def field_score(scores: list[str]) -> str:
     return scores[0]
 
 
-def evaluate(data: dict, run: dict, its: dict, exp: dict) -> list[dict]:
+def evaluate(data: dict, run: dict, its: dict, exp: dict, narrowing_rule: bool = False,
+             narrowed: dict | None = None) -> list[dict]:
+    """With narrowing_rule (off for the frozen results), a narrowed reading's verdict is first mapped to the
+    sentence's by its quantifier (physverify/schemes/narrowing.py); `narrowed` maps (id, index) to a
+    `narrowed` list for readings that do not carry one (the post-hoc annotation of POSTHOC_NARROWING.md)."""
     by = {}
     for r in run["readings"]:
         by.setdefault(r["id"], []).append(r)
+    if narrowing_rule:
+        from physverify.schemes import narrowing
+        src = {e["id"]: e["readings"] for e in data["items"]}
+        for i, reads in by.items():
+            out = []
+            for r in reads:
+                rd = dict(src[i][r["index"]])
+                if narrowed and (i, r["index"]) in narrowed:
+                    rd["narrowed"] = narrowed[i, r["index"]]
+                out.append({**r, "instance_verdict": r["verdict"], "verdict": narrowing.for_reading(rd, r["verdict"])})
+            by[i] = out
     rows = []
     for e in data["items"]:
         reads = by.get(e["id"], [])

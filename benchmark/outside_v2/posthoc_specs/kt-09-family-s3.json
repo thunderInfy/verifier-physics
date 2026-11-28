@@ -1,0 +1,9 @@
+{
+ "name": "kurganov_tadmor_2000_central:09, POST-HOC: as kt-09-family-s2.json for s = 3: u_{l+1} = eta_l u0 + (1 - eta_l)(u_l + dt C[u_l]), every eta_1, eta_2 in [0, 1] (Table 5.1's 3/4, 1/3 included), c = 1",
+ "named_claims": ["ssp_class_preserves"],
+ "claims": {"ssp_class": {"stages": 3, "c": "1", "conditions": [
+  "alpha_10 = 1", "beta_10 = 1",
+  "alpha_20 >= 0", "alpha_21 >= 0", "alpha_20 + alpha_21 = 1", "beta_20 = 0", "beta_21 = alpha_21",
+  "alpha_30 >= 0", "alpha_32 >= 0", "alpha_30 + alpha_32 = 1", "alpha_31 = 0", "beta_30 = 0", "beta_31 = 0",
+  "beta_32 = alpha_32"]}}
+}

@@ -1,0 +1,5 @@
+{
+ "name": "cockburn_shu_2001_rkdg_review:01, POST-HOC: the 'special class' of Sec. 2.2 (alpha_il >= 0, beta_il >= 0, sum_l alpha_il = 1), three stages, c = min alpha/beta taken as a stated 1 (c beta_il <= alpha_il). 'Regardless of its accuracy' (members of every order) is not stated",
+ "named_claims": ["ssp_class_preserves"],
+ "claims": {"ssp_class": {"stages": 3, "c": "1", "families": ["alpha_nonneg", "beta_nonneg", "alpha_row_sums_1", "ratio_c"]}}
+}

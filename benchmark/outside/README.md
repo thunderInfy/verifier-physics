@@ -69,11 +69,20 @@ fails, e.g. "not unconditionally stable"). Each reading says which expected fiel
 
 A reading may **narrow** the sentence: a specific flux f, viscosity Q or Courant range for the free data of a
 named or constructed scheme, 1D for a system, a rational sub-range of an irrational CFL bound. Every narrowing is
-recorded in the reading's `narrowing` field. A narrowing must keep the sentence's truth value: a TRUE sentence
-narrowed to an instance must stay TRUE on it, and a FALSE one is narrowed only to an instance on which it fails
-(where the instance comes from the item's justification, the reading says so). We never pick an instance whose
-truth differs from the sentence's. A narrowed VERIFIED verifies the instance, not the sentence; the results
-count narrowed matches separately.
+recorded in the reading's `narrowing` field. The frozen dev, heldout and v2 results used an older rule: a
+narrowing had to keep the sentence's truth value, which a blind reader cannot follow because it does not know that
+value (v2's `barsukow_uzh_notes:13`, FALSE for every slope, was narrowed to the central slope, where it holds, and
+scored WRONG). Future runs score narrowed readings by the sentence's quantifier instead
+(`physverify/schemes/narrowing.py`, opt-in through `narrowing_rule=True` in `evaluate` of `run_dev.py`,
+`run_heldout.py` and `outside_v2/run_v2.py`; the frozen results do not set it). A reading lists each narrowed
+parameter with the sentence's quantifier over it in a `narrowed` field, `[{"param": ..., "quantifier": "universal" |
+"existential"}]`, and the instance gets a relation from the checker's table. Over a universal parameter (every
+flux, slope, method, every CFL number in a range) the instance is NECESSARY: an instance REFUTED refutes the
+sentence, and a narrowed VERIFIED is instance evidence, scored as not refuted (NOT_REFUTED, a GAP), never as
+VERIFIED or TRUE. Over an existential parameter (stable for some CFL number, there is a limiter such that ...) the
+instance is SUFFICIENT: VERIFIED verifies the sentence and REFUTED says nothing. A CFL parameter without a recorded
+quantifier takes the claim kind's own, when its registry entry fixes it (`there is nu0` or `for all nu`). Mixed or
+unrecorded quantifiers give UNKNOWN. We never guess.
 
 Theorems about every scheme with some property ("a monotone scheme is TVNI", "conservative iff flux form", the
 Lax–Wendroff theorem) are not narrowed to an instance: they are UNFORMALIZED as `scheme-class`, whatever their

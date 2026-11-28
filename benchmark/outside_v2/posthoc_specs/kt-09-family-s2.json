@@ -1,0 +1,7 @@
+{
+ "name": "kurganov_tadmor_2000_central:09, POST-HOC: the time-stepping half only. The family (5.7) for s = 2: u1 = u0 + dt C[u0]; u2 = eta_1 u0 + (1 - eta_1)(u1 + dt C[u1]), every eta_1 in [0, 1] (Table 5.1's 1/2 included), c = 1. The 2D forward-Euler maximum principle (Theorem 5.1) is not stated",
+ "named_claims": ["ssp_class_preserves"],
+ "claims": {"ssp_class": {"stages": 2, "c": "1", "conditions": [
+  "alpha_10 = 1", "beta_10 = 1", "alpha_20 >= 0", "alpha_21 >= 0", "alpha_20 + alpha_21 = 1", "beta_20 = 0",
+  "beta_21 = alpha_21"]}}
+}

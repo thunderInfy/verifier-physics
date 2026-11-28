@@ -1,0 +1,5 @@
+{
+ "name": "cockburn_shu_2001_rkdg_review:06, POST-HOC: the Runge-Kutta conditions Theorem 2.4 prints (alpha_il >= 0, sum_l alpha_il = 1, max |beta_il / alpha_il| dt <= dt_FE, so |beta_il| <= alpha_il with c = 1), two stages; no beta >= 0. The class claim quantifies over every convex property; the sentence states one (the TVDM bound of the limited DG method), so this kind is SUFFICIENT for the sentence",
+ "named_claims": ["ssp_class_preserves"],
+ "claims": {"ssp_class": {"stages": 2, "c": "1", "families": ["alpha_nonneg", "alpha_row_sums_1", "abs_ratio_c"]}}
+}

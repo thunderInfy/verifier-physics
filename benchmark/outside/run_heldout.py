@@ -33,7 +33,7 @@ from collections import Counter
 from pathlib import Path
 
 from physverify import reconstruction
-from physverify.schemes import bench, check, claims as C
+from physverify.schemes import bench, check, claims as C, narrowing
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -247,11 +247,16 @@ def field_score(scores: list[str]) -> str:
     return scores[0]
 
 
-def evaluate(data: dict, items: dict, V: dict) -> list[dict]:
+def evaluate(data: dict, items: dict, V: dict, narrowing_rule: bool = False) -> list[dict]:
+    """With narrowing_rule (off for the frozen results), a narrowed reading's verdict is first mapped to
+    the sentence's by its quantifier (physverify/schemes/narrowing.py)."""
     rows = []
     for e in data["items"]:
         item = items[e["id"]]
         actual = [reading_verdict(r, V) for r in e["readings"]]
+        if narrowing_rule:
+            actual = [{**a, "instance_verdict": a["verdict"], "verdict": narrowing.for_reading(r, a["verdict"])}
+                      for r, a in zip(e["readings"], actual)]
         scores = {}
         for f in FIELDS:
             mine = [score(item[f"expected_{f}"], a["verdict"]) for r, a in zip(e["readings"], actual)

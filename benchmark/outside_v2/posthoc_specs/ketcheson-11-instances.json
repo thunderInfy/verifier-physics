@@ -1,0 +1,17 @@
+{
+ "about": "ketcheson_2019_relaxation_rk:11, POST-HOC: instances of 'C(A, gamma b) >= C(A, b) for 0 <= gamma <= gamma*', at the gamma* of Table 1 and one gamma below it. The sentence is universal over methods and gamma, so each instance is NECESSARY for it",
+ "specs": [
+  {"name": "SSPRK(3,3), gamma = gamma* = 3/2", "named_claims": ["ssp_coefficient"],
+   "claims": {"ssp_coefficient": {"relation": ">=",
+     "method": {"butcher": {"A": [["0", "0", "0"], ["1", "0", "0"], ["1/4", "1/4", "0"]], "b": ["1/4", "1/4", "1"]}},
+     "other": {"butcher": {"A": [["0", "0", "0"], ["1", "0", "0"], ["1/4", "1/4", "0"]], "b": ["1/6", "1/6", "2/3"]}}}}},
+  {"name": "SSPRK(3,3), gamma = 1/2", "named_claims": ["ssp_coefficient"],
+   "claims": {"ssp_coefficient": {"relation": ">=",
+     "method": {"butcher": {"A": [["0", "0", "0"], ["1", "0", "0"], ["1/4", "1/4", "0"]], "b": ["1/12", "1/12", "1/3"]}},
+     "other": {"butcher": {"A": [["0", "0", "0"], ["1", "0", "0"], ["1/4", "1/4", "0"]], "b": ["1/6", "1/6", "2/3"]}}}}},
+  {"name": "SSPRK(2,2), gamma = gamma* = 2", "named_claims": ["ssp_coefficient"],
+   "claims": {"ssp_coefficient": {"relation": ">=",
+     "method": {"butcher": {"A": [["0", "0"], ["1", "0"]], "b": ["1", "1"]}},
+     "other": {"butcher": {"A": [["0", "0"], ["1", "0"]], "b": ["1/2", "1/2"]}}}}}
+ ]
+}
