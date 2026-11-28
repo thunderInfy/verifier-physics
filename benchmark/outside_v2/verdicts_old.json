@@ -1,0 +1,421 @@
+{
+ "about": "Checker output for the v2 readings at one pin (run_v2.py --checker-root); scores are computed from this file by run_v2.py --render.",
+ "pin": "OLD",
+ "checker_commit": "b2cafbebed25a0aab659616eaafcd8db90c49426",
+ "checker_root": "/tmp/w0084-old-pin",
+ "physverify_file": "/tmp/w0084-old-pin/physverify/__init__.py",
+ "lean_store": "papers/scheme-claims/lean_measured_b2cafbe.json",
+ "readings_commits": {
+  "readings.json": "4c82154397c6c8f2ce1176870b7f283c5b2cc124",
+  "readings_a2.json": "c6f480d74631f2c4de9cba57fcdd9fdabbdd84a9"
+ },
+ "translation_commit": "7c6cd1510a9b1ef90d0f7b66b68f16fef99a917f",
+ "a1": {
+  "groups": {
+   "[\"benchmark/outside_v2/specs/borges-wenoz-fd.json\", {}, {\"eps\": \"0\", \"form\": \"flux_difference\", \"n_cp\": 1, \"p\": 5, \"regime\": \"critical\"}]": {
+    "reconstruction_order_p": {
+     "verdict": "REFUTED",
+     "guarantee": "exact (reconstruction_order_p)",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "reconstruction claims have no Lean statement"
+    }
+   },
+   "[\"benchmark/outside_v2/specs/kt-semidiscrete-minmod-theta1-advection.json\", {}, {}]": {
+    "tvd_under_cfl": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "not measured",
+     "lean_detail": "tvd_harten: TVD through Harten's lemma: not proven: s0_tvd_harten, s0_tvd_harten_sqrt; cells: not proven: s0_tvd_harten_0, s0_tvd_harten_1, s0_tvd_harten_2, s0_tvd_harten_3, s0_tvd_harten_4, s0_tvd_harten_5, s0_tvd_harten_6, s0_tvd_harten_7, s0_tvd_harten_8, s0_tvd_harten_9, s0_tvd_harten_10, s0_tvd_harten_11, s0_tvd_harten_12, s0_tvd_harten_13, s0_tvd_harten_14, s0_tvd_harten_15, s0_tvd_harten_16, s0_tvd_harten_17, s0_tvd_harten_18, s0_tvd_harten_19, s0_tvd_harten_20, s0_tvd_harten_21, s0_tvd_harten_22, s0_tvd_harten_23, s0_tvd_harten_24, s0_tvd_harten_25, s0_tvd_harten_26, s0_tvd_harten_27, s0_tvd_harten_28, s0_tvd_harten_29, s0_tvd_harten_30, s0_tvd_harten_31, s0_tvd_harten_32, s0_tvd_harten_33, s0_tvd_harten_34, s0_tvd_harten_35, s0_tvd_harten_36, s0_tvd_harten_37, s0_tvd_harten_38, s0_tvd_harten_39, s0_tvd_harten_40, s0_tvd_harten_41, s0_tvd_harten_42, s0_tvd_harten_43, s0_tvd_harten_44, s0_tvd_harten_45, s0_tvd_harten_46, s0_tvd_harten_47, s0_tvd_harten_48, s0_tvd_harten_49, s0_tvd_harten_50, s0_tvd_harten_51, s0_tvd_harten_52, s0_tvd_harten_53, s0_tvd_harten_54, s0_tvd_harten_55, s0_tvd_harten_56, s0_tvd_harten_57, s0_tvd_harten_58, s0_tvd_harten_59, s0_tvd_harten_60, s0_tvd_harten_61, s0_tvd_harten_62, s0_tvd_harten_63",
+     "lean_guarantee": "exact"
+    }
+   },
+   "[\"benchmark/outside_v2/specs/kt-semidiscrete-minmod-theta2-advection.json\", {}, {}]": {
+    "tvd_under_cfl": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "not measured",
+     "lean_detail": "tvd_harten: TVD through Harten's lemma: not proven: s0_tvd_harten, s0_tvd_harten_sqrt; cells: not proven: s0_tvd_harten_0, s0_tvd_harten_1, s0_tvd_harten_2, s0_tvd_harten_3, s0_tvd_harten_4, s0_tvd_harten_5, s0_tvd_harten_6, s0_tvd_harten_7, s0_tvd_harten_8, s0_tvd_harten_9, s0_tvd_harten_10, s0_tvd_harten_11, s0_tvd_harten_12, s0_tvd_harten_13, s0_tvd_harten_14, s0_tvd_harten_15, s0_tvd_harten_16, s0_tvd_harten_17, s0_tvd_harten_18, s0_tvd_harten_19, s0_tvd_harten_20, s0_tvd_harten_21, s0_tvd_harten_22, s0_tvd_harten_23, s0_tvd_harten_24, s0_tvd_harten_25, s0_tvd_harten_26, s0_tvd_harten_27, s0_tvd_harten_28, s0_tvd_harten_29, s0_tvd_harten_30, s0_tvd_harten_31, s0_tvd_harten_32, s0_tvd_harten_33, s0_tvd_harten_34, s0_tvd_harten_35, s0_tvd_harten_36, s0_tvd_harten_37, s0_tvd_harten_38, s0_tvd_harten_39, s0_tvd_harten_40, s0_tvd_harten_41, s0_tvd_harten_42, s0_tvd_harten_43, s0_tvd_harten_44, s0_tvd_harten_45, s0_tvd_harten_46, s0_tvd_harten_47, s0_tvd_harten_48, s0_tvd_harten_49, s0_tvd_harten_50, s0_tvd_harten_51, s0_tvd_harten_52, s0_tvd_harten_53, s0_tvd_harten_54, s0_tvd_harten_55, s0_tvd_harten_56, s0_tvd_harten_57, s0_tvd_harten_58, s0_tvd_harten_59, s0_tvd_harten_60, s0_tvd_harten_61, s0_tvd_harten_62, s0_tvd_harten_63, s0_tvd_harten_64, s0_tvd_harten_65, s0_tvd_harten_66, s0_tvd_harten_67, s0_tvd_harten_68, s0_tvd_harten_69, s0_tvd_harten_70, s0_tvd_harten_71, s0_tvd_harten_72, s0_tvd_harten_73, s0_tvd_harten_74, s0_tvd_harten_75, s0_tvd_harten_76, s0_tvd_harten_77, s0_tvd_harten_78, s0_tvd_harten_79, s0_tvd_harten_80, s0_tvd_harten_81, s0_tvd_harten_82, s0_tvd_harten_83, s0_tvd_harten_84, s0_tvd_harten_85, s0_tvd_harten_86, s0_tvd_harten_87, s0_tvd_harten_88, s0_tvd_harten_89, s0_tvd_harten_90, s0_tvd_harten_91, s0_tvd_harten_92, s0_tvd_harten_93, s0_tvd_harten_94, s0_tvd_harten_95, s0_tvd_harten_96, s0_tvd_harten_97, s0_tvd_harten_98, s0_tvd_harten_99",
+     "lean_guarantee": "exact"
+    }
+   },
+   "[\"benchmark/outside_v2/specs/gp-p1-1d-advection.json\", {}, {}]": {
+    "positive_under_cfl": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "not measured",
+     "lean_detail": "positivity: not proven: s0_positivity_0",
+     "lean_guarantee": "exact"
+    },
+    "consistent_order_p": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    },
+    "local_max_principle_under_cfl": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "not measured",
+     "lean_detail": "tvd_harten: not proven: s0_tvd_harten_0, s0_tvd_harten_1, s0_tvd_harten_2, s0_tvd_harten_3",
+     "lean_guarantee": "exact"
+    }
+   },
+   "[\"benchmark/outside_v2/specs/chen-shu-godunov-burgers.json\", {}, {}]": {
+    "entropy_stable_tadmor": {
+     "verdict": "SPEC_ERROR",
+     "guarantee": "",
+     "detail": "KeyError: 'q'",
+     "lean": "n/a",
+     "lean_detail": ""
+    }
+   },
+   "[\"benchmark/outside_v2/specs/chen-shu-hll-rusanov-burgers.json\", {}, {}]": {
+    "entropy_stable_tadmor": {
+     "verdict": "SPEC_ERROR",
+     "guarantee": "",
+     "detail": "KeyError: 'q'",
+     "lean": "n/a",
+     "lean_detail": ""
+    }
+   },
+   "[\"benchmark/outside_v2/specs/barsukow-upwind-advection.json\", {}, {}]": {
+    "von_neumann_stable_under_cfl": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    },
+    "consistent_order_p": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    }
+   },
+   "[\"benchmark/outside_v2/specs/barsukow-modified-lf-burgers.json\", {}, {}]": {
+    "conservative": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "not measured",
+     "lean_detail": "conservation: not proven: s0_conservation_0",
+     "lean_guarantee": "exact"
+    }
+   },
+   "[\"benchmark/outside_v2/specs/barsukow-lax-wendroff-advection.json\", {}, {}]": {
+    "stable_for_small_cfl": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    },
+    "consistent_order_p": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    }
+   },
+   "[\"benchmark/outside_v2/specs/barsukow-beam-warming-advection.json\", {}, {}]": {
+    "stable_for_small_cfl": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    },
+    "consistent_order_p": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    }
+   },
+   "[\"benchmark/outside_v2/specs/barsukow-slope-fromm-advection.json\", {}, {}]": {
+    "stable_for_small_cfl": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    },
+    "consistent_order_p": {
+     "verdict": "VERIFIED",
+     "guarantee": "exact",
+     "detail": "",
+     "lean": "Python-only",
+     "lean_detail": "no Lean statement for the deciding checks",
+     "lean_guarantee": "exact"
+    }
+   }
+  },
+  "readings": [
+   {
+    "id": "borges_costa_don_2006_wenoz:04",
+    "index": 0,
+    "fields": [
+     "with_hypotheses"
+    ],
+    "verdict": "UNKNOWN",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/borges-wenoz-fd.json\", {}, {\"eps\": \"0\", \"form\": \"flux_difference\", \"n_cp\": 1, \"p\": 5, \"regime\": \"critical\"}]",
+      "claim": "reconstruction_order_p",
+      "named": "REFUTED",
+      "reading": "VERIFIED"
+     },
+     {
+      "named": "UNFORMALIZED",
+      "reading": "UNFORMALIZED"
+     }
+    ]
+   },
+   {
+    "id": "kurganov_tadmor_2000_central:07",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "VERIFIED",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/kt-semidiscrete-minmod-theta1-advection.json\", {}, {}]",
+      "claim": "tvd_under_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     },
+     {
+      "key": "[\"benchmark/outside_v2/specs/kt-semidiscrete-minmod-theta2-advection.json\", {}, {}]",
+      "claim": "tvd_under_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     }
+    ]
+   },
+   {
+    "id": "guermond_popov_2016_invariant_domains:01",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "VERIFIED",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/gp-p1-1d-advection.json\", {}, {}]",
+      "claim": "positive_under_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     }
+    ]
+   },
+   {
+    "id": "guermond_popov_2016_invariant_domains:02",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "VERIFIED",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/gp-p1-1d-advection.json\", {}, {}]",
+      "claim": "positive_under_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     }
+    ]
+   },
+   {
+    "id": "guermond_popov_2016_invariant_domains:04",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "UNKNOWN",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/gp-p1-1d-advection.json\", {}, {}]",
+      "claim": "consistent_order_p",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     },
+     {
+      "named": "UNFORMALIZED",
+      "reading": "UNFORMALIZED"
+     }
+    ]
+   },
+   {
+    "id": "guermond_popov_2016_invariant_domains:05",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "VERIFIED",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/gp-p1-1d-advection.json\", {}, {}]",
+      "claim": "local_max_principle_under_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     }
+    ]
+   },
+   {
+    "id": "chen_shu_2017_esdg:08",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "SPEC_ERROR",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/chen-shu-godunov-burgers.json\", {}, {}]",
+      "claim": "entropy_stable_tadmor",
+      "named": "SPEC_ERROR",
+      "reading": "SPEC_ERROR"
+     }
+    ]
+   },
+   {
+    "id": "chen_shu_2017_esdg:09",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "SPEC_ERROR",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/chen-shu-hll-rusanov-burgers.json\", {}, {}]",
+      "claim": "entropy_stable_tadmor",
+      "named": "SPEC_ERROR",
+      "reading": "SPEC_ERROR"
+     }
+    ]
+   },
+   {
+    "id": "barsukow_uzh_notes:01",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "VERIFIED",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-upwind-advection.json\", {}, {}]",
+      "claim": "von_neumann_stable_under_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     },
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-upwind-advection.json\", {}, {}]",
+      "claim": "consistent_order_p",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     }
+    ]
+   },
+   {
+    "id": "barsukow_uzh_notes:06",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "VERIFIED",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-modified-lf-burgers.json\", {}, {}]",
+      "claim": "conservative",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     }
+    ]
+   },
+   {
+    "id": "barsukow_uzh_notes:12",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "VERIFIED",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-lax-wendroff-advection.json\", {}, {}]",
+      "claim": "stable_for_small_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     },
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-lax-wendroff-advection.json\", {}, {}]",
+      "claim": "consistent_order_p",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     },
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-beam-warming-advection.json\", {}, {}]",
+      "claim": "stable_for_small_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     },
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-beam-warming-advection.json\", {}, {}]",
+      "claim": "consistent_order_p",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     }
+    ]
+   },
+   {
+    "id": "barsukow_uzh_notes:13",
+    "index": 0,
+    "fields": [
+     "alone",
+     "with_hypotheses"
+    ],
+    "verdict": "VERIFIED",
+    "components": [
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-slope-fromm-advection.json\", {}, {}]",
+      "claim": "stable_for_small_cfl",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     },
+     {
+      "key": "[\"benchmark/outside_v2/specs/barsukow-slope-fromm-advection.json\", {}, {}]",
+      "claim": "consistent_order_p",
+      "named": "VERIFIED",
+      "reading": "VERIFIED"
+     }
+    ]
+   }
+  ]
+ }
+}
