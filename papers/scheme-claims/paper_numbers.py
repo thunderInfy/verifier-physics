@@ -172,44 +172,95 @@ def certificate_examples() -> dict:
     return out
 
 
-def lean_replay() -> dict:
-    """The theorems the full `--lean` pass states (README, "Lean certificates for the exact scheme
-    checks"), written without running Lean: the specs in the README's order (schemes/*.json, then
-    schemes/*/*.json), so theorem s<i>_... belongs to the i-th spec. About a minute."""
-    from physverify import lean_backend
+def _measure_lean():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("measure_lean", Path(__file__).resolve().parent / "measure_lean.py")
+    ml = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ml)
+    return ml
+
+
+def _measured_lean(pairs: list):
+    """Run lean_cert.certify on (spec, report) pairs with every Lean call answered by the measured run
+    (lean_measured.json, `measure_lean.Replay`): the labels are lean_cert's own, from the theorems' measured
+    statuses. One certify call per spec, as measure_lean.py runs them. Fails if a theorem the judge states
+    now was not measured. Returns ([(theorem name, record) per pair], store)."""
     from physverify.schemes import lean_cert
+    ml = _measure_lean()
+    store, used, missing = ml.load_store(), [], 0
+    for pair in pairs:
+        with ml.Replay(store) as rp:
+            lean_cert.certify([pair])
+        missing += len(rp.pending)
+        used.append([(n, store["theorems"].get(h)) for n, h in rp.used])
+    if missing:
+        raise RuntimeError(f"{missing} theorems are not in lean_measured.json: run measure_lean.py collect")
+    return used, store
+
+
+def lean_replay() -> dict:
+    """The measured Lean run on the example specs (schemes/*.json, then schemes/*/*.json; README, "Lean
+    certificates for the exact scheme checks"): every theorem the judge states, with its status in
+    lean_measured.json (one file per theorem on the machine named there). About a minute."""
     paths = sorted(S.glob("*.json")) + sorted(S.glob("*/*.json"))
     pairs = [(spec, check(spec)) for spec in map(load, paths)]
-    stated, real = [], lean_backend.check_batch
-    lean_backend.check_batch = lambda items, **kw: stated.extend(items) or {
-        n: lean_backend.LeanResult(False, set(), "not run") for n, _, _ in items}
-    try:
-        lean_cert.certify(pairs)
-    finally:
-        lean_backend.check_batch = real
-    names = [n for n, _, _ in stated]
-    i = paths.index(S / "broken-burgers-rusanov-wide-cfl.json")
-    rus = [n for n in names if n.startswith(f"s{i}_monotonicity")]
-    # the stated_identity rows (schemes/identity/) came after the last full Lean run, which covered the others
-    ident = {f"s{j}_" for j, p in enumerate(paths) if p.parent.name == "identity"}
-    new = [n for n in names if any(n.startswith(s) for s in ident)]
-    out = {"specs": str(len(paths)), "theorems stated": str(len(names)),
-           "specs in schemes/identity": str(len(ident)),
-           "theorems stated for schemes/identity": str(len(new)),
-           "specs outside schemes/identity": str(len(paths) - len(ident)),
-           "theorems stated outside schemes/identity": str(len(names) - len(new)),
-           "sqrt side theorems": str(sum(n.endswith("_sqrt") for n in names)),
-           "Rusanov refutation theorems": ", ".join(rus),
-           "Rusanov refutation statement": next(s for n, s, _ in stated if n == rus[0])}
+    used, store = _measured_lean(pairs)
+    th = [(p, n, t) for p, u in zip(paths, used) for n, t in u]
+    rus = [n for p, n, _ in th if p.name == "broken-burgers-rusanov-wide-cfl.json" and "_monotonicity" in n]
+    out = {"specs": str(len(paths)), "theorems stated": str(len(th)),
+           "specs in schemes/identity": str(sum(p.parent.name == "identity" for p in paths)),
+           "theorems stated for schemes/identity": str(sum(p.parent.name == "identity" for p, _, _ in th)),
+           "sqrt side theorems": str(sum(n.endswith("_sqrt") for _, n, _ in th)),
+           "Rusanov refutation theorems": ", ".join(rus)}
+    for s in ("accepted", "rejected", "error", "timeout"):
+        out[s] = str(sum(t["status"] == s for _, _, t in th))
+    out["not accepted"] = "; ".join(f"{p.relative_to(S)} {n}: {t['status']}"
+                                    for p, n, t in th if t["status"] != "accepted") or "none"
+    th = [(n, t) for _, n, t in th]
+    secs = [t["seconds"] for _, t in th]
+    out["Lean seconds, sum over theorems"] = f"{sum(secs):.0f}"
+    out["Lean seconds per theorem, median"] = f"{sorted(secs)[len(secs) // 2]:.1f}"
+    out["peak memory per theorem, max (GB)"] = f"{max(t['peak_rss_mb'] for _, t in th) / 1024:.1f}"
+    out["host"] = f"{store['host']['name']} ({store['host']['machine']}, {store['host']['cpus']} vCPU, {store['host']['ram_gb']} GB)"
+    out["measured"] = f"{store['measured']}, commit {store['commit'][:7]}"
+    out["Lean, Mathlib"] = f"{store['key']['lean_toolchain']}, Mathlib {store['key']['mathlib_rev'][:7]}"
+    labelled = [v for _, rep in pairs for v in rep["claims"] if v["guarantee"].startswith("proven (Lean")]
+    out["claim verdicts with a Lean label"] = str(len(labelled))
     not_stated = sorted({(s["name"], r["check"], r["lean"]) for s, rep in pairs for r in rep["checks"]
                          if r.get("lean", "").startswith("not stated")})
     out["not stated"] = "; ".join(f"{a} {b}: {c}" for a, b, c in not_stated) or "none"
     return out
 
 
+def lean_replay_all() -> dict:
+    """The whole measured run (lean_measured.json, every spec the paper counts): distinct theorems by status,
+    the run's wall time, and each theorem not accepted with its specs, its attempts and Lean's first error."""
+    store = _measure_lean().load_store()
+    used: dict = {}
+    for uid, s in store["specs"].items():
+        for _, h in s["theorems"]:
+            used.setdefault(h, []).append(uid)
+    th = {h: store["theorems"][h] for h in used}
+    out = {"specs": str(len(store["specs"])), "theorems": str(len(th)),
+           "limit per theorem (s)": str(store["limits"]["per_theorem_s"]), "retry limit (s)": str(store["limits"]["retry_s"])}
+    for s in ("accepted", "rejected", "error", "timeout"):
+        out[s] = str(sum(t["status"] == s for t in th.values()))
+    out["Lean seconds, sum over theorems"] = f"{sum(t['seconds'] for t in th.values()):.0f}"
+    for name, r in store["runs"].items():
+        if r["starts"] and r["ends"]:
+            out[f"run {name}: wall seconds, {r['parallel']} in parallel"] = str(r["ends"][-1] - r["starts"][0])
+    for h, t in th.items():
+        if t["status"] != "accepted":
+            first = (t.get("message") or "").splitlines()[:1]
+            out[f"not accepted: {t['name']}"] = (f"{t['status']}; attempts "
+                                                f"{', '.join(f'''{a['status']} after {a['seconds']:.0f} s (limit {a['limit_s']} s)''' for a in t['attempts'])}; "
+                                                f"specs {'; '.join(used[h])}" + (f"; Lean: {first[0].split(': ', 1)[-1]}" if first else ""))
+    return out
+
+
 def _stating_lean(pairs: list) -> list:
     """Run lean_cert.certify on (spec, report) pairs without Lean: every theorem the judge states is
-    taken as accepted, which is what the full --lean pass on the example specs gives (532 of 532).
+    taken as accepted (the projection that lean_measured.json replaces; kept as a secondary number).
     Returns the stated (name, statement, proof) items; the reports' labels are upgraded in place."""
     from physverify import lean_backend
     from physverify.schemes import lean_cert
@@ -223,13 +274,8 @@ def _stating_lean(pairs: list) -> list:
     return stated
 
 
-def bench_lean_labels() -> dict:
-    """How many of the benchmark's verdicts would carry a Lean label after the replay, if Lean accepts
-    every theorem the judge states for them (Lean is not run here). A named-claim verdict carries one by
-    the rule of `lean_cert.lean_carrier` (one deciding check with its required checks). A VERIFIED reading carries one if
-    every component's named-claim verdict does; a REFUTED reading if one of its refuting components does.
-    Also: the readings whose decisive named claims all have a meaning theorem in physverify/claimkinds.py."""
-    from physverify.claimkinds import KINDS
+def _bench_pairs() -> tuple[dict, list, list]:
+    """The benchmark's (spec, override) groups, checked: (data, keys, (spec, report) pairs)."""
     data = json.loads((B / "claims.json").read_text())
     groups: dict = {}
     for c in bench.components(data):
@@ -240,31 +286,64 @@ def bench_lean_labels() -> dict:
         spec = bench._spec(B, c["spec"], c.get("override", {}), list(dict.fromkeys(names)))
         pairs.append((spec, check(spec)))
         keys.append(key)
-    stated = _stating_lean(pairs)
+    return data, keys, pairs
+
+
+def _reading_labels(data: dict, keys: list, pairs: list) -> dict:
+    """The decisive readings and those carrying a Lean label, from the claim verdicts' guarantees (which
+    lean_cert.certify has set). A VERIFIED reading carries one if every component's named-claim verdict
+    does; a REFUTED reading if one of its refuting components does."""
     verdicts = {k: {v["claim"]: v for v in rep["claims"]} for k, (_, rep) in zip(keys, pairs)}
     rows = bench.evaluate(data, verdicts)
     decisive = [r for r in rows if r["score"] == "match"]
 
-    def comps(r):
-        return [(c, verdicts[bench._key(c)][c["claim"]]) for c in r["_r"]["formalization"] if "unformalized" not in c]
-
     def deciding(r):
-        cs = comps(r)
+        cs = [(c, verdicts[bench._key(c)][c["claim"]]) for c in r["_r"]["formalization"] if "unformalized" not in c]
         return cs if r["verdict"] == "VERIFIED" else [(c, v) for c, v in cs if v["verdict"] == r["verdict"]]
 
     lean = lambda v: v["guarantee"].startswith("proven (Lean")
-    label = [r for r in decisive if (all if r["verdict"] == "VERIFIED" else any)(lean(v) for _, v in deciding(r))]
-    whole = [r for r in label if (all if r["verdict"] == "VERIFIED" else any)(
-        lean(v) and not v["guarantee"].startswith("proven (Lean, per cell") for _, v in deciding(r))]
-    meaning = [r for r in decisive if all(KINDS[c["claim"]]["meaning"] for c, _ in deciding(r))]
-    return {"readings": str(len(rows)), "decisive verdicts": str(len(decisive)),
-            "theorems stated": str(len(stated)),
+    quant = lambda r: all if r["verdict"] == "VERIFIED" else any
+    label = [r for r in decisive if quant(r)(lean(v) for _, v in deciding(r))]
+    whole = [r for r in label if quant(r)(lean(v) and not v["guarantee"].startswith("proven (Lean, per cell")
+                                          for _, v in deciding(r))]
+    return {"rows": rows, "decisive": decisive, "label": label, "whole": whole, "deciding": deciding}
+
+
+def bench_lean_labels() -> dict:
+    """How many of the benchmark's decisive verdicts carry a Lean label in the measured Lean run
+    (lean_measured.json): a named-claim verdict carries one by lean_cert's own rule (`relabel_claims`,
+    `lean_carrier`: one deciding check whose required checks' theorems were all accepted), applied to the
+    measured statuses; readings by `_reading_labels`. Also the projection this replaces (every stated
+    theorem taken as accepted), and the readings whose decisive named claims all have a meaning theorem in
+    physverify/claimkinds.py. About two minutes (the benchmark's checks, twice)."""
+    import copy
+    from physverify.claimkinds import KINDS
+    data, keys, pairs = _bench_pairs()
+    projected = copy.deepcopy(pairs)
+    used, _ = _measured_lean(pairs)
+    m = _reading_labels(data, keys, pairs)
+    stated = _stating_lean(projected)
+    p = _reading_labels(data, keys, projected)
+    recs = [t for u in used for _, t in u]
+    decisive, label, whole = m["decisive"], m["label"], m["whole"]
+    meaning = [r for r in decisive if all(KINDS[c["claim"]]["meaning"] for c, _ in m["deciding"](r))]
+    lost = [f"{r['id']} {r['reading'][:40]}" for r in p["label"]
+            if (r["id"], r["reading"]) not in {(x["id"], x["reading"]) for x in label}]
+    return {"readings": str(len(m["rows"])), "decisive verdicts": str(len(decisive)),
+            "theorems stated": str(len(recs)),
+            "theorems accepted": str(sum(t["status"] == "accepted" for t in recs)),
+            "theorems not accepted": "; ".join(sorted({f"{n}: {t['status']}" for u in used for n, t in u
+                                                       if t["status"] != "accepted"})) or "none",
             "decisive with a Lean label": str(len(label)),
             "of which proven (Lean), not per cell": str(len(whole)),
             "of which per cell": str(len(label) - len(whole)),
             "decisive VERIFIED with a Lean label": str(sum(r["verdict"] == "VERIFIED" for r in label)),
             "decisive REFUTED with a Lean label": str(sum(r["verdict"] == "REFUTED" for r in label)),
             "without a Lean label": "; ".join(f"{r['id']} {r['reading'][:40]}" for r in decisive if r not in label),
+            "projected (every stated theorem accepted): decisive with a Lean label": str(len(p["label"])),
+            "projected: of which per cell": str(len(p["label"]) - len(p["whole"])),
+            "projected: theorems stated": str(len(stated)),
+            "labelled in the projection, not in the measured run": ", ".join(lost) or "none",
             "decisive whose claims all have a meaning theorem": str(len(meaning))}
 
 
@@ -391,6 +470,180 @@ def _outside_gaps_tex(numbers: dict | None = None) -> str:
     return "\n".join(out + ["\\bottomrule"]) + "\n"
 
 
+# ---------------------------------------------------------------- generated tables (main.tex inputs them)
+
+HERE = Path(__file__).resolve().parent
+LEAN_KINDS = {"schemes": "example specs", "bench": "our benchmark", "outside": "outside, dev readings",
+              "variational": "update maps, variational", "kernels": "kernels"}
+
+
+def _lean_measured_tex(store: dict | None = None) -> str:
+    """The rows of the measured-run table, from lean_measured.json: per spec set, the specs, the distinct
+    theorems by status, and the sum of their wall times (each theorem is its own Lean process, import
+    included). Theorems shared by several sets count once in the last row."""
+    store = store or _measure_lean().load_store()
+    out = ["% generated from lean_measured.json by `paper_numbers.py --write-table`; do not edit"]
+    every: set = set()
+
+    def row(label, specs, hs):
+        th = [store["theorems"][h] for h in hs]
+        n = [sum(t["status"] == s for t in th) for s in ("accepted", "rejected", "error", "timeout")]
+        return f"{label} & {len(specs)} & {len(th)} & " + " & ".join(map(str, n)) + f" & {sum(t['seconds'] for t in th):.0f} \\\\"
+
+    for kind, label in LEAN_KINDS.items():
+        specs = [s for s in store["specs"].values() if s["kind"] == kind]
+        hs = {h for s in specs for _, h in s["theorems"]}
+        every |= hs
+        out.append(row(label, specs, hs))
+    out.append("\\midrule")
+    out.append(row("all, distinct theorems", list(store["specs"].values()), every))
+    return "\n".join(out + ["\\bottomrule"]) + "\n"
+
+
+LEAN_TEX = HERE / "lean_measured_table.tex"
+VERDICT_TEX = {"VERIFIED": "\\V", "REFUTED": "\\R", "REFUTED_EMPIRICALLY": "\\RE", "NOT_REFUTED": "\\NR",
+               "UNKNOWN": "\\U", "UNFORMALIZED": "\\UF", "INCONSISTENT": "\\IC"}
+# the benchmark table's short wording of each reading, in claims.json order (the verdicts come from the checker)
+BENCH_READINGS = [
+    r"Lax--Wendroff: conservative and order 2 on smooth solutions",
+    r"Lax--Wendroff: local truncation error $O(\Delta x^2)$",
+    r"Lax--Wendroff: TVD for every $\nu \in [0, 1]$",
+    r"the same, in flux-limiter form",
+    r"Lax--Wendroff on Burgers: Tadmor entropy stable (semi-discrete)",
+    r"Lax--Wendroff on Burgers: converges to the entropy solution",
+    r"upwind: max-norm stable for every $\nu \ge 0$",
+    r"upwind: von Neumann stable for every $\nu \ge 0$",
+    r"Lax--Friedrichs: max-norm stable for $\nu \in [-1, 1]$",
+    r"Lax--Friedrichs: von Neumann stable for $\nu \in [-1, 1]$",
+    r"central flux + forward Euler: consistent, conservative, stable for small $\nu$",
+    r"Rusanov, local $\alpha$: monotone under $\lambda\max|u| \le 1$",
+    r"Rusanov numerical flux is monotone",
+    r"Rusanov with one global $\alpha$: monotone under $\lambda\alpha \le 1$",
+    r"Engquist--Osher: monotone under $\lambda\max|u| \le 1$, entropy limit",
+    r"Engquist--Osher flux (integral form): Tadmor entropy stable",
+    r"Engquist--Osher flux: entropy stable for every convex entropy",
+    r"Roe: fully discrete limit is the entropy solution",
+    r"Roe: method-of-lines limit is the entropy solution",
+    r"Roe + Harten fix: converges to the fan on transonic rarefactions",
+    r"Lax--Friedrichs on Burgers: order 1, flux form, correct shock speed",
+    r"shock clause, conditional (every bounded limit is a weak solution)",
+    r"shock clause, unconditional",
+    r"quasilinear upwind: shocks at the Rankine--Hugoniot speed",
+    r"quasilinear upwind: every bounded limit is a weak solution",
+    r"upwind (update form): consistent, flux form, positive on $[0, 1]$",
+    r"Lax--Friedrichs (update form): non-negative coefficients on $[-1, 1]$",
+    r"Lax--Friedrichs on Burgers: Tadmor entropy stable for every $\Delta t/\Delta x$",
+    r"fully discrete entropy inequality for every $\Delta t/\Delta x$",
+    r"Godunov flux, $\max$ transcribed literally: consistent, entropy stable",
+    r"the same flux rewritten as $\max(a, -b)^2/2$",
+    r"minmod MUSCL: order 2 in $L^1$ without extrema",
+    r"minmod MUSCL: order 2 in $L^\infty$ with extrema",
+    r"minmod MUSCL: truncation error $O(\Delta x^2)$ at every point, extrema included",
+    r"minmod MUSCL: order 2 in $L^1$ on sine data",
+    r"upwind: global order 1 at fixed $\Delta t/\Delta x$ ($\ell^2$ or $L^1$)",
+    r"upwind: order 1 in $L^1$ for discontinuous solutions",
+    r"upwind: local truncation error $O(\Delta x)$",
+    r"upwind: order 1 in $\Delta x$ and in $\Delta t$, separate refinements",
+    r"Rusanov for $u_t + (u^2)_x = 0$: consistent, entropy stable for $\eta = u^2$",
+    r"minmod: TVD on $[0, 1]$",
+    r"superbee: TVD on $[0, 1]$",
+    r"superbee: TVD on $[0, 3/2]$",
+    r"minmod flux-limited scheme: monotone for $\nu \in (0, 1]$",
+]
+BENCH_TEX = HERE / "bench_table.tex"
+BENCH_COUNTS_TEX = HERE / "bench_counts_table.tex"
+OUTSIDE_PROPERTY_TEX = HERE / "outside_property_table.tex"
+
+
+def _bench_rows() -> list:
+    data = json.loads((B / "claims.json").read_text())
+    return bench.evaluate(data, bench.run(data, B))
+
+
+def _bench_tex(rows: list | None = None) -> str:
+    """The rows of the benchmark's longtable: our short wording, the expected value and the checker's
+    verdict and score now (`bench.evaluate`)."""
+    rows = rows or _bench_rows()
+    if len(rows) != len(BENCH_READINGS):
+        raise ValueError("BENCH_READINGS must have one wording per reading of claims.json")
+    out, last = ["% generated from benchmark/scheme-claims/claims.json and the checker by "
+                 "`paper_numbers.py --write-table`; do not edit"], None
+    for r, text in zip(rows, BENCH_READINGS):
+        exp = {True: "T", False: "F"}.get(r["expected"], "u")
+        out.append(f"{r['id'] if r['id'] != last else '   '} & {text} & {exp} & {VERDICT_TEX[r['verdict']]} & {r['score']} \\\\")
+        last = r["id"]
+    return "\n".join(out + ["\\bottomrule"]) + "\n"
+
+
+def _bench_counts_tex(rows: list | None = None) -> str:
+    """The benchmark's score table (match, gap, wrong by expected value)."""
+    rows = rows or _bench_rows()
+    n = lambda s, e=None: sum(r["score"] == s and (e is None or r["expected"] is e) for r in rows)
+    out = ["% generated from the checker's benchmark run by `paper_numbers.py --write-table`; do not edit"]
+    for label, s in (("decisive and correct (match)", "match"), ("gap", "gap"), ("wrong", "WRONG")):
+        out.append(f"{label} & {n(s, True)} & {n(s, False)} & {n(s)} \\\\")
+    return "\n".join(out + ["\\bottomrule"]) + "\n"
+
+
+def _outside_property_tex(numbers: dict | None = None) -> str:
+    """The outside benchmark's stated / items per property tag, two columns of pairs, most items first."""
+    n = numbers or outside_dev()
+    props = sorted(((k.removeprefix("property "), v) for k, v in n.items() if k.startswith("property ")),
+                   key=lambda kv: (-int(kv[1].split("/")[1]), kv[0]))
+    half = (len(props) + 1) // 2
+    left, right = props[:half], props[half:]
+    cell = lambda p: f"{ {'tvd': 'TVD'}.get(p[0], p[0])} & {p[1].replace('/', ' / ')}" if p else " & "
+    out = ["% generated from benchmark/outside/run_dev.py by `paper_numbers.py --write-table`; do not edit"]
+    for i in range(half):
+        out.append(f"{cell(left[i])} & {cell(right[i] if i < len(right) else None)} \\\\")
+    return "\n".join(out + ["\\bottomrule"]) + "\n"
+
+
+def outside_lean_labels() -> dict:
+    """The outside benchmark's decided dev readings that carry a Lean label in the measured run
+    (lean_measured.json): the named-claim verdicts are labelled by lean_cert's rule on the measured
+    statuses, readings as in `_reading_labels` (VERIFIED: every component; REFUTED: one refuting component;
+    a negated component keeps its named claim's label). Reconstruction, limiter and ENO claims are checked in
+    Python only and have no Lean statement. About 10 s."""
+    from physverify import reconstruction
+    rd = _run_dev()
+    data = rd.load()
+    groups: dict = {}
+    for c in rd.components(data):
+        groups.setdefault(rd._key(c), (c, []))[1].append(c["claim"])
+    flat = rd.run(data)                     # the runner's own verdicts, reconstruction claims included
+    named = {k: {n: {"verdict": v, "guarantee": ""} for n, v in d.items()} for k, d in flat.items()}
+    pairs, keys = [], []
+    for key, (c, names) in groups.items():
+        if c["claim"] not in reconstruction.CLAIMS:
+            spec = bench._spec(rd.SPECS, c["spec"], c.get("override", {}), list(dict.fromkeys(names)))
+            pairs.append((spec, check(spec)))
+            keys.append(key)
+    _measured_lean(pairs)
+    for key, (_, rep) in zip(keys, pairs):
+        named[key] = {v["claim"]: v for v in rep["claims"]}
+        assert {n: v["verdict"] for n, v in named[key].items()} == flat[key]
+    lean = lambda v: v["guarantee"].startswith("proven (Lean")
+    decided, label, python_only = 0, [], 0
+    for e in data["items"]:
+        for r in e["readings"]:
+            rv = rd.reading_verdict(r, flat)
+            if rv["verdict"] not in rd.DECIDED:
+                continue
+            decided += 1
+            comps = [(c, x) for c, x in zip(r["formalization"], rv["components"]) if "unformalized" not in c]
+            if rv["verdict"] != "VERIFIED":
+                comps = [(c, x) for c, x in comps if x["reading"] == rv["verdict"]]
+            quant = all if rv["verdict"] == "VERIFIED" else any
+            if quant(lean(named[rd._key(c)][c["claim"]]) for c, _ in comps):
+                label.append(e["id"])
+            elif quant(c["claim"] in reconstruction.CLAIMS for c, _ in comps):
+                python_only += 1
+    return {"decided readings": str(decided), "decided with a Lean label": str(len(label)),
+            "decided resting on claims with no Lean statement": str(python_only),
+            "items with a Lean-labelled reading": ", ".join(dict.fromkeys(label)) or "none"}
+
+
 def outside_naive_readings() -> dict:
     """The two naive readings of DEV_RESULTS.md that we rejected because they would have been WRONG. Neither
     is in dev_readings.json; this runs them, plus the exact arithmetic behind tecno:04's printed identity."""
@@ -448,7 +701,13 @@ ALL = {k: f for k, f in list(globals().items())
 if __name__ == "__main__":
     if sys.argv[1:] == ["--write-table"]:
         CLAIM_KINDS_TEX.write_text(_claim_kinds_tex())
-        OUTSIDE_GAPS_TEX.write_text(_outside_gaps_tex())
+        outside = outside_dev()
+        OUTSIDE_GAPS_TEX.write_text(_outside_gaps_tex(outside))
+        OUTSIDE_PROPERTY_TEX.write_text(_outside_property_tex(outside))
+        rows = _bench_rows()
+        BENCH_TEX.write_text(_bench_tex(rows))
+        BENCH_COUNTS_TEX.write_text(_bench_counts_tex(rows))
+        LEAN_TEX.write_text(_lean_measured_tex())
         sys.exit(0)
     for name in sys.argv[1:] or ALL:
         for k, v in ALL[name]().items():

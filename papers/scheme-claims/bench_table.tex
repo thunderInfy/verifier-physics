@@ -1,0 +1,46 @@
+% generated from benchmark/scheme-claims/claims.json and the checker by `paper_numbers.py --write-table`; do not edit
+C01 & Lax--Wendroff: conservative and order 2 on smooth solutions & T & \V & match \\
+    & Lax--Wendroff: local truncation error $O(\Delta x^2)$ & T & \V & match \\
+C02 & Lax--Wendroff: TVD for every $\nu \in [0, 1]$ & F & \R & match \\
+    & the same, in flux-limiter form & F & \R & match \\
+C03 & Lax--Wendroff on Burgers: Tadmor entropy stable (semi-discrete) & F & \R & match \\
+    & Lax--Wendroff on Burgers: converges to the entropy solution & F & \R & match \\
+C04 & upwind: max-norm stable for every $\nu \ge 0$ & F & \R & match \\
+    & upwind: von Neumann stable for every $\nu \ge 0$ & F & \R & match \\
+C05 & Lax--Friedrichs: max-norm stable for $\nu \in [-1, 1]$ & T & \V & match \\
+    & Lax--Friedrichs: von Neumann stable for $\nu \in [-1, 1]$ & T & \V & match \\
+C06 & central flux + forward Euler: consistent, conservative, stable for small $\nu$ & F & \R & match \\
+C07 & Rusanov, local $\alpha$: monotone under $\lambda\max|u| \le 1$ & F & \R & match \\
+    & Rusanov numerical flux is monotone & T & \V & match \\
+    & Rusanov with one global $\alpha$: monotone under $\lambda\alpha \le 1$ & T & \UF & gap \\
+C08 & Engquist--Osher: monotone under $\lambda\max|u| \le 1$, entropy limit & T & \V & match \\
+C09 & Engquist--Osher flux (integral form): Tadmor entropy stable & T & \V & match \\
+    & Engquist--Osher flux: entropy stable for every convex entropy & T & \UF & gap \\
+C10 & Roe: fully discrete limit is the entropy solution & F & \R & match \\
+    & Roe: method-of-lines limit is the entropy solution & F & \R & match \\
+C11 & Roe + Harten fix: converges to the fan on transonic rarefactions & T & \NR & gap \\
+C12 & Lax--Friedrichs on Burgers: order 1, flux form, correct shock speed & T & \NR & gap \\
+    & shock clause, conditional (every bounded limit is a weak solution) & T & \V & match \\
+    & shock clause, unconditional & T & \V & match \\
+C13 & quasilinear upwind: shocks at the Rankine--Hugoniot speed & F & \R & match \\
+    & quasilinear upwind: every bounded limit is a weak solution & F & \R & match \\
+C14 & upwind (update form): consistent, flux form, positive on $[0, 1]$ & T & \V & match \\
+C15 & Lax--Friedrichs (update form): non-negative coefficients on $[-1, 1]$ & T & \V & match \\
+C16 & Lax--Friedrichs on Burgers: Tadmor entropy stable for every $\Delta t/\Delta x$ & F & \R & match \\
+    & fully discrete entropy inequality for every $\Delta t/\Delta x$ & F & \UF & gap \\
+C17 & Godunov flux, $\max$ transcribed literally: consistent, entropy stable & T & \U & gap \\
+    & the same flux rewritten as $\max(a, -b)^2/2$ & T & \V & match \\
+C18 & minmod MUSCL: order 2 in $L^1$ without extrema & T & \NR & gap \\
+    & minmod MUSCL: order 2 in $L^\infty$ with extrema & F & \RE & match \\
+    & minmod MUSCL: truncation error $O(\Delta x^2)$ at every point, extrema included & F & \R & match \\
+    & minmod MUSCL: order 2 in $L^1$ on sine data & u & \NR & unscored \\
+C19 & upwind: global order 1 at fixed $\Delta t/\Delta x$ ($\ell^2$ or $L^1$) & T & \V & match \\
+    & upwind: order 1 in $L^1$ for discontinuous solutions & F & \UF & gap \\
+    & upwind: local truncation error $O(\Delta x)$ & T & \V & match \\
+    & upwind: order 1 in $\Delta x$ and in $\Delta t$, separate refinements & T & \NR & gap \\
+C20 & Rusanov for $u_t + (u^2)_x = 0$: consistent, entropy stable for $\eta = u^2$ & T & \V & match \\
+C21 & minmod: TVD on $[0, 1]$ & T & \V & match \\
+    & superbee: TVD on $[0, 1]$ & T & \V & match \\
+C22 & superbee: TVD on $[0, 3/2]$ & F & \R & match \\
+C23 & minmod flux-limited scheme: monotone for $\nu \in (0, 1]$ & F & \R & match \\
+\bottomrule

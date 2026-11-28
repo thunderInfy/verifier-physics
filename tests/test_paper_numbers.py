@@ -1,6 +1,7 @@
 """Every reproducibility marker in the paper (papers/scheme-claims/main.tex) names a target that exists:
-a pytest test `tests/X.py::name` or a function `paper_numbers.py::name` of papers/scheme-claims/paper_numbers.py.
-Static only (the files are parsed, nothing is run), so it is fast."""
+a pytest test `tests/X.py::name` or a function `paper_numbers.py::name` of papers/scheme-claims/paper_numbers.py
+(static: the files are parsed). The other tests check the generated tables against their sources, the
+measured Lean run (lean_measured.json) against HEAD, and a few numbers the text derives by hand."""
 import ast
 import json
 import re
@@ -101,3 +102,56 @@ def test_rusanov_sharp_bound_is_exactly_one_third():
     um1, u0, up1 = map(Fraction, pn.PAIR_334)
     assert u0 >= 0 >= max(um1, up1) and max(-um1, -up1) <= u0
     assert pn._rusanov_du0(um1, u0, up1) == 1 - 2 * u0 + (um1 + up1) / 2 < 0
+
+
+def _measure_lean():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("measure_lean", PAPER / "measure_lean.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_lean_measurement_is_current_and_complete():
+    """lean_measured.json was measured with the Lean project, judges, planners and checks of HEAD (git
+    object ids of measure_lean.KEY_PATHS, the toolchain and the Mathlib rev), covers every spec the paper
+    counts, and gives every theorem a measured status; an accepted theorem uses only the standard axioms."""
+    from physverify.lean_backend import STD_AXIOMS
+    ml = _measure_lean()
+    store, key = ml.load_store(), ml.lean_key()
+    stale = "lean_measured.json is stale: rerun papers/scheme-claims/measure_lean.py (see its docstring)"
+    assert store["key"] == key, stale
+    assert all(s["key"] == key for s in store["specs"].values()), stale
+    assert key["lean_toolchain"] == (ROOT / "lean/lean-toolchain").read_text().strip()
+    assert set(store["specs"]) == {uid for uid, _, _ in ml.units()}, "a spec is not measured (or no longer counted)"
+    used = {h for s in store["specs"].values() for _, h in s["theorems"]}
+    assert used <= set(store["theorems"])
+    for h in used:
+        t = store["theorems"][h]
+        assert t["status"] in ml.STATUSES and t["host"] == store["host"]["name"], (h, t["name"])
+        if t["status"] == "accepted":
+            assert t["exit"] == 0 and set(t["axioms"]) <= STD_AXIOMS, (h, t["name"])
+
+
+def test_generated_tables_match_their_sources():
+    """The tables main.tex inputs are what paper_numbers.py generates now (the benchmark's from a run of the
+    checker, the Lean run's from lean_measured.json)."""
+    pn = _paper_numbers()
+    rows = pn._bench_rows()
+    hint = "run: uv run python papers/scheme-claims/paper_numbers.py --write-table"
+    assert (PAPER / "bench_table.tex").read_text() == pn._bench_tex(rows), hint
+    assert (PAPER / "bench_counts_table.tex").read_text() == pn._bench_counts_tex(rows), hint
+    assert (PAPER / "lean_measured_table.tex").read_text() == pn._lean_measured_tex(), hint
+    assert (PAPER / "outside_property_table.tex").read_text() == pn._outside_property_tex(pn.outside_dev()), hint
+    tex = (PAPER / "main.tex").read_text()
+    for name in ("bench_table", "bench_counts_table", "lean_measured_table", "outside_property_table"):
+        assert "\\input{" + name + ".tex}" in tex
+
+
+def test_lean_labels_come_from_the_measured_run():
+    """The benchmark's Lean labels are lean_cert's rule applied to the measured statuses: no theorem the
+    judge states now is missing from lean_measured.json (that raises), and the measured share is at most
+    the projected one (every stated theorem taken as accepted)."""
+    out = _paper_numbers().bench_lean_labels()
+    assert int(out["decisive with a Lean label"]) <= int(out["projected (every stated theorem accepted): decisive with a Lean label"])
+    assert out["theorems stated"] == out["projected: theorems stated"]
